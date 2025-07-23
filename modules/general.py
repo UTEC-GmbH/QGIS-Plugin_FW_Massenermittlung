@@ -1,13 +1,12 @@
-"""Module: functions_general.py
+"""Module: general.py
 
-This module contains the general functions.
+This module contains general functions.
 """
 
 from typing import TYPE_CHECKING, NoReturn
 
 from qgis.core import (
     Qgis,
-    QgsLayerTreeGroup,
     QgsLayerTreeLayer,
     QgsMapLayer,
     QgsMessageLog,
@@ -19,13 +18,6 @@ from qgis.gui import QgisInterface
 
 if TYPE_CHECKING:
     from qgis.core import QgsDataProvider
-
-EMPTY_LAYER_NAME: str = "empty layer"
-GEOMETRY_SUFFIX_MAP: dict[Qgis.GeometryType, str] = {
-    Qgis.GeometryType.Line: "l",
-    Qgis.GeometryType.Point: "pt",
-    Qgis.GeometryType.Polygon: "pg",
-}
 
 
 def raise_runtime_error(error_msg: str) -> NoReturn:
@@ -56,41 +48,40 @@ def get_current_project() -> QgsProject:
     return project
 
 
-def get_selected_layers(plugin: QgisInterface) -> list[QgsMapLayer]:
-    """Collect all layers selected in the QGIS layer tree view.
+def get_selected_layer(plugin: QgisInterface) -> QgsMapLayer:
+    """Collect the selected layer in the QGIS layer tree view.
 
     :returns: A list of selected QgsMapLayer objects.
     """
-    selected_layers: set[QgsMapLayer] = set()
-    selected_nodes = plugin.iface.layerTreeView().selectedNodes()
+    selected_node = plugin.iface.layerTreeView().selectedNodes()
 
-    if not selected_nodes:
-        raise_runtime_error("No layers or groups selected.")
+    if not isinstance(selected_node, QgsLayerTreeLayer) and selected_node.layer():
+        raise_runtime_error("No layer selected.")
 
-    for node in selected_nodes:
-        if isinstance(node, QgsLayerTreeGroup):
-            # If a group is selected, add all its layers that are not empty recursively.
-            for layer_node in node.findLayers():
-                layer: QgsMapLayer | None = layer_node.layer()
-                if layer and layer.name() != EMPTY_LAYER_NAME:
-                    selected_layers.add(layer_node.layer())
-        elif all(
-            [
-                isinstance(node, QgsLayerTreeLayer),
-                node.layer(),
-                node.layer().name() != EMPTY_LAYER_NAME,
-            ]
-        ):
-            # Add the single selected layer.
-            selected_layers.add(node.layer())
-        else:
-            QgsMessageLog.logMessage(
-                f"Unexpected node type in selection: {type(node)}",
-                "Error",
-                level=Qgis.Warning,
-            )
+    return selected_node.layer()
 
-    return list(selected_layers)
+
+def fix_layer_name(name: str) -> str:
+    """Fix encoding mojibake and sanitize a string to be a valid layer name.
+
+    This function first attempts to fix a common mojibake encoding issue,
+    where a UTF-8 string was incorrectly decoded as cp1252
+    (for example: 'Ãœ' becomes 'Ü').
+    It then sanitizes the string to remove or replace characters
+    that might be problematic in layer names,
+    especially for file-based formats or databases.
+
+    :param name: The potentially garbled and raw layer name.
+    :returns: A fixed and sanitized version of the name.
+    """
+    fixed_name: str = name
+    with contextlib.suppress(UnicodeEncodeError):
+        fixed_name = name.encode("cp1252").decode("utf-8")
+
+    # Remove or replace problematic characters
+    sanitized_name: str = re.sub(r'[<>:"/\\|?*,]+', "_", fixed_name)
+
+    return sanitized_name
 
 
 def clear_attribute_table(layer: QgsMapLayer) -> None:
