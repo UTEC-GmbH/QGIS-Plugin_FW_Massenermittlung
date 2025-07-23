@@ -1,5 +1,5 @@
 <RCC>
-    <qresource prefix="/plugins/rename_move_layers" >
+    <qresource prefix="/plugins/Massenermittlung" >
         <file>icon.png</file>
     </qresource>
 </RCC>

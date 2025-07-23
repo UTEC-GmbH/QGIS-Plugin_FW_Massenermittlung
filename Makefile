@@ -1,12 +1,12 @@
 #/***************************************************************************
-# MoveLayersToGPKG
+# Fernwärme Massenermittlung
 #
-# This plugin renames selected layers (if they are nested in groups) and moves them to a new GeoPackage
+# 
 #							 -------------------
-#		begin				: 2025-03-04
+#		begin				: 2025-07-23
 #		git sha				: $Format:%H$
 #		copyright			: (C) 2025 by Florian Ludwig
-#		email				: lasinludwig@gmail.com
+#		email				: devalue-scope-drum@duck.com
 # ***************************************************************************/
 #
 #/***************************************************************************
@@ -38,13 +38,13 @@ LOCALES =
 # translation
 SOURCES = \
 	__init__.py \
-	rename_move_layers.py
+	massenermittlung.py
 
-PLUGINNAME = move_layers_to_gpkg
+PLUGINNAME = Massenermittlung
 
 PY_FILES = \
 	__init__.py \
-	rename_move_layers.py
+	massenermittlung.py
 
 
 

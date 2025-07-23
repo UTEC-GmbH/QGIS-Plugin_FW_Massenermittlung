@@ -1,0 +1,12 @@
+{
+    "python.analysis.extraPaths": [
+        "C:\\Program Files\\QGIS 3.40.8\\apps\\qgis-ltr\\python",
+        "C:\\Program Files\\QGIS 3.40.8\\apps\\qgis-ltr\\python\\plugins",
+        "C:\\Program Files\\QGIS 3.40.8\\apps\\Python312",
+        "C:\\Program Files\\QGIS 3.40.8\\apps\\Python312\\Lib\\site-packages"
+    ],
+    "python.envFile": "${workspaceFolder}/.env",
+    "pylint.args": [
+        "--rcfile=${workspaceFolder}/.pylintrc"
+    ]
+}
