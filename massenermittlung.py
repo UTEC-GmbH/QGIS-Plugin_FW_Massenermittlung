@@ -33,8 +33,10 @@ from qgis.PyQt.QtWidgets import (
 
 from . import resources  # noqa: F401 - Import is necessary to load resources
 from .modules.general import raise_runtime_error
-from .modules.geopackage import move_layers_to_gpkg
-from .modules.rename import rename_layers
+from .modules.geopackage import (
+    add_layer_from_gpkg_to_project,
+    create_empty_layer_in_gpkg,
+)
 
 
 class Massenermittlung:
@@ -66,8 +68,19 @@ class Massenermittlung:
         whats_this: str | None = None,
         parent=None,  # noqa: ANN001
     ) -> QAction:  # type: ignore[]
-      
+        """Add a QAction to the plugin's menu and/or toolbar.
 
+        :param icon_path: Path to the icon for the action.
+        :param text: Text to display for the action.
+        :param callback: Function to call when the action is triggered.
+        :param enabled_flag: Whether the action is enabled initially.
+        :param add_to_menu: Whether to add the action to the plugin's menu.
+        :param add_to_toolbar: Whether to add the action to the QGIS toolbar.
+        :param status_tip: Status tip for the action.
+        :param whats_this: "What's This?" help text for the action.
+        :param parent: Parent widget for the action.
+        :returns: The created QAction object.
+        """
         icon = QIcon(icon_path)
         action = QAction(icon, text, parent)
         action.triggered.connect(callback)
@@ -112,7 +125,6 @@ class Massenermittlung:
         )
         self.plugin_menu.addAction(run_action)
 
-
         # Add the fly-out menu to the main "Plugins" menu
         self.iface.pluginMenu().addMenu(self.plugin_menu)  # type: ignore[]
         # Add a toolbutton to the toolbar to show the flyout menu
@@ -142,4 +154,5 @@ class Massenermittlung:
     def run_massenermittlung(self) -> None:
         """Call the main function."""
 
-        rename_layers(self)  # type: ignore[]
+        create_empty_layer_in_gpkg(self.iface)
+        add_layer_from_gpkg_to_project(self.iface)
