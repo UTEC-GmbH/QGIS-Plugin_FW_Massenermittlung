@@ -9,7 +9,7 @@ from osgeo import ogr
 from qgis.core import (
     Qgis,
     QgsLayerTree,
-    QgsMapLayer,
+    QgsMessageLog,
     QgsProject,
     QgsVectorFileWriter,
     QgsVectorLayer,
@@ -17,9 +17,7 @@ from qgis.core import (
 from qgis.gui import QgisInterface
 
 from .general import (
-    clear_attribute_table,
-    display_summary_message,
-    generate_summary_message,
+    fix_layer_name,
     get_current_project,
     get_selected_layer,
     raise_runtime_error,
@@ -58,14 +56,16 @@ def project_gpkg() -> Path:
 
 
 def create_empty_layer_in_gpkg(plugin: QgisInterface) -> None:
-    """Add the selected layers to the project's GeoPackage."""
+    """Create an empty point layer in the project's GeoPackage."""
 
     project: QgsProject = get_current_project()
     gpkg_path: Path = project_gpkg()
-    layer = get_selected_layer(plugin)
-    new_layer_name: str = f"{layer.name()} - Massenermittlung"
-
-    results: dict = {"successes": 0, "failures": []}
+    new_layer_name: str = (
+        f"{fix_layer_name(get_selected_layer(plugin).name())} - Massenermittlung"
+    )
+    empty_layer = QgsVectorLayer(
+        f"Point?crs={project.crs().authid()}", "in_memory_layer", "memory"
+    )
 
     options = QgsVectorFileWriter.SaveVectorOptions()
     options.driverName = "GPKG"
@@ -73,87 +73,45 @@ def create_empty_layer_in_gpkg(plugin: QgisInterface) -> None:
     options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
 
     error = QgsVectorFileWriter.writeAsVectorFormatV3(
-        layer, str(gpkg_path), project.transformContext(), options
+        empty_layer, str(gpkg_path), project.transformContext(), options
     )
     if error[0] == QgsVectorFileWriter.WriterError.NoError:
-        results["successes"] += 1
-
-        # Load the new layer from the GeoPackage to clear its attributes
-        # (the attributes that are imported fom AutoCAD are useless)
-        uri: str = f"{gpkg_path}|layername={layer.name()}"
-        gpkg_layer = QgsVectorLayer(uri, layer.name(), "ogr")
-        if gpkg_layer.isValid():
-            clear_attribute_table(gpkg_layer)
-        else:
-            # This is an unlikely scenario if writing just succeeded,
-            # but good to handle.
-            plugin.iface.messageBar().pushMessage(
-                "Warning",
-                (
-                    f"Could not reload layer '{layer.name()}' from GeoPackage "
-                    "to clear attributes."
-                ),
-                level=Qgis.Warning,
-            )
+        QgsMessageLog.logMessage(
+            f"Empty layer created: {new_layer_name}", "Success", level=Qgis.Success
+        )
     else:
-        results["failures"].append((layer.name(), error[1]))
-
-    message, level = generate_summary_message(
-        successes=results["successes"],
-        failures=results["failures"],
-        action="Moved",
-    )
-
-    display_summary_message(plugin, message, level)
+        raise_runtime_error(
+            f"Failed to create empty layer '{new_layer_name}' - Error: {error[1]}"
+        )
 
 
 def add_layer_from_gpkg_to_project(plugin: QgisInterface) -> None:
     """Add the new layer from the project's GeoPackage to the project."""
     project: QgsProject = get_current_project()
-    selected_layers: list[QgsMapLayer] = get_selected_layer(plugin)
     gpkg_path: Path = project_gpkg()
     gpkg_path_str = str(gpkg_path)
+    new_layer_name: str = (
+        f"{fix_layer_name(get_selected_layer(plugin).name())} - Massenermittlung"
+    )
 
     root: QgsLayerTree | None = project.layerTreeRoot()
     if not root:
-        plugin.iface.messageBar().pushMessage(
-            "Error", "Could not get layer tree root.", level=Qgis.Critical
-        )
-        return
+        raise_runtime_error("Could not get layer tree root.")
 
-    added_layers: list[str] = []
-    not_found_layers: list[str] = []
+    # Construct the layer URI and create a QgsVectorLayer
+    uri: str = f"{gpkg_path_str}|layername={new_layer_name}"
+    gpkg_layer = QgsVectorLayer(uri, new_layer_name, "ogr")
 
-    for layer_to_find in selected_layers:
-        layer_name: str = layer_to_find.name()
+    if not gpkg_layer.isValid():
+        raise_runtime_error("could not find layer in GeoPackage")
 
-        # Construct the layer URI and create a QgsVectorLayer
-        uri: str = f"{gpkg_path_str}|layername={layer_name}"
-        gpkg_layer = QgsVectorLayer(uri, layer_name, "ogr")
+    # Add the layer to the project registry first, but not the layer tree
+    project.addMapLayer(gpkg_layer, addToLegend=False)
+    # Then, insert it at the top of the layer tree
+    root.insertLayer(0, gpkg_layer)
 
-        if not gpkg_layer.isValid():
-            not_found_layers.append(layer_name)
-            continue
-
-        # Add the layer to the project registry first, but not the layer tree
-        project.addMapLayer(gpkg_layer, addToLegend=False)
-        # Then, insert it at the top of the layer tree
-        root.insertLayer(0, gpkg_layer)
-        added_layers.append(layer_name)
-
-    if added_layers:
-        plural_s: str = "s" if len(added_layers) > 1 else ""
-        plugin.iface.messageBar().pushMessage(
-            "Success",
-            f"Added {len(added_layers)} layer{plural_s} from the GeoPackage.",
-            level=Qgis.Success,
-        )
-    if not_found_layers:
-        count: int = len(not_found_layers)
-        plural_s = "s" if count > 1 else ""
-        layer_list: str = ", ".join(not_found_layers)
-        plugin.iface.messageBar().pushMessage(
-            "Warning",
-            f"Could not find {count} layer{plural_s} in GeoPackage: {layer_list}",
-            level=Qgis.Warning,
-        )
+    QgsMessageLog.logMessage(
+        f"Added {new_layer_name} from the GeoPackage to the project.",
+        "Success",
+        level=Qgis.Success,
+    )

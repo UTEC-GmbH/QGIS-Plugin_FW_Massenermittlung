@@ -3,7 +3,9 @@
 This module contains general functions.
 """
 
-from typing import TYPE_CHECKING, NoReturn
+import contextlib
+import re
+from typing import NoReturn
 
 from qgis.core import (
     Qgis,
@@ -11,13 +13,8 @@ from qgis.core import (
     QgsMapLayer,
     QgsMessageLog,
     QgsProject,
-    QgsVectorDataProvider,
-    QgsVectorLayer,
 )
 from qgis.gui import QgisInterface
-
-if TYPE_CHECKING:
-    from qgis.core import QgsDataProvider
 
 
 def raise_runtime_error(error_msg: str) -> NoReturn:
@@ -82,28 +79,6 @@ def fix_layer_name(name: str) -> str:
     sanitized_name: str = re.sub(r'[<>:"/\\|?*,]+', "_", fixed_name)
 
     return sanitized_name
-
-
-def clear_attribute_table(layer: QgsMapLayer) -> None:
-    """Clear the attribute table of a QGIS layer by deleting all columns.
-
-    :param layer: The layer whose attribute table should be cleared.
-    """
-    if not isinstance(layer, QgsVectorLayer):
-        # This function only applies to vector layers.
-        return
-
-    provider: QgsDataProvider | None = layer.dataProvider()
-    if not provider:
-        return
-
-    # Check if the provider supports deleting attributes.
-    if not provider.capabilities() & QgsVectorDataProvider.DeleteAttributes:
-        return
-
-    if field_indices := list(range(layer.fields().count())):
-        provider.deleteAttributes(field_indices)
-        layer.updateFields()
 
 
 def generate_summary_message(
