@@ -72,7 +72,7 @@ def create_empty_layer_in_gpkg(plugin: QgisInterface) -> None:
     options.layerName = new_layer_name
     options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
 
-    error = QgsVectorFileWriter.writeAsVectorFormatV3(
+    error: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
         empty_layer, str(gpkg_path), project.transformContext(), options
     )
     if error[0] == QgsVectorFileWriter.WriterError.NoError:
