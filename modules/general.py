@@ -146,13 +146,7 @@ class LayerManager:
 
         return selected_node.layer()
 
-    def initialize_selected_layer(self) -> None:
-        """Initialize the selected layer."""
-        if self._plugin is None:
-            raise_runtime_error("Plugin is not set.")
-        self._selected_layer = self.get_selected_layer()
-
-    def create_new_layer(self) -> None:
+    def create_new_layer(self) -> QgsVectorLayer:
         """Create an empty point layer in the project's GeoPackage."""
 
         project: QgsProject = get_current_project()
@@ -160,6 +154,10 @@ class LayerManager:
         new_layer_name: str = (
             f"{self.fix_layer_name(self.selected_layer.name())} - Massenermittlung"
         )
+
+        if existing_layers := project.mapLayersByName(new_layer_name):
+            project.removeMapLayers([layer.id() for layer in existing_layers])
+
         empty_layer = QgsVectorLayer(
             f"Point?crs={project.crs().authid()}", "in_memory_layer", "memory"
         )
@@ -202,13 +200,19 @@ class LayerManager:
             "Success",
             level=Qgis.Success,
         )
-        self.new_layer = gpkg_layer
+        return gpkg_layer
 
-    def initialize_new_layer(self) -> None:
+    def initialize_selected_layer(self) -> None:
         """Initialize the selected layer."""
         if self._plugin is None:
             raise_runtime_error("Plugin is not set.")
-        self._selected_layer = self.create_new_layer()
+        self._selected_layer = self.get_selected_layer()
+
+    def initialize_new_layer(self) -> None:
+        """Initialize the new layer."""
+        if self._plugin is None:
+            raise_runtime_error("Plugin is not set.")
+        self.new_layer = self.create_new_layer()
 
     @property
     def selected_layer(self) -> QgsVectorLayer:
