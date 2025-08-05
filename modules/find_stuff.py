@@ -6,6 +6,7 @@ This module contains the functions that find thnigs in the selected layer.
 from qgis.core import (
     Qgis,
     QgsFeature,
+    QgsFeatureRequest,
     QgsGeometry,
     QgsMessageLog,
     QgsRectangle,
@@ -16,7 +17,7 @@ from qgis.gui import QgisInterface
 
 from .general import LayerManager
 
-SEARCH_RADIUS: float = 0.5
+SEARCH_RADIUS: float = 0.05
 
 
 def find_unconnected_endpoints(plugin: QgisInterface) -> None:
@@ -36,19 +37,34 @@ def find_unconnected_endpoints(plugin: QgisInterface) -> None:
     for feature in selected_layer.getFeatures():
         features_checked += 1
         geom: QgsGeometry = feature.geometry()
+
         lines = geom.asMultiPolyline() if geom.isMultipart() else [geom.asPolyline()]
         for line in lines:
-            for point in line:
+            for point in [line[0], line[-1]]:
                 # Create a small buffer around the point to search for other lines
                 search_rect: QgsRectangle = (
                     QgsGeometry.fromPointXY(point)
                     .buffer(SEARCH_RADIUS, 5)
                     .boundingBox()
                 )
-                intersecting_ids: list[int] = index.intersects(search_rect)
+                candidate_ids: list[int] = index.intersects(search_rect)
 
-                # If only one line is found, then the endpoint is unconnected
-                if len(intersecting_ids) == 1:
+                # Refine the selection with a more precise intersection check
+                search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
+                    SEARCH_RADIUS, 5
+                )
+                request = QgsFeatureRequest().setFilterFids(candidate_ids)
+                intersecting_ids: list[int] = []
+                for f in selected_layer.getFeatures(request):
+                    if f.geometry().intersects(search_geom):
+                        intersecting_ids.append(f.id())
+
+                # Remove the current feature's ID from the list of intersecting features
+                if feature.id() in intersecting_ids:
+                    intersecting_ids.remove(feature.id())
+
+                # If no other line is found, then the endpoint is unconnected
+                if not intersecting_ids:
                     new_feature = QgsFeature(new_layer.fields())
                     new_feature.setGeometry(QgsGeometry.fromPointXY(point))
                     new_feature.setAttribute("Typ", "Hausanschluss")
