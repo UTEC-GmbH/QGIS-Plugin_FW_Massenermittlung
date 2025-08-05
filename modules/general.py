@@ -9,13 +9,17 @@ from pathlib import Path
 from typing import NoReturn
 
 from osgeo import ogr
+from PyQt5.QtCore import QVariant
 from qgis.core import (
     Qgis,
+    QgsCoordinateTransform,
+    QgsFeature,
+    QgsField,
     QgsLayerTree,
     QgsLayerTreeNode,
-    QgsMapLayer,
     QgsMessageLog,
     QgsProject,
+    QgsVectorDataProvider,
     QgsVectorFileWriter,
     QgsVectorLayer,
     QgsWkbTypes,
@@ -87,9 +91,10 @@ class LayerManager:
 
     def __init__(self, plugin: QgisInterface | None = None) -> None:
         """Initialize the layer manager class."""
+        self._project: QgsProject = get_current_project()
+        self._plugin: QgisInterface | None = plugin
         self._selected_layer: QgsVectorLayer | None = None
         self._new_layer: QgsVectorLayer | None = None
-        self._plugin: QgisInterface | None = plugin
 
     def fix_layer_name(self, name: str) -> str:
         """Fix encoding mojibake and sanitize a string to be a valid layer name.
@@ -113,10 +118,73 @@ class LayerManager:
 
         return sanitized_name
 
-    def get_selected_layer(self) -> QgsMapLayer:
-        """Collect the selected layer in the QGIS layer tree view.
+    def reproject_layer_to_project_crs(self, layer: QgsVectorLayer) -> QgsVectorLayer:
+        """Reprojects a vector layer to the project's CRS.
 
-        :returns: The selected QgsMapLayer object.
+        Creates a new in-memory layer with the same fields and reprojects
+        all features from the source layer into it.
+
+        :param layer: The source QgsVectorLayer to reproject.
+        :returns: A new, reprojected in-memory QgsVectorLayer.
+        """
+
+        # If the layer's CRS is already the same as the project's CRS, return a clone.
+        if layer.crs() == self._project.crs():
+            return layer.clone()
+
+        # Create a new in-memory layer with the target CRS
+        geometry_type_str: str = QgsWkbTypes.displayString(layer.wkbType())
+        reprojected_layer = QgsVectorLayer(
+            f"{geometry_type_str}?crs={self._project.crs().authid()}",
+            layer.name(),
+            "memory",
+        )
+
+        # Copy fields from the source layer
+        data_provider: QgsVectorDataProvider | None = reprojected_layer.dataProvider()
+        if data_provider is None:
+            raise_runtime_error(
+                f"Could not get data provider for layer: {reprojected_layer.name()}"
+            )
+
+        data_provider.addAttributes(layer.fields())
+        reprojected_layer.updateFields()
+
+        # Prepare coordinate transformation
+        transform = QgsCoordinateTransform(
+            layer.crs(), self._project.crs(), self._project.transformContext()
+        )
+
+        # Copy and reproject features
+        new_features: list[QgsFeature] = []
+        for feature in layer.getFeatures():
+            new_feature = QgsFeature()
+            new_feature.setFields(reprojected_layer.fields(), initAttributes=True)
+            new_feature.setAttributes(feature.attributes())
+
+            geom = feature.geometry()
+            if geom.transform(transform) != 0:  # 0 means success
+                QgsMessageLog.logMessage(
+                    f"Feature {feature.id()} could not be reprojected.",
+                    "Reprojection",
+                    level=Qgis.Warning,
+                )
+                continue
+
+            new_feature.setGeometry(geom)
+            new_features.append(new_feature)
+
+        data_provider.addFeatures(new_features)
+        reprojected_layer.updateExtents()
+
+        return reprojected_layer
+
+    def get_selected_layer(self) -> QgsVectorLayer:
+        """Collect the selected layer in the QGIS layer tree view and reprojects it.
+
+        :returns: The selected and reprojected QgsVectorLayer object.
+        :raises RuntimeError: If no layer is selected, multiple layers are selected,
+                              or the selected layer is not a line vector layer.
         """
         if self._plugin is None:
             raise_runtime_error("Plugin is not set.")
@@ -131,36 +199,44 @@ class LayerManager:
             raise_runtime_error("No layer selected.")
 
         selected_node: QgsLayerTreeNode = next(iter(selected_nodes))
-        if not isinstance(selected_node, QgsLayerTreeNode) and selected_node.layer():
-            raise_runtime_error("No layer selected.")
+        if not selected_node.layer():
+            raise_runtime_error("Selected node is not a layer.")
 
         selected_layer = selected_node.layer()
-        if not isinstance(selected_layer, QgsMapLayer):
-            raise_runtime_error("No layer selected.")
+        if not isinstance(selected_layer, QgsVectorLayer):
+            raise_runtime_error("Selected layer is not a vector layer.")
 
-        if (
-            selected_layer.type() != QgsMapLayer.VectorLayer
-            and selected_layer.geometryType() != QgsWkbTypes.LineGeometry
-        ):
+        if selected_layer.geometryType() != QgsWkbTypes.LineGeometry:
             raise_runtime_error("The selected layer is not a line layer.")
 
-        return selected_node.layer()
+        # Reproject the layer to the project's CRS
+        return self.reproject_layer_to_project_crs(selected_layer)
 
     def create_new_layer(self) -> QgsVectorLayer:
         """Create an empty point layer in the project's GeoPackage."""
 
-        project: QgsProject = get_current_project()
         gpkg_path: Path = project_gpkg()
         new_layer_name: str = (
             f"{self.fix_layer_name(self.selected_layer.name())} - Massenermittlung"
         )
 
-        if existing_layers := project.mapLayersByName(new_layer_name):
-            project.removeMapLayers([layer.id() for layer in existing_layers])
+        if existing_layers := self._project.mapLayersByName(new_layer_name):
+            self._project.removeMapLayers([layer.id() for layer in existing_layers])
 
         empty_layer = QgsVectorLayer(
-            f"Point?crs={project.crs().authid()}", "in_memory_layer", "memory"
+            f"Point?crs={self._project.crs().authid()}", "in_memory_layer", "memory"
         )
+
+        # Copy fields from the source layer
+        data_provider: QgsVectorDataProvider | None = empty_layer.dataProvider()
+        if data_provider is None:
+            raise_runtime_error(
+                f"Could not get data provider for layer: {empty_layer.name()}"
+            )
+
+        data_provider.addAttributes([QgsField("Typ", QVariant.String)])
+        data_provider.addAttributes(self.selected_layer.fields())
+        empty_layer.updateFields()
 
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = "GPKG"
@@ -168,7 +244,7 @@ class LayerManager:
         options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
 
         error: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
-            empty_layer, str(gpkg_path), project.transformContext(), options
+            empty_layer, str(gpkg_path), self._project.transformContext(), options
         )
         if error[0] == QgsVectorFileWriter.WriterError.NoError:
             QgsMessageLog.logMessage(
@@ -179,7 +255,7 @@ class LayerManager:
                 f"Failed to create empty layer '{new_layer_name}' - Error: {error[1]}"
             )
 
-        root: QgsLayerTree | None = project.layerTreeRoot()
+        root: QgsLayerTree | None = self._project.layerTreeRoot()
         if not root:
             raise_runtime_error("Could not get layer tree root.")
 
@@ -191,7 +267,7 @@ class LayerManager:
             raise_runtime_error("could not find layer in GeoPackage")
 
         # Add the layer to the project registry first, but not the layer tree
-        project.addMapLayer(gpkg_layer, addToLegend=False)
+        self._project.addMapLayer(gpkg_layer, addToLegend=False)
         # Then, insert it at the top of the layer tree
         root.insertLayer(0, gpkg_layer)
 

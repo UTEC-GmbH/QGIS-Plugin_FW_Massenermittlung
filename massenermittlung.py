@@ -32,8 +32,8 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from . import resources  # noqa: F401 - Import is necessary to load resources
-from .modules.general import LayerManager, raise_runtime_error
 from .modules.find_stuff import find_unconnected_endpoints
+from .modules.general import raise_runtime_error
 
 
 class Massenermittlung:
@@ -132,8 +132,6 @@ class Massenermittlung:
         toolbar_action = self.iface.addToolBarWidget(toolbar_button)
         self.actions.append(toolbar_action)
 
-        self.layer_manager = LayerManager(self.iface)
-
     def unload(self) -> None:
         """Plugin unload method.
 
@@ -153,4 +151,4 @@ class Massenermittlung:
     def run_massenermittlung(self) -> None:
         """Call the main function."""
 
-        find_unconnected_endpoints(self.layer_manager)
+        find_unconnected_endpoints(self.iface)

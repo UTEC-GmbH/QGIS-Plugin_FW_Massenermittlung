@@ -5,34 +5,27 @@ This module contains the functions that find thnigs in the selected layer.
 
 from qgis.core import (
     Qgis,
-    QgsCoordinateTransform,
     QgsFeature,
     QgsGeometry,
     QgsMessageLog,
-    QgsPointXY,
-    QgsProject,
     QgsRectangle,
     QgsSpatialIndex,
     QgsVectorLayer,
 )
+from qgis.gui import QgisInterface
 
-from .general import LayerManager, get_current_project
+from .general import LayerManager
 
-SEARCH_RADIUS: float = 0.0000005
-CURRENT_PROJECT: QgsProject = get_current_project()
+SEARCH_RADIUS: float = 0.5
 
 
-def find_unconnected_endpoints(layer_manager: LayerManager) -> None:
+def find_unconnected_endpoints(plugin: QgisInterface) -> None:
     """Find the endpoints of lines that are not connected to other lines."""
     features_checked: int = 0
     new_points: int = 0
+    layer_manager = LayerManager(plugin)
     selected_layer: QgsVectorLayer = layer_manager.selected_layer
     new_layer: QgsVectorLayer = layer_manager.new_layer
-
-    # Set up coordinate transformation
-    transform = QgsCoordinateTransform(
-        selected_layer.crs(), new_layer.crs(), CURRENT_PROJECT
-    )
 
     # Create a spatial index for the selected layer
     index = QgsSpatialIndex(selected_layer.getFeatures())
@@ -45,10 +38,7 @@ def find_unconnected_endpoints(layer_manager: LayerManager) -> None:
         geom: QgsGeometry = feature.geometry()
         lines = geom.asMultiPolyline() if geom.isMultipart() else [geom.asPolyline()]
         for line in lines:
-            start_point: QgsPointXY = line[0]
-            end_point: QgsPointXY = line[-1]
-
-            for point in [start_point, end_point]:
+            for point in line:
                 # Create a small buffer around the point to search for other lines
                 search_rect: QgsRectangle = (
                     QgsGeometry.fromPointXY(point)
@@ -60,9 +50,16 @@ def find_unconnected_endpoints(layer_manager: LayerManager) -> None:
                 # If only one line is found, then the endpoint is unconnected
                 if len(intersecting_ids) == 1:
                     new_feature = QgsFeature(new_layer.fields())
-                    new_feature.setGeometry(
-                        QgsGeometry.fromPointXY(transform.transform(point))
-                    )
+                    new_feature.setGeometry(QgsGeometry.fromPointXY(point))
+                    new_feature.setAttribute("Typ", "Hausanschluss")
+
+                    # Copy attributes from the source feature to the new feature
+                    for field in feature.fields():
+                        if new_feature.fields().indexOf(field.name()) != -1:
+                            new_feature.setAttribute(
+                                field.name(), feature.attribute(field.name())
+                            )
+
                     if new_layer.addFeature(new_feature):
                         new_points += 1
 
