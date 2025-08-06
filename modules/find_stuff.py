@@ -8,6 +8,7 @@ from qgis.core import (
     QgsFeature,
     QgsFeatureRequest,
     QgsGeometry,
+    QgsPoint,
     QgsRectangle,
     QgsVectorLayer,
     QgsWkbTypes,
@@ -18,13 +19,14 @@ from .general import log_debug, raise_runtime_error
 SEARCH_RADIUS: float = 0.05
 
 
-def get_all_features(layer: QgsVectorLayer) -> list:
+def get_all_features(layer: QgsVectorLayer) -> list[QgsFeature]:
     """Get all features from a QgsVectorLayer.
 
     :param layer: The QgsVectorLayer to get features from.
     :returns: A list of QgsFeature objects.
     """
-    features: list = list(layer.getFeatures())
+
+    features: list[QgsFeature] = list(layer.getFeatures())
     if not features:
         raise_runtime_error("No features found in the selected layer.")
 
@@ -57,14 +59,23 @@ def get_start_end_of_line(feature: QgsFeature) -> list:
 
 
 def find_intersecting_feature_ids(
-    point: "QgsPoint",
+    point: QgsPoint,
     selected_layer: QgsVectorLayer,
     current_feature_id: int,
 ) -> list[int]:
-    """Find intersecting feature IDs for a given point, excluding the current feature."""
-    search_geom: QgsGeometry = QgsGeometry.fromPoint(point).buffer(SEARCH_RADIUS, 5)
+    """Find intersecting feature IDs for a given point, excluding the current feature.
+
+    :param point: The QgsPoint to search around.
+    :param selected_layer: The QgsVectorLayer to search within.
+    :param current_feature_id: The ID of the feature to exclude from the results.
+    :returns: A list of feature IDs that intersect with the search geometry,
+              excluding the `current_feature_id`.
+    """
+    search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(SEARCH_RADIUS, 5)
     search_rect: QgsRectangle = search_geom.boundingBox()
-    request: QgsFeatureRequest = QgsFeatureRequest().setFilterRect(search_rect)
+    request: QgsFeatureRequest = (
+        QgsFeatureRequest().setFilterRect(search_rect).setFilterFid(current_feature_id)
+    )
 
     candidates: list = list(selected_layer.getFeatures(request))
     if not candidates:
@@ -73,10 +84,6 @@ def find_intersecting_feature_ids(
     intersecting_ids: list[int] = [
         feat.id() for feat in candidates if feat.geometry().intersects(search_geom)
     ]
-
-    # Remove the current feature's ID from the list of intersecting features
-    if current_feature_id in intersecting_ids:
-        intersecting_ids.remove(current_feature_id)
 
     return intersecting_ids
 
@@ -87,19 +94,28 @@ def create_feature(
     new_layer: QgsVectorLayer,
     attributes: dict,
 ) -> bool:
-    """Create a new feature in a layer."""
+    """Create a new feature in a QgsVectorLayer.
+
+    :param geometry: The QgsGeometry for the new feature.
+    :param source_feature: The source QgsFeature from which attributes will be copied.
+    :param new_layer: The QgsVectorLayer to which the new feature will be added.
+    :param attributes: A dictionary of additional attributes to set for the new feature.
+                       These attributes will override any attributes with the same name
+                       copied from the source_feature.
+    :returns: True if the feature was successfully added, False otherwise.
+    """
     new_feature = QgsFeature(new_layer.fields())
     new_feature.setGeometry(geometry)
 
-    for key, value in attributes.items():
-        new_feature.setAttribute(key, value)
+    new_feature.setAttributes(attributes)
 
     # Copy attributes from the source feature to the new feature
-    for field in source_feature.fields():
-        if new_layer.fields().indexOf(field.name()) != -1:
-            new_feature.setAttribute(
-                field.name(), source_feature.attribute(field.name())
-            )
+    attributes_list = [
+        source_feature.attribute(field.name())
+        for field in source_feature.fields()
+        if new_layer.fields().indexOf(field.name()) != -1
+    ]
+    new_feature.setAttributes(attributes_list)
 
     return new_layer.addFeature(new_feature)
 
@@ -112,7 +128,8 @@ def unconnected_endpoints(
     new_points: int = 0
 
     # Start editing the new layer
-    new_layer.startEditing()
+    if not new_layer.startEditing():
+        raise_runtime_error("Failed to start editing the new layer.")
 
     for feature in get_all_features(selected_layer):
         features_checked += 1
@@ -123,7 +140,7 @@ def unconnected_endpoints(
             )
 
             if not intersecting_ids and create_feature(
-                QgsGeometry.fromPoint(point),
+                QgsGeometry.fromPointXY(point),
                 feature,
                 new_layer,
                 {"Typ": "Hausanschluss"},
@@ -143,4 +160,5 @@ def unconnected_endpoints(
         )
 
     # Commit the changes to the new layer
-    new_layer.commitChanges()
+    if not new_layer.commitChanges():
+        raise_runtime_error("Failed to commit changes to the new layer.")
