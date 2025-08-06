@@ -23,6 +23,7 @@
 from pathlib import Path
 from typing import Callable
 
+from qgis.core import QgsProject, QgsVectorLayer
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtGui import QIcon  # type: ignore[reportAttributeAccessIssue]
 from qgis.PyQt.QtWidgets import (
@@ -32,8 +33,8 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from . import resources  # noqa: F401 - Import is necessary to load resources
-from .modules.find_stuff import find_unconnected_endpoints
-from .modules.general import raise_runtime_error
+from .modules import find_stuff as find
+from .modules.general import LayerManager, raise_runtime_error
 
 
 class Massenermittlung:
@@ -151,4 +152,10 @@ class Massenermittlung:
     def run_massenermittlung(self) -> None:
         """Call the main function."""
 
-        find_unconnected_endpoints(self.iface)
+        layer_manager: LayerManager = LayerManager(self.iface)
+
+        project: QgsProject = layer_manager.project
+        selected_layer: QgsVectorLayer = layer_manager.selected_layer
+        new_layer: QgsVectorLayer = layer_manager.new_layer
+
+        find.unconnected_endpoints(selected_layer=selected_layer, new_layer=new_layer)

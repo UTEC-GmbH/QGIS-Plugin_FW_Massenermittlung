@@ -27,6 +27,14 @@ from qgis.core import (
 from qgis.gui import QgisInterface, QgsLayerTreeView
 
 
+def log_debug(message: str, msg_level: Qgis.MessageLevel) -> None:
+    """Log a debug message.
+
+    :param message: The message to log.
+    """
+    QgsMessageLog.logMessage(message, "Massenermittlung", level=msg_level)
+
+
 def raise_runtime_error(error_msg: str) -> NoReturn:
     """Log a critical error and raise a RuntimeError.
 
@@ -91,10 +99,55 @@ class LayerManager:
 
     def __init__(self, plugin: QgisInterface | None = None) -> None:
         """Initialize the layer manager class."""
-        self._project: QgsProject = get_current_project()
+        self._project: QgsProject | None = None
         self._plugin: QgisInterface | None = plugin
         self._selected_layer: QgsVectorLayer | None = None
         self._new_layer: QgsVectorLayer | None = None
+
+    @property
+    def project(self) -> QgsProject:
+        """The current QGIS project."""
+        if self._project is None:
+            self._project = get_current_project()
+        return self._project
+
+    @property
+    def selected_layer(self) -> QgsVectorLayer:
+        """The selected layer in the plugin."""
+        if self._selected_layer is None:
+            self.initialize_selected_layer()
+        if self._selected_layer is None:
+            raise_runtime_error("Selected layer is not set.")
+        return self._selected_layer
+
+    @selected_layer.setter
+    def selected_layer(self, layer: QgsVectorLayer) -> None:
+        self._selected_layer = layer
+
+    def initialize_selected_layer(self) -> None:
+        """Initialize the selected layer."""
+        if self._plugin is None:
+            raise_runtime_error("Plugin is not set.")
+        self._selected_layer = self.get_selected_layer()
+
+    @property
+    def new_layer(self) -> QgsVectorLayer:
+        """The new layer created by the plugin."""
+        if self._new_layer is None:
+            self.initialize_new_layer()
+        if self._new_layer is None:
+            raise_runtime_error("New layer is not set.")
+        return self._new_layer
+
+    @new_layer.setter
+    def new_layer(self, layer: QgsVectorLayer) -> None:
+        self._new_layer = layer
+
+    def initialize_new_layer(self) -> None:
+        """Initialize the new layer."""
+        if self._plugin is None:
+            raise_runtime_error("Plugin is not set.")
+        self.new_layer = self.create_new_layer()
 
     def fix_layer_name(self, name: str) -> str:
         """Fix encoding mojibake and sanitize a string to be a valid layer name.
@@ -110,7 +163,7 @@ class LayerManager:
         :returns: A fixed and sanitized version of the name.
         """
         fixed_name: str = name
-        with contextlib.suppress(UnicodeEncodeError):
+        with contextlib.suppress(UnicodeEncodeError, UnicodeDecodeError):
             fixed_name = name.encode("cp1252").decode("utf-8")
 
         # Remove or replace problematic characters
@@ -129,13 +182,13 @@ class LayerManager:
         """
 
         # If the layer's CRS is already the same as the project's CRS, return a clone.
-        if layer.crs() == self._project.crs():
+        if layer.crs() == self.project.crs():
             return layer.clone()
 
         # Create a new in-memory layer with the target CRS
         geometry_type_str: str = QgsWkbTypes.displayString(layer.wkbType())
         reprojected_layer = QgsVectorLayer(
-            f"{geometry_type_str}?crs={self._project.crs().authid()}",
+            f"{geometry_type_str}?crs={self.project.crs().authid()}",
             layer.name(),
             "memory",
         )
@@ -152,7 +205,7 @@ class LayerManager:
 
         # Prepare coordinate transformation
         transform = QgsCoordinateTransform(
-            layer.crs(), self._project.crs(), self._project.transformContext()
+            layer.crs(), self.project.crs(), self.project.transformContext()
         )
 
         # Copy and reproject features
@@ -164,10 +217,8 @@ class LayerManager:
 
             geom = feature.geometry()
             if geom.transform(transform) != 0:  # 0 means success
-                QgsMessageLog.logMessage(
-                    f"Feature {feature.id()} could not be reprojected.",
-                    "Reprojection",
-                    level=Qgis.Warning,
+                log_debug(
+                    f"Feature {feature.id()} could not be reprojected.", Qgis.Warning
                 )
                 continue
 
@@ -220,11 +271,11 @@ class LayerManager:
             f"{self.fix_layer_name(self.selected_layer.name())} - Massenermittlung"
         )
 
-        if existing_layers := self._project.mapLayersByName(new_layer_name):
-            self._project.removeMapLayers([layer.id() for layer in existing_layers])
+        if existing_layers := self.project.mapLayersByName(new_layer_name):
+            self.project.removeMapLayers([layer.id() for layer in existing_layers])
 
         empty_layer = QgsVectorLayer(
-            f"Point?crs={self._project.crs().authid()}", "in_memory_layer", "memory"
+            f"Point?crs={self.project.crs().authid()}", "in_memory_layer", "memory"
         )
 
         # Copy fields from the source layer
@@ -244,18 +295,16 @@ class LayerManager:
         options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
 
         error: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
-            empty_layer, str(gpkg_path), self._project.transformContext(), options
+            empty_layer, str(gpkg_path), self.project.transformContext(), options
         )
         if error[0] == QgsVectorFileWriter.WriterError.NoError:
-            QgsMessageLog.logMessage(
-                f"Empty layer created: {new_layer_name}", "Success", level=Qgis.Success
-            )
+            log_debug(f"Empty layer created: {new_layer_name}", Qgis.Success)
         else:
             raise_runtime_error(
                 f"Failed to create empty layer '{new_layer_name}' - Error: {error[1]}"
             )
 
-        root: QgsLayerTree | None = self._project.layerTreeRoot()
+        root: QgsLayerTree | None = self.project.layerTreeRoot()
         if not root:
             raise_runtime_error("Could not get layer tree root.")
 
@@ -264,54 +313,17 @@ class LayerManager:
         gpkg_layer = QgsVectorLayer(uri, new_layer_name, "ogr")
 
         if not gpkg_layer.isValid():
-            raise_runtime_error("could not find layer in GeoPackage")
+            raise_runtime_error(
+                f"Could not find layer '{new_layer_name}' in GeoPackage '{gpkg_path}'"
+            )
 
         # Add the layer to the project registry first, but not the layer tree
-        self._project.addMapLayer(gpkg_layer, addToLegend=False)
+        self.project.addMapLayer(gpkg_layer, addToLegend=False)
         # Then, insert it at the top of the layer tree
         root.insertLayer(0, gpkg_layer)
 
-        QgsMessageLog.logMessage(
+        log_debug(
             f"Added {new_layer_name} from the GeoPackage to the project.",
-            "Success",
-            level=Qgis.Success,
+            Qgis.Success,
         )
         return gpkg_layer
-
-    def initialize_selected_layer(self) -> None:
-        """Initialize the selected layer."""
-        if self._plugin is None:
-            raise_runtime_error("Plugin is not set.")
-        self._selected_layer = self.get_selected_layer()
-
-    def initialize_new_layer(self) -> None:
-        """Initialize the new layer."""
-        if self._plugin is None:
-            raise_runtime_error("Plugin is not set.")
-        self.new_layer = self.create_new_layer()
-
-    @property
-    def selected_layer(self) -> QgsVectorLayer:
-        """The selected layer in the plugin."""
-        if self._selected_layer is None:
-            self.initialize_selected_layer()
-        if self._selected_layer is None:
-            raise_runtime_error("Selected layer is not set.")
-        return self._selected_layer
-
-    @selected_layer.setter
-    def selected_layer(self, layer: QgsVectorLayer) -> None:
-        self._selected_layer = layer
-
-    @property
-    def new_layer(self) -> QgsVectorLayer:
-        """The new layer created by the plugin."""
-        if self._new_layer is None:
-            self.initialize_new_layer()
-        if self._new_layer is None:
-            raise_runtime_error("New layer is not set.")
-        return self._new_layer
-
-    @new_layer.setter
-    def new_layer(self, layer: QgsVectorLayer) -> None:
-        self._new_layer = layer
