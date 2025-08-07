@@ -48,6 +48,26 @@ def raise_runtime_error(error_msg: str) -> NoReturn:
     raise RuntimeError(error_msg)
 
 
+class UserError(Exception):
+    """Custom exception for user-related errors in the plugin."""
+
+
+def raise_user_error(error_msg: str, plugin: QgisInterface | None = None) -> NoReturn:
+    """Log a warning message and raise a UserError.
+
+    This helper function standardizes error handling by ensuring that a warning
+    is raised to halt the current operation because of a user error.
+
+    :param error_msg: The error message to display and include in the exception.
+    :raises UserError: Always raises a UserError with the provided error message.
+    """
+    if plugin and (msg_bar := plugin.messageBar()):
+        msg_bar.pushMessage("Error", error_msg, level=Qgis.Critical)
+
+    QgsMessageLog.logMessage(error_msg, "Error", level=Qgis.Critical)
+    raise UserError(error_msg)
+
+
 def get_current_project() -> QgsProject:
     """Check if a QGIS project is currently open and returns the project instance.
 
@@ -209,8 +229,12 @@ class LayerManager:
         )
 
         # Copy and reproject features
+        old_features: list[QgsFeature] = list(layer.getFeatures())
+        if not old_features:
+            return reprojected_layer
+
         new_features: list[QgsFeature] = []
-        for feature in layer.getFeatures():
+        for feature in old_features:
             new_feature = QgsFeature()
             new_feature.setFields(reprojected_layer.fields(), initAttributes=True)
             new_feature.setAttributes(feature.attributes())
@@ -245,20 +269,20 @@ class LayerManager:
 
         selected_nodes: list[QgsLayerTreeNode] = layer_tree.selectedNodes()
         if len(selected_nodes) > 1:
-            raise_runtime_error("Multiple layers selected.")
+            raise_user_error("Multiple layers selected.", self._plugin)
         if not selected_nodes:
-            raise_runtime_error("No layer selected.")
+            raise_user_error("No layer selected.", self._plugin)
 
         selected_node: QgsLayerTreeNode = next(iter(selected_nodes))
         if not selected_node.layer():
-            raise_runtime_error("Selected node is not a layer.")
+            raise_user_error("Selected node is not a layer.", self._plugin)
 
         selected_layer = selected_node.layer()
         if not isinstance(selected_layer, QgsVectorLayer):
-            raise_runtime_error("Selected layer is not a vector layer.")
+            raise_user_error("Selected layer is not a vector layer.", self._plugin)
 
         if selected_layer.geometryType() != QgsWkbTypes.LineGeometry:
-            raise_runtime_error("The selected layer is not a line layer.")
+            raise_user_error("The selected layer is not a line layer.", self._plugin)
 
         # Reproject the layer to the project's CRS
         return self.reproject_layer_to_project_crs(selected_layer)

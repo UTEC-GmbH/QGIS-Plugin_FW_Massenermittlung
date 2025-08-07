@@ -8,7 +8,7 @@ from qgis.core import (
     QgsFeature,
     QgsFeatureRequest,
     QgsGeometry,
-    QgsPoint,
+    QgsPointXY,
     QgsRectangle,
     QgsVectorLayer,
     QgsWkbTypes,
@@ -33,11 +33,11 @@ def get_all_features(layer: QgsVectorLayer) -> list[QgsFeature]:
     return features
 
 
-def get_start_end_of_line(feature: QgsFeature) -> list:
+def get_start_end_of_line(feature: QgsFeature) -> list[QgsPointXY]:
     """Get the start and end of a line.
 
     :param feature: The QgsFeature to get the start and end of.
-    :returns: A list of the start and end points of the line parts.
+    :returns: A list of the start and end points of the line parts as QgsPointXY.
     """
 
     points: list = []
@@ -45,21 +45,22 @@ def get_start_end_of_line(feature: QgsFeature) -> list:
     if not geom:
         return points
 
-    parts: list = list(geom.constParts())
+    wkb_type: Qgis.WkbType = geom.wkbType()
 
-    for part in parts:
-        if part.wkbType() in [
-            QgsWkbTypes.LineString,
-            QgsWkbTypes.LineStringZ,
-            QgsWkbTypes.LineStringM,
-            QgsWkbTypes.LineStringZM,
-        ]:
-            points.extend([part.startPoint(), part.endPoint()])
+    lines = []
+    if wkb_type == QgsWkbTypes.LineString:
+        lines.append(geom.asPolyline())
+    elif wkb_type == QgsWkbTypes.MultiLineString:
+        lines.extend(geom.asMultiPolyline())
+
+    for line in lines:
+        if len(line) > 1:
+            points.extend([line[0], line[-1]])
     return points
 
 
 def find_intersecting_feature_ids(
-    point: QgsPoint,
+    point: QgsPointXY,
     selected_layer: QgsVectorLayer,
     current_feature_id: int,
 ) -> list[int]:
@@ -73,16 +74,16 @@ def find_intersecting_feature_ids(
     """
     search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(SEARCH_RADIUS, 5)
     search_rect: QgsRectangle = search_geom.boundingBox()
-    request: QgsFeatureRequest = (
-        QgsFeatureRequest().setFilterRect(search_rect).setFilterFid(current_feature_id)
-    )
+    request: QgsFeatureRequest = QgsFeatureRequest().setFilterRect(search_rect)
 
     candidates: list = list(selected_layer.getFeatures(request))
     if not candidates:
         return []
 
     intersecting_ids: list[int] = [
-        feat.id() for feat in candidates if feat.geometry().intersects(search_geom)
+        feat.id()
+        for feat in candidates
+        if feat.id() != current_feature_id and feat.geometry().intersects(search_geom)
     ]
 
     return intersecting_ids
@@ -107,14 +108,22 @@ def create_feature(
     new_feature = QgsFeature(new_layer.fields())
     new_feature.setGeometry(geometry)
 
-    new_feature.setAttributes(attributes)
+    new_fields = new_layer.fields()
+    source_field_names = {f.name() for f in source_feature.fields()}
 
-    # Copy attributes from the source feature to the new feature
-    attributes_list = [
-        source_feature.attribute(field.name())
-        for field in source_feature.fields()
-        if new_layer.fields().indexOf(field.name()) != -1
-    ]
+    attributes_list = []
+    for field in new_fields:
+        field_name = field.name()
+        if field_name in source_field_names:
+            attributes_list.append(source_feature.attribute(field_name))
+        else:
+            attributes_list.append(None)
+
+    for field_name, value in attributes.items():
+        field_index = new_fields.indexOf(field_name)
+        if field_index != -1:
+            attributes_list[field_index] = value
+
     new_feature.setAttributes(attributes_list)
 
     return new_layer.addFeature(new_feature)
@@ -122,10 +131,10 @@ def create_feature(
 
 def unconnected_endpoints(
     selected_layer: QgsVectorLayer, new_layer: QgsVectorLayer
-) -> None:
+) -> int:
     """Find the endpoints of lines that are not connected to other lines."""
     features_checked: int = 0
-    new_points: int = 0
+    number_of_new_points: int = 0
 
     # Start editing the new layer
     if not new_layer.startEditing():
@@ -145,20 +154,23 @@ def unconnected_endpoints(
                 new_layer,
                 {"Typ": "Hausanschluss"},
             ):
-                new_points += 1
+                number_of_new_points += 1
 
-    if new_points:
+    if number_of_new_points:
         log_debug(
-            f"{features_checked} lines checked. "
-            f"{new_points} unconnected endpoints found.",
+            f"Hausanschlüsse: {features_checked} Linien geprüft → "
+            f"{number_of_new_points} Hausanschlüsse gefunden.",
             Qgis.Success,
         )
     else:
         log_debug(
-            f"{features_checked} lines checked. No unconnected endpoints found.",
+            f"Hausanschlüsse: {features_checked} Linien geprüft, "
+            f"aber keine Hausanschlüsse gefunden!",
             Qgis.Warning,
         )
 
     # Commit the changes to the new layer
     if not new_layer.commitChanges():
         raise_runtime_error("Failed to commit changes to the new layer.")
+
+    return number_of_new_points
