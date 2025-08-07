@@ -21,8 +21,9 @@
 """
 
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
+from qgis.core import Qgis
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtGui import QIcon  # type: ignore[reportAttributeAccessIssue]
 from qgis.PyQt.QtWidgets import (
@@ -32,15 +33,17 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from . import resources  # noqa: F401 - Import is necessary to load resources
-from .modules.general import raise_runtime_error
-from .modules.geopackage import (
-    add_layer_from_gpkg_to_project,
-    create_empty_layer_in_gpkg,
-)
+from .modules import find_stuff as find
+from .modules.general import LayerManager, UserError, raise_runtime_error
+
+if TYPE_CHECKING:
+    from qgis.core import QgsVectorLayer
 
 
 class Massenermittlung:
     """QGIS Plugin for renaming and moving layers to a GeoPackage."""
+
+    BUTTON_TYPE = "simple"  # "menu" or "simple"
 
     def __init__(self, iface: QgisInterface) -> None:
         """Initialize the plugin.
@@ -112,28 +115,33 @@ class Massenermittlung:
 
         self.plugin_menu.setIcon(QIcon(self.icon_path))
 
-        # Add an action for renaming layers
+        # Add an action for the main functionality
         run_action = self.add_action(
             self.icon_path,
             text="Massenermittlung",
             callback=self.run_massenermittlung,
             parent=self.iface.mainWindow(),
             add_to_menu=False,  # Will be added to our custom menu
-            add_to_toolbar=False,  # Avoid creating a separate toolbar button
+            add_to_toolbar=False,  # Will be added manually based on BUTTON_TYPE
             status_tip="Massenermittlung",
             whats_this="Massenermittlung.",
         )
         self.plugin_menu.addAction(run_action)
 
-        # Add the fly-out menu to the main "Plugins" menu
+        # Add our menu to the main "Plugins" menu
         self.iface.pluginMenu().addMenu(self.plugin_menu)  # type: ignore[]
-        # Add a toolbutton to the toolbar to show the flyout menu
-        toolbar_button = QToolButton()
-        toolbar_button.setMenu(self.plugin_menu)
-        toolbar_button.setDefaultAction(run_action)  # Use an action's icon
-        toolbar_button.setPopupMode(QToolButton.InstantPopup)
-        toolbar_action = self.iface.addToolBarWidget(toolbar_button)
-        self.actions.append(toolbar_action)
+
+        if self.BUTTON_TYPE == "menu":
+            # Add a toolbutton to the toolbar to show the flyout menu
+            toolbar_button = QToolButton()
+            toolbar_button.setMenu(self.plugin_menu)
+            toolbar_button.setDefaultAction(run_action)  # Use an action's icon
+            toolbar_button.setPopupMode(QToolButton.InstantPopup)
+            toolbar_action = self.iface.addToolBarWidget(toolbar_button)
+            self.actions.append(toolbar_action)
+        elif self.BUTTON_TYPE == "simple":
+            # Add a simple button to the toolbar
+            self.iface.addToolBarIcon(run_action)
 
     def unload(self) -> None:
         """Plugin unload method.
@@ -153,6 +161,22 @@ class Massenermittlung:
 
     def run_massenermittlung(self) -> None:
         """Call the main function."""
+        try:
+            layer_manager: LayerManager = LayerManager(self.iface)
+            selected_layer: QgsVectorLayer = layer_manager.selected_layer
+            new_layer: QgsVectorLayer = layer_manager.new_layer
 
-        create_empty_layer_in_gpkg(self.iface)
-        add_layer_from_gpkg_to_project(self.iface)
+            haus: int = find.unconnected_endpoints(
+                selected_layer=selected_layer, new_layer=new_layer
+            )
+            if self.iface and (msg_bar := self.iface.messageBar()):
+                msg_bar.pushMessage(
+                    "Success",
+                    f"Massenermittlung für Layer "
+                    f"'{selected_layer.name()}' abgeschlossen. → "
+                    f"{haus} Hausanschlüsse gefunden.",
+                    level=Qgis.Success,
+                )
+
+        except UserError:
+            return
