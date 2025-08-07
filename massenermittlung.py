@@ -169,12 +169,19 @@ class Massenermittlung:
             haus: int = find.unconnected_endpoints(
                 selected_layer=selected_layer, new_layer=new_layer
             )
+            t_st: int = find.line_intersections(
+                selected_layer=selected_layer, new_layer=new_layer
+            )
+
+            layer_manager.set_layer_style(new_layer)
+
             if self.iface and (msg_bar := self.iface.messageBar()):
                 msg_bar.pushMessage(
                     "Success",
                     f"Massenermittlung für Layer "
                     f"'{selected_layer.name()}' abgeschlossen. → "
-                    f"{haus} Hausanschlüsse gefunden.",
+                    f"{haus} Hausanschlüsse gefunden."
+                    f"{t_st} T-Stücke gefunden.",
                     level=Qgis.Success,
                 )
 

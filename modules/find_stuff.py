@@ -10,6 +10,7 @@ from qgis.core import (
     QgsGeometry,
     QgsPointXY,
     QgsRectangle,
+    QgsSpatialIndex,
     QgsVectorLayer,
     QgsWkbTypes,
 )
@@ -17,6 +18,7 @@ from qgis.core import (
 from .general import log_debug, raise_runtime_error
 
 SEARCH_RADIUS: float = 0.05
+T_ST_BUFFER: float = 0.01
 
 
 def get_all_features(layer: QgsVectorLayer) -> list[QgsFeature]:
@@ -166,6 +168,79 @@ def unconnected_endpoints(
         log_debug(
             f"Hausanschlüsse: {features_checked} Linien geprüft, "
             f"aber keine Hausanschlüsse gefunden!",
+            Qgis.Warning,
+        )
+
+    # Commit the changes to the new layer
+    if not new_layer.commitChanges():
+        raise_runtime_error("Failed to commit changes to the new layer.")
+
+    return number_of_new_points
+
+
+def line_intersections(
+    selected_layer: QgsVectorLayer, new_layer: QgsVectorLayer
+) -> int:
+    """Find 3-way (or more) intersections of lines in the selected layer."""
+    number_of_new_points: int = 0
+
+    # Create a spatial index for the selected layer
+    index = QgsSpatialIndex(selected_layer.getFeatures())
+
+    # Start editing the new layer
+    if not new_layer.startEditing():
+        raise_runtime_error("Failed to start editing the new layer.")
+
+    # Iterate over each feature in the selected layer
+    for feature in get_all_features(selected_layer):
+        geom = feature.geometry()
+
+        # Find candidate intersecting features using the spatial index
+        candidate_ids = index.intersects(geom.boundingBox().buffered(T_ST_BUFFER))
+
+        # Check for actual intersections
+        for candidate_id in candidate_ids:
+            if candidate_id == feature.id():
+                continue
+
+            candidate_feature = selected_layer.getFeature(candidate_id)
+            candidate_geom = candidate_feature.geometry()
+
+            if geom.intersects(candidate_geom):
+                intersection = geom.intersection(candidate_geom)
+
+                # Check if the intersection is a point
+                if intersection.wkbType() == QgsWkbTypes.Point:
+                    # Buffer the intersection point to find nearby lines
+                    search_geom = intersection.buffer(T_ST_BUFFER, 5)
+                    search_rect = search_geom.boundingBox()
+                    request = QgsFeatureRequest().setFilterRect(search_rect)
+
+                    # Find all features that intersect with the intersection point
+                    intersecting_features = [
+                        f
+                        for f in selected_layer.getFeatures(request)
+                        if f.geometry().intersects(search_geom)
+                    ]
+
+                    # If we have a 3-way (or more) intersection, create a new point
+                    if len(intersecting_features) >= 3 and create_feature(
+                        intersection,
+                        feature,
+                        new_layer,
+                        {"Typ": "T-Stück"},
+                    ):
+                        number_of_new_points += 1
+    if number_of_new_points:
+        log_debug(
+            f"T-Stücke: {len(get_all_features(selected_layer))} Linien geprüft → "
+            f"{number_of_new_points} T-Stücke gefunden.",
+            Qgis.Success,
+        )
+    else:
+        log_debug(
+            f"T-Stücke: {len(get_all_features(selected_layer))} Linien geprüft, "
+            f"aber keine T-Stücke gefunden!",
             Qgis.Warning,
         )
 
