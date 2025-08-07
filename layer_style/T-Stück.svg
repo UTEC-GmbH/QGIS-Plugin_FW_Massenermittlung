@@ -28,8 +28,8 @@
      inkscape:cy="116.4691"
      inkscape:window-width="2542"
      inkscape:window-height="1333"
-     inkscape:window-x="2553"
-     inkscape:window-y="34"
+     inkscape:window-x="2560"
+     inkscape:window-y="0"
      inkscape:window-maximized="0"
      inkscape:current-layer="layer1" />
   <defs
@@ -40,22 +40,19 @@
      id="layer1"
      transform="translate(-65.342232,-86.444183)">
     <circle
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:#800000;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-dasharray:none;stroke-opacity:1"
        id="path1"
        cx="91.092232"
        cy="112.19418"
-       r="25" />
-    <g
-       id="g3"
-       transform="matrix(1.2245544,0,0,1.2245544,-20.359762,-26.224847)">
-      <path
-         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:5;stroke-dasharray:none;stroke-opacity:1"
-         d="M 74.888173,107.38965 H 107.14048"
-         id="path2" />
-      <path
-         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:3.5;stroke-dasharray:none;stroke-opacity:1"
-         d="m 91.014326,107.38965 v 17.2383"
-         id="path3" />
-    </g>
+       r="25" 
+       fill="param(fill) #800000"/>
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:7;stroke-dasharray:none;stroke-opacity:1"
+       d="m 71.34488,105.27962 h 39.4947"
+       id="path2" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:4;stroke-dasharray:none;stroke-opacity:1"
+       d="m 91.092231,105.27962 v 21.10924"
+       id="path3" />
   </g>
 </svg>
