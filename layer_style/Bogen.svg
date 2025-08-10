@@ -40,13 +40,14 @@
      id="layer1"
      transform="translate(-65.342232,-86.444183)">
     <circle
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:#668000;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-dasharray:none;stroke-opacity:1"
        id="path1"
        cx="91.092232"
        cy="112.19418"
-       r="25" />
+       r="25"
+       fill="param(fill) #668000" />
     <path
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:5;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:5.5;stroke-dasharray:none;stroke-opacity:1"
        d="m 73.670409,109.0191 c 7.476109,16.18794 26.969601,16.83669 34.847321,0"
        id="path3"
        sodipodi:nodetypes="cc" />

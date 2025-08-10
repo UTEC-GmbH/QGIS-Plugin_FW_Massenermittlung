@@ -19,6 +19,9 @@ from qgis.core import (
     QgsLayerTreeNode,
     QgsMessageLog,
     QgsProject,
+    QgsRuleBasedRenderer,
+    QgsSvgMarkerSymbolLayer,
+    QgsSymbol,
     QgsVectorDataProvider,
     QgsVectorFileWriter,
     QgsVectorLayer,
@@ -350,4 +353,69 @@ class LayerManager:
             f"Added {new_layer_name} from the GeoPackage to the project.",
             Qgis.Success,
         )
+
+        self.set_layer_style(gpkg_layer)
+
         return gpkg_layer
+
+    def set_layer_style(self, layer: QgsVectorLayer) -> None:
+        """Set a rule-based renderer for the layer based on the 'Typ' field."""
+
+        # Define the path to the SVG symbols relative to the plugin's directory
+        plugin_path: Path = Path(__file__).parent.parent
+        style_path: Path = plugin_path / "layer_style"
+
+        # Create a rule-based renderer
+        symbol: QgsSymbol | None = QgsSymbol.defaultSymbol(layer.geometryType())
+        renderer = QgsRuleBasedRenderer(symbol)
+
+        # Get the root rule
+        root_rule: QgsRuleBasedRenderer.Rule | None = renderer.rootRule()
+        if root_rule is None:
+            raise_runtime_error("Could not get root rule from renderer.")
+
+        # Define the rules for each 'Typ'
+        rules_data: list[dict[str, str]] = [
+            {
+                "name": "Hausanschluss",
+                "filter": "\"Typ\" = 'Hausanschluss'",
+                "symbol": str(style_path / "Hausanschluss.svg"),
+            },
+            {
+                "name": "T-Stück",
+                "filter": "\"Typ\" = 'T-Stück'",
+                "symbol": str(style_path / "T-Stück.svg"),
+            },
+            {
+                "name": "Bogen",
+                "filter": "\"Typ\" = 'Bogen'",
+                "symbol": str(style_path / "Bogen.svg"),
+            },
+        ]
+
+        for rule_data in rules_data:
+            # Create a new symbol for the rule
+            symbol = QgsSvgMarkerSymbolLayer(rule_data["symbol"])
+            symbol.setSize(4)
+
+            # Create a new rule
+            rule: QgsRuleBasedRenderer.Rule | None = root_rule.children()[0].clone()
+            if rule is None:
+                raise_runtime_error("Could not clone rule.")
+
+            rule.setLabel(rule_data["name"])
+            rule.setFilterExpression(rule_data["filter"])
+
+            rule_symbol: QgsSymbol | None = rule.symbol()
+            if rule_symbol is None:
+                raise_runtime_error("Could not get rule symbol.")
+
+            rule_symbol.changeSymbolLayer(0, symbol)
+            root_rule.appendChild(rule)
+
+        # Remove the default rule
+        root_rule.removeChildAt(0)
+
+        # Apply the renderer to the layer
+        layer.setRenderer(renderer)
+        layer.triggerRepaint()
