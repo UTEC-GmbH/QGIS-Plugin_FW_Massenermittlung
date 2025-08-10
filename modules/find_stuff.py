@@ -1,15 +1,17 @@
 """Module: find_stuff.py
 
-This module contains the functions that find thnigs in the selected layer.
+This module contains the FeatureFinder class that finds things in the selected layer.
 """
 
+from enum import Flag, auto
+
+from qgis._core import QgsFields, QgsRectangle
 from qgis.core import (
     Qgis,
     QgsFeature,
     QgsFeatureRequest,
     QgsGeometry,
     QgsPointXY,
-    QgsRectangle,
     QgsSpatialIndex,
     QgsVectorLayer,
     QgsWkbTypes,
@@ -17,235 +19,253 @@ from qgis.core import (
 
 from .general import log_debug, raise_runtime_error
 
-SEARCH_RADIUS: float = 0.05
-T_ST_BUFFER: float = 0.01
+
+class FeatureType(Flag):
+    """Enum for the types of features to find."""
+
+    NONE = 0
+    T_STUECKE = auto()
+    HAUSANSCHLUESSE = auto()
+    BOEGEN = auto()
 
 
-def get_all_features(layer: QgsVectorLayer) -> list[QgsFeature]:
-    """Get all features from a QgsVectorLayer.
+class FeatureFinder:
+    """A class to find different types of features in a vector layer."""
 
-    :param layer: The QgsVectorLayer to get features from.
-    :returns: A list of QgsFeature objects.
-    """
+    SEARCH_RADIUS: float = 0.05
+    T_ST_BUFFER: float = 0.01
 
-    features: list[QgsFeature] = list(layer.getFeatures())
-    if not features:
-        raise_runtime_error("No features found in the selected layer.")
+    def __init__(
+        self, selected_layer: QgsVectorLayer, new_layer: QgsVectorLayer
+    ) -> None:
+        """Initialize the FeatureFinder class.
 
-    return features
+        :param selected_layer: The QgsVectorLayer to search within.
+        :param new_layer: The QgsVectorLayer to add new features to.
+        """
+        self.selected_layer: QgsVectorLayer = selected_layer
+        self.selected_layer_index: QgsSpatialIndex = QgsSpatialIndex(
+            self.selected_layer.getFeatures()
+        )
+        self.selected_layer_features: list[QgsFeature] = self._get_all_features()
 
+        self.new_layer: QgsVectorLayer = new_layer
 
-def get_start_end_of_line(feature: QgsFeature) -> list[QgsPointXY]:
-    """Get the start and end of a line.
+    def find_features(self, feature_types: FeatureType) -> dict[str, int]:
+        """Find features based on the provided flags.
 
-    :param feature: The QgsFeature to get the start and end of.
-    :returns: A list of the start and end points of the line parts as QgsPointXY.
-    """
+        :param feature_types: A flag combination of the features to find.
+        :returns: A dictionary with the count of found features.
+        """
+        found_counts: dict[str, int] = {"T-Stücke": 0, "Hausanschlüsse": 0, "Bögen": 0}
 
-    points: list = []
-    geom: QgsGeometry = feature.geometry()
-    if not geom:
+        if not self.new_layer.startEditing():
+            raise_runtime_error("Failed to start editing the new layer.")
+
+        if FeatureType.T_STUECKE in feature_types:
+            found_counts["T-Stücke"] = self._find_line_intersections(
+                self.selected_layer_features
+            )
+        if FeatureType.HAUSANSCHLUESSE in feature_types:
+            found_counts["Hausanschlüsse"] = self._find_unconnected_endpoints(
+                self.selected_layer_features
+            )
+        if FeatureType.BOEGEN in feature_types:
+            # TODO: Implement angle finding logic
+            # found_counts["Bögen"] = self._find_angles(all_features)
+            log_debug("Angle detection is not yet implemented.", Qgis.Warning)
+
+        if not self.new_layer.commitChanges():
+            raise_runtime_error("Failed to commit changes to the new layer.")
+
+        return found_counts
+
+    def _get_all_features(self) -> list[QgsFeature]:
+        """Get all features from the selected layer."""
+        features: list[QgsFeature] = list(self.selected_layer.getFeatures())
+        if not features:
+            raise_runtime_error("No features found in the selected layer.")
+        return features
+
+    @staticmethod
+    def _get_start_end_of_line(feature: QgsFeature) -> list[QgsPointXY]:
+        """Get the start and end points of a line feature."""
+        points: list = []
+        geom: QgsGeometry = feature.geometry()
+        if not geom:
+            return points
+
+        wkb_type: Qgis.WkbType = geom.wkbType()
+        lines = []
+        if wkb_type == QgsWkbTypes.LineString:
+            lines.append(geom.asPolyline())
+        elif wkb_type == QgsWkbTypes.MultiLineString:
+            lines.extend(geom.asMultiPolyline())
+
+        for line in lines:
+            if len(line) > 1:
+                points.extend([line[0], line[-1]])
         return points
 
-    wkb_type: Qgis.WkbType = geom.wkbType()
+    def _find_intersecting_feature_ids(
+        self, point: QgsPointXY, current_feature_id: int
+    ) -> list[int]:
+        """Find intersecting feature IDs for a given point."""
+        search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
+            self.SEARCH_RADIUS, 5
+        )
+        search_rect: QgsRectangle = search_geom.boundingBox()
+        request: QgsFeatureRequest = QgsFeatureRequest().setFilterRect(search_rect)
 
-    lines = []
-    if wkb_type == QgsWkbTypes.LineString:
-        lines.append(geom.asPolyline())
-    elif wkb_type == QgsWkbTypes.MultiLineString:
-        lines.extend(geom.asMultiPolyline())
-
-    for line in lines:
-        if len(line) > 1:
-            points.extend([line[0], line[-1]])
-    return points
-
-
-def find_intersecting_feature_ids(
-    point: QgsPointXY,
-    selected_layer: QgsVectorLayer,
-    current_feature_id: int,
-) -> list[int]:
-    """Find intersecting feature IDs for a given point, excluding the current feature.
-
-    :param point: The QgsPoint to search around.
-    :param selected_layer: The QgsVectorLayer to search within.
-    :param current_feature_id: The ID of the feature to exclude from the results.
-    :returns: A list of feature IDs that intersect with the search geometry,
-              excluding the `current_feature_id`.
-    """
-    search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(SEARCH_RADIUS, 5)
-    search_rect: QgsRectangle = search_geom.boundingBox()
-    request: QgsFeatureRequest = QgsFeatureRequest().setFilterRect(search_rect)
-
-    candidates: list = list(selected_layer.getFeatures(request))
-    if not candidates:
+        candidates: list[QgsFeature] = list(self.selected_layer.getFeatures(request))
+        if candidates is not None:
+            return [
+                feat.id()
+                for feat in candidates
+                if feat.id() != current_feature_id
+                and feat.geometry().intersects(search_geom)
+            ]
         return []
 
-    intersecting_ids: list[int] = [
-        feat.id()
-        for feat in candidates
-        if feat.id() != current_feature_id and feat.geometry().intersects(search_geom)
-    ]
+    def _create_feature(
+        self, geometry: QgsGeometry, source_feature: QgsFeature, attributes: dict
+    ) -> bool:
+        """Create a new feature in the new layer."""
+        new_feature = QgsFeature(self.new_layer.fields())
+        new_feature.setGeometry(geometry)
 
-    return intersecting_ids
+        new_fields: QgsFields = self.new_layer.fields()
+        source_field_names: set = {f.name() for f in source_feature.fields()}
 
+        attributes_list: list = []
+        for field in new_fields:
+            field_name: str = field.name()
+            if field_name in source_field_names:
+                attributes_list.append(source_feature.attribute(field_name))
+            else:
+                attributes_list.append(None)
 
-def create_feature(
-    geometry: QgsGeometry,
-    source_feature: QgsFeature,
-    new_layer: QgsVectorLayer,
-    attributes: dict,
-) -> bool:
-    """Create a new feature in a QgsVectorLayer.
+        for field_name, value in attributes.items():
+            field_index: int = new_fields.indexOf(field_name)
+            if field_index != -1:
+                attributes_list[field_index] = value
 
-    :param geometry: The QgsGeometry for the new feature.
-    :param source_feature: The source QgsFeature from which attributes will be copied.
-    :param new_layer: The QgsVectorLayer to which the new feature will be added.
-    :param attributes: A dictionary of additional attributes to set for the new feature.
-                       These attributes will override any attributes with the same name
-                       copied from the source_feature.
-    :returns: True if the feature was successfully added, False otherwise.
-    """
-    new_feature = QgsFeature(new_layer.fields())
-    new_feature.setGeometry(geometry)
+        new_feature.setAttributes(attributes_list)
+        return self.new_layer.addFeature(new_feature)
 
-    new_fields = new_layer.fields()
-    source_field_names = {f.name() for f in source_feature.fields()}
+    def _find_unconnected_endpoints(self, features: list[QgsFeature]) -> int:
+        """Find the endpoints of lines that are not connected to other lines."""
+        number_of_new_points = 0
+        for feature in features:
+            for point in self._get_start_end_of_line(feature):
+                intersecting_ids: list[int] = self._find_intersecting_feature_ids(
+                    point, feature.id()
+                )
+                if not intersecting_ids and self._create_feature(
+                    QgsGeometry.fromPointXY(point),
+                    feature,
+                    {"Typ": "Hausanschluss"},
+                ):
+                    number_of_new_points += 1
 
-    attributes_list = []
-    for field in new_fields:
-        field_name = field.name()
-        if field_name in source_field_names:
-            attributes_list.append(source_feature.attribute(field_name))
+        if number_of_new_points:
+            log_debug(
+                f"Hausanschlüsse: {len(features)} Linien geprüft → "
+                f"{number_of_new_points} Hausanschlüsse gefunden.",
+                Qgis.Success,
+            )
         else:
-            attributes_list.append(None)
+            log_debug(
+                f"Hausanschlüsse: {len(features)} Linien geprüft, "
+                f"aber keine Hausanschlüsse gefunden!",
+                Qgis.Warning,
+            )
+        return number_of_new_points
 
-    for field_name, value in attributes.items():
-        field_index = new_fields.indexOf(field_name)
-        if field_index != -1:
-            attributes_list[field_index] = value
+    @staticmethod
+    def _get_point_from_intersection(intersection: QgsGeometry) -> QgsPointXY | None:
+        """Extract a QgsPointXY from an intersection geometry."""
+        if intersection.wkbType() == QgsWkbTypes.Point:
+            return intersection.asPoint()
+        if (
+            intersection.wkbType() == QgsWkbTypes.MultiPoint
+            and not intersection.isEmpty()
+        ):
+            return intersection.asMultiPoint()[0]
+        return None
 
-    new_feature.setAttributes(attributes_list)
+    def _get_intersecting_features(self, search_geom: QgsGeometry) -> list[QgsFeature]:
+        """Get all features intersecting with the given geometry."""
+        search_rect: QgsRectangle = search_geom.boundingBox()
+        request: QgsFeatureRequest = QgsFeatureRequest().setFilterRect(search_rect)
+        return [
+            feat
+            for feat in list(self.selected_layer.getFeatures(request))
+            if feat.geometry().intersects(search_geom)
+        ]
 
-    return new_layer.addFeature(new_feature)
+    def _find_line_intersections(self, features: list[QgsFeature]) -> int:
+        """Find 3-way (or more) intersections of lines."""
+        number_of_new_points = 0
+        checked_intersections: set = set()
 
-
-def unconnected_endpoints(
-    selected_layer: QgsVectorLayer, new_layer: QgsVectorLayer
-) -> int:
-    """Find the endpoints of lines that are not connected to other lines."""
-    features_checked: int = 0
-    number_of_new_points: int = 0
-
-    # Start editing the new layer
-    if not new_layer.startEditing():
-        raise_runtime_error("Failed to start editing the new layer.")
-
-    for feature in get_all_features(selected_layer):
-        features_checked += 1
-
-        for point in get_start_end_of_line(feature):
-            intersecting_ids = find_intersecting_feature_ids(
-                point, selected_layer, feature.id()
+        for feature in features:
+            geom: QgsGeometry = feature.geometry()
+            candidate_ids: list[int] = self.selected_layer_index.intersects(
+                geom.boundingBox().buffered(self.T_ST_BUFFER)
             )
 
-            if not intersecting_ids and create_feature(
-                QgsGeometry.fromPointXY(point),
-                feature,
-                new_layer,
-                {"Typ": "Hausanschluss"},
-            ):
-                number_of_new_points += 1
+            for candidate_id in candidate_ids:
+                if candidate_id <= feature.id():  # Avoid duplicate checks
+                    continue
 
-    if number_of_new_points:
-        log_debug(
-            f"Hausanschlüsse: {features_checked} Linien geprüft → "
-            f"{number_of_new_points} Hausanschlüsse gefunden.",
-            Qgis.Success,
-        )
-    else:
-        log_debug(
-            f"Hausanschlüsse: {features_checked} Linien geprüft, "
-            f"aber keine Hausanschlüsse gefunden!",
-            Qgis.Warning,
-        )
+                candidate_feature: QgsFeature = self.selected_layer.getFeature(
+                    candidate_id
+                )
+                candidate_geom: QgsGeometry = candidate_feature.geometry()
 
-    # Commit the changes to the new layer
-    if not new_layer.commitChanges():
-        raise_runtime_error("Failed to commit changes to the new layer.")
+                if not geom.intersects(candidate_geom):
+                    continue
 
-    return number_of_new_points
+                intersection: QgsGeometry = geom.intersection(candidate_geom)
+                intersection_point: QgsPointXY | None = (
+                    self._get_point_from_intersection(intersection)
+                )
 
+                if not intersection_point:
+                    continue
 
-def line_intersections(
-    selected_layer: QgsVectorLayer, new_layer: QgsVectorLayer
-) -> int:
-    """Find 3-way (or more) intersections of lines in the selected layer."""
-    number_of_new_points: int = 0
+                point_key: tuple[float, float] = (
+                    round(intersection_point.x(), 4),
+                    round(intersection_point.y(), 4),
+                )
+                if point_key in checked_intersections:
+                    continue
 
-    # Create a spatial index for the selected layer
-    index = QgsSpatialIndex(selected_layer.getFeatures())
+                checked_intersections.add(point_key)
 
-    # Start editing the new layer
-    if not new_layer.startEditing():
-        raise_runtime_error("Failed to start editing the new layer.")
+                search_geom: QgsGeometry = QgsGeometry.fromPointXY(
+                    intersection_point
+                ).buffer(self.T_ST_BUFFER, 5)
+                intersecting_features: list[QgsFeature] = (
+                    self._get_intersecting_features(search_geom)
+                )
 
-    # Iterate over each feature in the selected layer
-    for feature in get_all_features(selected_layer):
-        geom = feature.geometry()
+                if len(intersecting_features) >= 3 and self._create_feature(
+                    intersection, feature, {"Typ": "T-Stück"}
+                ):
+                    number_of_new_points += 1
 
-        # Find candidate intersecting features using the spatial index
-        candidate_ids = index.intersects(geom.boundingBox().buffered(T_ST_BUFFER))
-
-        # Check for actual intersections
-        for candidate_id in candidate_ids:
-            if candidate_id == feature.id():
-                continue
-
-            candidate_feature = selected_layer.getFeature(candidate_id)
-            candidate_geom = candidate_feature.geometry()
-
-            if geom.intersects(candidate_geom):
-                intersection = geom.intersection(candidate_geom)
-
-                # Check if the intersection is a point
-                if intersection.wkbType() == QgsWkbTypes.Point:
-                    # Buffer the intersection point to find nearby lines
-                    search_geom = intersection.buffer(T_ST_BUFFER, 5)
-                    search_rect = search_geom.boundingBox()
-                    request = QgsFeatureRequest().setFilterRect(search_rect)
-
-                    # Find all features that intersect with the intersection point
-                    intersecting_features = [
-                        f
-                        for f in selected_layer.getFeatures(request)
-                        if f.geometry().intersects(search_geom)
-                    ]
-
-                    # If we have a 3-way (or more) intersection, create a new point
-                    if len(intersecting_features) >= 3 and create_feature(
-                        intersection,
-                        feature,
-                        new_layer,
-                        {"Typ": "T-Stück"},
-                    ):
-                        number_of_new_points += 1
-    if number_of_new_points:
-        log_debug(
-            f"T-Stücke: {len(get_all_features(selected_layer))} Linien geprüft → "
-            f"{number_of_new_points} T-Stücke gefunden.",
-            Qgis.Success,
-        )
-    else:
-        log_debug(
-            f"T-Stücke: {len(get_all_features(selected_layer))} Linien geprüft, "
-            f"aber keine T-Stücke gefunden!",
-            Qgis.Warning,
-        )
-
-    # Commit the changes to the new layer
-    if not new_layer.commitChanges():
-        raise_runtime_error("Failed to commit changes to the new layer.")
-
-    return number_of_new_points
+        if number_of_new_points:
+            log_debug(
+                f"T-Stücke: {len(features)} Linien geprüft → "
+                f"{number_of_new_points} T-Stücke gefunden.",
+                Qgis.Success,
+            )
+        else:
+            log_debug(
+                f"T-Stücke: {len(features)} Linien geprüft, "
+                f"aber keine T-Stücke gefunden!",
+                Qgis.Warning,
+            )
+        return number_of_new_points

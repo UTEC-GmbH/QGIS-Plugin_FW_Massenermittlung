@@ -20,6 +20,7 @@
  ***************************************************************************
 """
 
+from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -33,7 +34,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from . import resources  # noqa: F401 - Import is necessary to load resources
-from .modules import find_stuff as find
+from .modules.find_stuff import FeatureFinder, FeatureType
 from .modules.general import LayerManager, UserError, raise_runtime_error
 
 if TYPE_CHECKING:
@@ -166,24 +167,32 @@ class Massenermittlung:
             selected_layer: QgsVectorLayer = layer_manager.selected_layer
             new_layer: QgsVectorLayer = layer_manager.new_layer
 
-            haus: int = find.unconnected_endpoints(
-                selected_layer=selected_layer, new_layer=new_layer
+            finder = FeatureFinder(selected_layer=selected_layer, new_layer=new_layer)
+
+            # Run the analysis
+            found_features: dict[str, int] = finder.find_features(
+                FeatureType.T_STUECKE | FeatureType.HAUSANSCHLUESSE
             )
-            t_st: int = find.line_intersections(
-                selected_layer=selected_layer, new_layer=new_layer
+
+            base_message: str = (
+                f"Massenermittlung für Layer '{selected_layer.name()}' abgeschlossen"
             )
+
+            found_parts: Generator[str, None, None] = (
+                f"{count} {name}" for name, count in found_features.items() if count > 0
+            )
+
+            details: str = " → ".join(found_parts)
 
             layer_manager.set_layer_style(new_layer)
 
             if self.iface and (msg_bar := self.iface.messageBar()):
-                msg_bar.pushMessage(
-                    "Success",
-                    f"Massenermittlung für Layer "
-                    f"'{selected_layer.name()}' abgeschlossen. → "
-                    f"{haus} Hausanschlüsse gefunden."
-                    f"{t_st} T-Stücke gefunden.",
-                    level=Qgis.Success,
+                message: str = (
+                    f"{base_message} → {details} gefunden."
+                    if details
+                    else f"{base_message}."
                 )
+                msg_bar.pushMessage("Success", message, level=Qgis.Success)
 
         except UserError:
             return
