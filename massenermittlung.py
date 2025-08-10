@@ -20,7 +20,6 @@
  ***************************************************************************
 """
 
-from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -38,6 +37,8 @@ from .modules.find_stuff import FeatureFinder, FeatureType
 from .modules.general import LayerManager, UserError, raise_runtime_error
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from qgis.core import QgsVectorLayer
 
 
@@ -133,16 +134,18 @@ class Massenermittlung:
         self.iface.pluginMenu().addMenu(self.plugin_menu)  # type: ignore[]
 
         if self.BUTTON_TYPE == "menu":
-            # Add a toolbutton to the toolbar to show the flyout menu
-            toolbar_button = QToolButton()
-            toolbar_button.setMenu(self.plugin_menu)
-            toolbar_button.setDefaultAction(run_action)  # Use an action's icon
-            toolbar_button.setPopupMode(QToolButton.InstantPopup)
-            toolbar_action = self.iface.addToolBarWidget(toolbar_button)
-            self.actions.append(toolbar_action)
+            self.create_toolbar_button(run_action)
         elif self.BUTTON_TYPE == "simple":
-            # Add a simple button to the toolbar
             self.iface.addToolBarIcon(run_action)
+
+    def create_toolbar_button(self, run_action: QAction) -> None:  # type: ignore[]
+        """Add a toolbutton to the toolbar to show the flyout menu"""
+        toolbar_button = QToolButton()
+        toolbar_button.setMenu(self.plugin_menu)
+        toolbar_button.setDefaultAction(run_action)
+        toolbar_button.setPopupMode(QToolButton.InstantPopup)
+        toolbar_action = self.iface.addToolBarWidget(toolbar_button)
+        self.actions.append(toolbar_action)
 
     def unload(self) -> None:
         """Plugin unload method.
@@ -171,7 +174,7 @@ class Massenermittlung:
 
             # Run the analysis
             found_features: dict[str, int] = finder.find_features(
-                FeatureType.T_STUECKE | FeatureType.HAUSANSCHLUESSE
+                FeatureType.T_STUECKE | FeatureType.HAUSANSCHLUESSE | FeatureType.BOEGEN
             )
 
             base_message: str = (

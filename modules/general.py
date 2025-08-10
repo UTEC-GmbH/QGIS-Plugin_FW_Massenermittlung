@@ -38,6 +38,22 @@ def log_debug(message: str, msg_level: Qgis.MessageLevel) -> None:
     QgsMessageLog.logMessage(message, "Massenermittlung", level=msg_level)
 
 
+def log_summary(item_name: str, checked_count: int, found_count: int) -> None:
+    """Log a summary message for a feature finding operation."""
+    if found_count:
+        log_debug(
+            f"{item_name}: {checked_count} Linien geprüft → "
+            f"{found_count} {item_name} gefunden.",
+            Qgis.Success,
+        )
+    else:
+        log_debug(
+            f"{item_name}: {checked_count} Linien geprüft, "
+            f"aber keine {item_name} gefunden!",
+            Qgis.Warning,
+        )
+
+
 def raise_runtime_error(error_msg: str) -> NoReturn:
     """Log a critical error and raise a RuntimeError.
 
