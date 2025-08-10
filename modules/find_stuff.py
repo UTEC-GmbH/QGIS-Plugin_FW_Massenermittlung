@@ -5,8 +5,8 @@ This module contains the FeatureFinder class that finds things in the selected l
 
 import math
 from enum import Flag, auto
+from typing import TYPE_CHECKING
 
-from qgis._core import QgsFields, QgsRectangle
 from qgis.core import (
     Qgis,
     QgsFeature,
@@ -19,7 +19,10 @@ from qgis.core import (
     QgsWkbTypes,
 )
 
-from .general import log_debug, log_summary, raise_runtime_error
+from .general import log_summary, raise_runtime_error
+
+if TYPE_CHECKING:
+    from qgis._core import QgsFields, QgsRectangle
 
 
 class FeatureType(Flag):
@@ -38,7 +41,8 @@ class FeatureFinder:
     MIN_POINTS_MULTILINE: int = 3
     SEARCH_RADIUS: float = 0.05
     T_ST_MIN_INTERSEC: int = 3
-    BOEGEN_MIN_ANGLE: int = 15
+    BOGEN_MIN_ANGLE: int = 15
+    TINY_NUMBER: float = 1e-6
 
     def __init__(
         self, selected_layer: QgsVectorLayer, new_layer: QgsVectorLayer
@@ -296,7 +300,7 @@ class FeatureFinder:
 
         vertex_map = {}
         for line in lines:
-            if len(line) < 2:
+            if len(line) < self.MIN_POINTS_LINE:
                 continue
             for i, point in enumerate(line):
                 key = (round(point.x(), 4), round(point.y(), 4))
@@ -307,20 +311,14 @@ class FeatureFinder:
                     vertex_map[key]["connections"].add(line[i + 1])
 
         bends = []
-        bends_debug = []
         for data in vertex_map.values():
             connections = list(data["connections"])
             if len(connections) == 2:
                 p2 = data["p"]
                 p1, p3 = connections[0], connections[1]
                 angle = self._calculate_angle(p1, p2, p3)
-                bends_debug.append((p2, angle))
-                if angle >= self.BOEGEN_MIN_ANGLE:
+                if angle >= self.BOGEN_MIN_ANGLE:
                     bends.append((p2, angle))
-
-        log_debug(
-            f"Internal angles for feature '{feature.id()}': {bends_debug}", Qgis.Info
-        )
 
         return bends
 
@@ -348,22 +346,16 @@ class FeatureFinder:
         )
 
         bends = []
-        bends_debug = []
         for p_intersect in points:
             dist_sq1, _, after_v1, __ = geom1.closestSegmentWithContext(p_intersect)
             dist_sq2, _, after_v2, __ = geom2.closestSegmentWithContext(p_intersect)
 
             if dist_sq1 < self.SEARCH_RADIUS and dist_sq2 < self.SEARCH_RADIUS:
-                # To avoid calculating an angle of 0, we need to make sure that the
-                # points for the angle calculation are not the same as the
-                # intersection point. This can happen if the intersection is at a
-                # vertex. We get both vertices of the segment and choose the one
-                # that is not the intersection point.
                 p1_start = geom1.vertexAt(after_v1 - 1)
                 p1_end = geom1.vertexAt(after_v1)
                 p1 = (
                     p1_end
-                    if p1_start.distance(QgsPoint(p_intersect)) < 1e-6
+                    if p1_start.distance(QgsPoint(p_intersect)) < self.TINY_NUMBER
                     else p1_start
                 )
 
@@ -371,25 +363,18 @@ class FeatureFinder:
                 p3_end = geom2.vertexAt(after_v2)
                 p3 = (
                     p3_end
-                    if p3_start.distance(QgsPoint(p_intersect)) < 1e-6
+                    if p3_start.distance(QgsPoint(p_intersect)) < self.TINY_NUMBER
                     else p3_start
                 )
 
                 angle = self._calculate_angle(p1, p_intersect, p3)
-                bends_debug.append((p_intersect, angle))
 
                 # Get the smallest angle
                 if angle > 90:
                     angle = 180 - angle
 
-                if angle >= self.BOEGEN_MIN_ANGLE:
+                if angle >= self.BOGEN_MIN_ANGLE:
                     bends.append((p_intersect, angle))
-
-        log_debug(
-            f"Intersection angles for features '{feature1.id()}' and '{feature2.id()}':"
-            f" {bends_debug}",
-            Qgis.Info,
-        )
 
         return bends
 
@@ -406,13 +391,12 @@ class FeatureFinder:
                 if key in checked_points:
                     continue
 
-                if not self._is_t_stueck(point):
-                    if self._create_feature(
-                        QgsGeometry.fromPointXY(point),
-                        feature,
-                        {"Typ": "Bogen", "Winkel": round(angle, 2)},
-                    ):
-                        number_of_new_points += 1
+                if not self._is_t_stueck(point) and self._create_feature(
+                    QgsGeometry.fromPointXY(point),
+                    feature,
+                    {"Typ": "Bogen", "Winkel": round(angle, 2)},
+                ):
+                    number_of_new_points += 1
 
                 checked_points.add(key)
 
@@ -426,13 +410,12 @@ class FeatureFinder:
                     if key in checked_points:
                         continue
 
-                    if not self._is_t_stueck(point):
-                        if self._create_feature(
-                            QgsGeometry.fromPointXY(point),
-                            feature1,  # or feature2, doesn't matter
-                            {"Typ": "Bogen", "Winkel": round(angle, 2)},
-                        ):
-                            number_of_new_points += 1
+                    if not self._is_t_stueck(point) and self._create_feature(
+                        QgsGeometry.fromPointXY(point),
+                        feature1,
+                        {"Typ": "Bogen", "Winkel": round(angle, 2)},
+                    ):
+                        number_of_new_points += 1
 
                     checked_points.add(key)
 
