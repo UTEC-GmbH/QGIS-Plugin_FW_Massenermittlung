@@ -17,10 +17,11 @@ from qgis.core import (
     QgsWkbTypes,
 )
 
+from . import constants as cont
 from .general import log_debug, log_summary, raise_runtime_error
 
 if TYPE_CHECKING:
-    from qgis.core import QgsFields, QgsRectangle
+    from qgis.core import QgsRectangle
 
 
 class FeatureType(Flag):
@@ -34,15 +35,6 @@ class FeatureType(Flag):
 
 class FeatureFinder:
     """A class to find different types of features in a vector layer."""
-
-    MIN_POINTS_LINE: int = 2  # Minimum number of points to consider a line
-    MIN_POINTS_MULTILINE: int = 3  # Minimum number of points to consider a multiline
-    MIN_INTERSEC: int = 2  # Minimum number of lines to consider an intersection
-    T_ST_MIN_INTERSEC: int = 3  # Minimum number of lines to consider a T-intersection
-
-    BOGEN_MIN_ANGLE: int = 15  # Minimum angle to consider a bent line
-    SEARCH_RADIUS: float = 0.05  # Search radius for intersections
-    TINY_NUMBER: float = 1e-6  # A very small number
 
     def __init__(
         self, selected_layer: QgsVectorLayer, new_layer: QgsVectorLayer
@@ -119,7 +111,7 @@ class FeatureFinder:
     ) -> list[int]:
         """Find intersecting feature IDs for a given point."""
         search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
-            self.SEARCH_RADIUS, 5
+            cont.Numbers.search_radius, 5
         )
         search_rect: QgsRectangle = search_geom.boundingBox()
         request: QgsFeatureRequest = QgsFeatureRequest().setFilterRect(search_rect)
@@ -134,29 +126,14 @@ class FeatureFinder:
             ]
         return []
 
-    def _create_feature(
-        self, geometry: QgsGeometry, source_feature: QgsFeature, attributes: dict
-    ) -> bool:
+    def _create_feature(self, geometry: QgsGeometry, attributes: dict) -> bool:
         """Create a new feature in the new layer."""
         new_feature = QgsFeature(self.new_layer.fields())
         new_feature.setGeometry(geometry)
 
-        new_fields: QgsFields = self.new_layer.fields()
-        source_field_names: set = {field.name() for field in source_feature.fields()}
-
-        attributes_list: list = [
-            source_feature.attribute(field.name())
-            if field.name() in source_field_names
-            else None
-            for field in new_fields
-        ]
-
         for field_name, value in attributes.items():
-            field_index: int = new_fields.indexOf(field_name)
-            if field_index != -1:
-                attributes_list[field_index] = value
+            new_feature.setAttribute(field_name, value)
 
-        new_feature.setAttributes(attributes_list)
         return self.new_layer.addFeature(new_feature)
 
     def _find_hausanschluesse(self, features: list[QgsFeature]) -> int:
@@ -169,8 +146,7 @@ class FeatureFinder:
                 )
                 if not intersecting_ids and self._create_feature(
                     QgsGeometry.fromPointXY(point),
-                    feature,
-                    {"Typ": "Hausanschluss"},
+                    {cont.NewLayerFields.typ.name: cont.Names.type_value_haus},
                 ):
                     number_of_new_points += 1
 
@@ -208,7 +184,7 @@ class FeatureFinder:
         for feature in features:
             geom: QgsGeometry = feature.geometry()
             candidate_ids: list[int] = self.selected_layer_index.intersects(
-                geom.boundingBox().buffered(self.SEARCH_RADIUS)
+                geom.boundingBox().buffered(cont.Numbers.search_radius)
             )
 
             for candidate_id in candidate_ids:
@@ -242,15 +218,16 @@ class FeatureFinder:
 
                 search_geom: QgsGeometry = QgsGeometry.fromPointXY(
                     intersection_point
-                ).buffer(self.SEARCH_RADIUS, 5)
+                ).buffer(cont.Numbers.search_radius, 5)
                 intersecting_features: list[QgsFeature] = (
                     self._get_intersecting_features(search_geom)
                 )
 
                 if len(
                     intersecting_features
-                ) >= self.T_ST_MIN_INTERSEC and self._create_feature(
-                    intersection, feature, {"Typ": "T-Stück"}
+                ) >= cont.Numbers.min_intersec_t and self._create_feature(
+                    intersection,
+                    {cont.NewLayerFields.typ.name: cont.Names.type_value_t_st},
                 ):
                     number_of_new_points += 1
 
@@ -264,10 +241,9 @@ class FeatureFinder:
         The result is the interior angle (0-180 degrees).
         """
 
-        circle_semi: float = 180
         # Check for coincident points which would make angle calculation invalid.
-        if p2.compare(p1, FeatureFinder.TINY_NUMBER) or p2.compare(
-            p3, FeatureFinder.TINY_NUMBER
+        if p2.compare(p1, cont.Numbers.tiny_number) or p2.compare(
+            p3, cont.Numbers.tiny_number
         ):
             log_debug("Coinciding points found.", Qgis.Warning)
             return 0.0
@@ -277,20 +253,20 @@ class FeatureFinder:
 
         angle: float = abs(azimuth1 - azimuth2)
 
-        if angle > circle_semi:
-            angle = 360 - angle
+        if angle > cont.Numbers.circle_semi:
+            angle = cont.Numbers.circle_full - angle
 
-        return circle_semi - angle
+        return cont.Numbers.circle_semi - angle
 
     def _is_t_stueck(self, point: QgsPointXY) -> bool:
         """Check if a point is a T-intersection."""
         search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
-            self.SEARCH_RADIUS, 5
+            cont.Numbers.search_radius, 5
         )
         intersecting_features: list[QgsFeature] = self._get_intersecting_features(
             search_geom
         )
-        return len(intersecting_features) >= self.T_ST_MIN_INTERSEC
+        return len(intersecting_features) >= cont.Numbers.min_intersec_t
 
     def _get_internal_angles(
         self, feature: QgsFeature
@@ -312,7 +288,7 @@ class FeatureFinder:
 
         vertex_map: dict = {}
         for line in lines:
-            if len(line) < self.MIN_POINTS_LINE:
+            if len(line) < cont.Numbers.min_points_line:
                 continue
             for i, point in enumerate(line):
                 key: tuple = (round(point.x(), 4), round(point.y(), 4))
@@ -325,12 +301,12 @@ class FeatureFinder:
         bends: list = []
         for data in vertex_map.values():
             connections: list = list(data["connections"])
-            if len(connections) == self.MIN_INTERSEC:
+            if len(connections) == cont.Numbers.min_intersec:
                 p2 = data["p"]
                 p1, p3 = connections[0], connections[1]
                 angle: float = self._calculate_angle(p1, p2, p3)
 
-                if angle >= self.BOGEN_MIN_ANGLE:
+                if angle >= cont.Numbers.min_angle_bogen:
                     bends.append((p2, angle))
         return bends
 
@@ -362,12 +338,15 @@ class FeatureFinder:
             dist_sq1, _, after_v1, __ = geom1.closestSegmentWithContext(p_intersect)
             dist_sq2, _, after_v2, __ = geom2.closestSegmentWithContext(p_intersect)
 
-            if dist_sq1 < self.SEARCH_RADIUS and dist_sq2 < self.SEARCH_RADIUS:
+            if (
+                dist_sq1 < cont.Numbers.search_radius
+                and dist_sq2 < cont.Numbers.search_radius
+            ):
                 p1_start: QgsPointXY = QgsPointXY(geom1.vertexAt(after_v1 - 1))
                 p1_end: QgsPointXY = QgsPointXY(geom1.vertexAt(after_v1))
                 p1: QgsPointXY = (
                     p1_end
-                    if p1_start.distance(p_intersect) < self.TINY_NUMBER
+                    if p1_start.distance(p_intersect) < cont.Numbers.tiny_number
                     else p1_start
                 )
 
@@ -375,13 +354,13 @@ class FeatureFinder:
                 p3_end: QgsPointXY = QgsPointXY(geom2.vertexAt(after_v2))
                 p3: QgsPointXY = (
                     p3_end
-                    if p3_start.distance(p_intersect) < self.TINY_NUMBER
+                    if p3_start.distance(p_intersect) < cont.Numbers.tiny_number
                     else p3_start
                 )
 
                 angle: float = self._calculate_angle(p1, p_intersect, p3)
 
-                if angle >= self.BOGEN_MIN_ANGLE:
+                if angle >= cont.Numbers.min_angle_bogen:
                     bends.append((p_intersect, angle))
 
         return bends
@@ -403,8 +382,10 @@ class FeatureFinder:
 
                 if not self._is_t_stueck(point) and self._create_feature(
                     QgsGeometry.fromPointXY(point),
-                    feature,
-                    {"Typ": "Bogen", "Winkel": round(angle, 2)},
+                    {
+                        cont.NewLayerFields.typ.name: cont.Names.type_value_bogen,
+                        cont.NewLayerFields.winkel.name: angle,
+                    },
                 ):
                     number_of_new_points += 1
 
@@ -424,8 +405,10 @@ class FeatureFinder:
 
                     if not self._is_t_stueck(point) and self._create_feature(
                         QgsGeometry.fromPointXY(point),
-                        feature1,
-                        {"Typ": "Bogen", "Winkel": round(angle, 2)},
+                        {
+                            cont.NewLayerFields.typ.name: cont.Names.type_value_bogen,
+                            cont.NewLayerFields.winkel.name: round(angle, 2),
+                        },
                     ):
                         number_of_new_points += 1
 
