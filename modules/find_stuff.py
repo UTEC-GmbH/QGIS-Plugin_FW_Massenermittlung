@@ -3,7 +3,6 @@
 This module contains the FeatureFinder class that finds things in the selected layer.
 """
 
-import math
 from enum import Flag, auto
 from typing import TYPE_CHECKING
 
@@ -12,17 +11,16 @@ from qgis.core import (
     QgsFeature,
     QgsFeatureRequest,
     QgsGeometry,
-    QgsPoint,
     QgsPointXY,
     QgsSpatialIndex,
     QgsVectorLayer,
     QgsWkbTypes,
 )
 
-from .general import log_summary, raise_runtime_error
+from .general import log_debug, log_summary, raise_runtime_error
 
 if TYPE_CHECKING:
-    from qgis._core import QgsFields, QgsRectangle
+    from qgis.core import QgsFields, QgsRectangle
 
 
 class FeatureType(Flag):
@@ -37,12 +35,14 @@ class FeatureType(Flag):
 class FeatureFinder:
     """A class to find different types of features in a vector layer."""
 
-    MIN_POINTS_LINE: int = 2
-    MIN_POINTS_MULTILINE: int = 3
-    SEARCH_RADIUS: float = 0.05
-    T_ST_MIN_INTERSEC: int = 3
-    BOGEN_MIN_ANGLE: int = 15
-    TINY_NUMBER: float = 1e-6
+    MIN_POINTS_LINE: int = 2  # Minimum number of points to consider a line
+    MIN_POINTS_MULTILINE: int = 3  # Minimum number of points to consider a multiline
+    MIN_INTERSEC: int = 2  # Minimum number of lines to consider an intersection
+    T_ST_MIN_INTERSEC: int = 3  # Minimum number of lines to consider a T-intersection
+
+    BOGEN_MIN_ANGLE: int = 15  # Minimum angle to consider a bent line
+    SEARCH_RADIUS: float = 0.05  # Search radius for intersections
+    TINY_NUMBER: float = 1e-6  # A very small number
 
     def __init__(
         self, selected_layer: QgsVectorLayer, new_layer: QgsVectorLayer
@@ -124,7 +124,7 @@ class FeatureFinder:
         search_rect: QgsRectangle = search_geom.boundingBox()
         request: QgsFeatureRequest = QgsFeatureRequest().setFilterRect(search_rect)
 
-        candidates: list[QgsFeature] = list(self.selected_layer.getFeatures(request))
+        candidates = iter(self.selected_layer.getFeatures(request))
         if candidates is not None:
             return [
                 feat.id()
@@ -144,13 +144,12 @@ class FeatureFinder:
         new_fields: QgsFields = self.new_layer.fields()
         source_field_names: set = {field.name() for field in source_feature.fields()}
 
-        attributes_list: list = []
-        for field in new_fields:
-            field_name: str = field.name()
-            if field_name in source_field_names:
-                attributes_list.append(source_feature.attribute(field_name))
-            else:
-                attributes_list.append(None)
+        attributes_list: list = [
+            source_feature.attribute(field.name())
+            if field.name() in source_field_names
+            else None
+            for field in new_fields
+        ]
 
         for field_name, value in attributes.items():
             field_index: int = new_fields.indexOf(field_name)
@@ -191,13 +190,14 @@ class FeatureFinder:
         return None
 
     def _get_intersecting_features(self, search_geom: QgsGeometry) -> list[QgsFeature]:
-        """Get all features intersecting with the given geometry."""
         search_rect: QgsRectangle = search_geom.boundingBox()
-        request: QgsFeatureRequest = QgsFeatureRequest().setFilterRect(search_rect)
+        candidate_ids = self.selected_layer_index.intersects(search_rect)
         return [
-            feat
-            for feat in list(self.selected_layer.getFeatures(request))
-            if feat.geometry().intersects(search_geom)
+            self.selected_layer.getFeature(feat_id)
+            for feat_id in candidate_ids
+            if self.selected_layer.getFeature(feat_id)
+            .geometry()
+            .intersects(search_geom)
         ]
 
     def _find_t_stuecke(self, features: list[QgsFeature]) -> int:
@@ -259,25 +259,35 @@ class FeatureFinder:
 
     @staticmethod
     def _calculate_angle(p1: QgsPointXY, p2: QgsPointXY, p3: QgsPointXY) -> float:
-        """Calculate the angle between three points in degrees."""
-        v1: tuple[float, float] = (p1.x() - p2.x(), p1.y() - p2.y())
-        v2: tuple[float, float] = (p3.x() - p2.x(), p3.y() - p2.y())
+        """Calculate the angle between three points in degrees using azimuths.
 
-        dot_product: float = v1[0] * v2[0] + v1[1] * v2[1]
-        mag_v1: float = math.sqrt(v1[0] ** 2 + v1[1] ** 2)
-        mag_v2: float = math.sqrt(v2[0] ** 2 + v2[1] ** 2)
+        The result is the interior angle (0-180 degrees).
+        """
 
-        if mag_v1 == 0 or mag_v2 == 0:
+        circle_semi: float = 180
+        # Check for coincident points which would make angle calculation invalid.
+        if p2.compare(p1, 0.0001) or p2.compare(p3, 0.0001):
+            log_debug("Coinciding points found.", Qgis.Warning)
             return 0.0
 
-        cosine_angle: float = dot_product / (mag_v1 * mag_v2)
-        angle: float = math.degrees(math.acos(max(min(cosine_angle, 1.0), -1.0)))
-        return 180 - angle
+        azimuth1: float = p2.azimuth(p1)
+        azimuth2: float = p2.azimuth(p3)
+
+        angle: float = abs(azimuth1 - azimuth2)
+
+        if angle > circle_semi:
+            angle = 360 - angle
+
+        return circle_semi - angle
 
     def _is_t_stueck(self, point: QgsPointXY) -> bool:
         """Check if a point is a T-intersection."""
-        search_geom = QgsGeometry.fromPointXY(point).buffer(self.SEARCH_RADIUS, 5)
-        intersecting_features = self._get_intersecting_features(search_geom)
+        search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
+            self.SEARCH_RADIUS, 5
+        )
+        intersecting_features: list[QgsFeature] = self._get_intersecting_features(
+            search_geom
+        )
         return len(intersecting_features) >= self.T_ST_MIN_INTERSEC
 
     def _get_internal_angles(
@@ -285,93 +295,89 @@ class FeatureFinder:
     ) -> list[tuple[QgsPointXY, float]]:
         """Find all angles at vertices and joints within a single feature."""
 
-        geom = feature.geometry()
+        geom: QgsGeometry = feature.geometry()
         if not geom or geom.wkbType() not in [
             QgsWkbTypes.LineString,
             QgsWkbTypes.MultiLineString,
         ]:
             return []
 
-        lines = (
+        lines: list = (
             geom.asMultiPolyline()
             if geom.wkbType() == QgsWkbTypes.MultiLineString
             else [geom.asPolyline()]
         )
 
-        vertex_map = {}
+        vertex_map: dict = {}
         for line in lines:
             if len(line) < self.MIN_POINTS_LINE:
                 continue
             for i, point in enumerate(line):
-                key = (round(point.x(), 4), round(point.y(), 4))
+                key: tuple = (round(point.x(), 4), round(point.y(), 4))
                 vertex_map.setdefault(key, {"p": point, "connections": set()})
                 if i > 0:
                     vertex_map[key]["connections"].add(line[i - 1])
                 if i < len(line) - 1:
                     vertex_map[key]["connections"].add(line[i + 1])
 
-        bends = []
+        bends: list = []
         for data in vertex_map.values():
-            connections = list(data["connections"])
-            if len(connections) == 2:
+            connections: list = list(data["connections"])
+            if len(connections) == self.MIN_INTERSEC:
                 p2 = data["p"]
                 p1, p3 = connections[0], connections[1]
-                angle = self._calculate_angle(p1, p2, p3)
+                angle: float = self._calculate_angle(p1, p2, p3)
+
                 if angle >= self.BOGEN_MIN_ANGLE:
                     bends.append((p2, angle))
-
         return bends
 
     def _get_intersection_angles(
         self, feature1: QgsFeature, feature2: QgsFeature
     ) -> list[tuple[QgsPointXY, float]]:
         """Find all intersection angles between two features."""
-        geom1 = feature1.geometry()
-        geom2 = feature2.geometry()
+        geom1: QgsGeometry = feature1.geometry()
+        geom2: QgsGeometry = feature2.geometry()
 
         if not geom1 or not geom2 or not geom1.intersects(geom2):
             return []
 
-        intersection = geom1.intersection(geom2)
+        intersection: QgsGeometry = geom1.intersection(geom2)
         if intersection.isEmpty() or intersection.wkbType() not in [
             QgsWkbTypes.Point,
             QgsWkbTypes.MultiPoint,
         ]:
             return []
 
-        points = (
+        points: list = (
             intersection.asMultiPoint()
             if intersection.wkbType() == QgsWkbTypes.MultiPoint
             else [intersection.asPoint()]
         )
 
-        bends = []
+        bends: list = []
         for p_intersect in points:
             dist_sq1, _, after_v1, __ = geom1.closestSegmentWithContext(p_intersect)
             dist_sq2, _, after_v2, __ = geom2.closestSegmentWithContext(p_intersect)
 
             if dist_sq1 < self.SEARCH_RADIUS and dist_sq2 < self.SEARCH_RADIUS:
-                p1_start = geom1.vertexAt(after_v1 - 1)
-                p1_end = geom1.vertexAt(after_v1)
-                p1 = (
+                p1_start: QgsPointXY = QgsPointXY(geom1.vertexAt(after_v1 - 1))
+                p1_end: QgsPointXY = QgsPointXY(geom1.vertexAt(after_v1))
+                p1: QgsPointXY = (
                     p1_end
-                    if p1_start.distance(QgsPoint(p_intersect)) < self.TINY_NUMBER
+                    if p1_start.distance(p_intersect) < self.TINY_NUMBER
                     else p1_start
                 )
 
-                p3_start = geom2.vertexAt(after_v2 - 1)
-                p3_end = geom2.vertexAt(after_v2)
-                p3 = (
+                p3_start: QgsPointXY = QgsPointXY(geom2.vertexAt(after_v2 - 1))
+                p3_end: QgsPointXY = QgsPointXY(geom2.vertexAt(after_v2))
+                p3: QgsPointXY = (
                     p3_end
-                    if p3_start.distance(QgsPoint(p_intersect)) < self.TINY_NUMBER
+                    if p3_start.distance(p_intersect) < self.TINY_NUMBER
                     else p3_start
                 )
 
-                angle = self._calculate_angle(p1, p_intersect, p3)
-
-                # Get the smallest angle
-                if angle > 90:
-                    angle = 180 - angle
+                angle: float = self._calculate_angle(p1, p_intersect, p3)
 
                 if angle >= self.BOGEN_MIN_ANGLE:
                     bends.append((p_intersect, angle))
@@ -385,9 +391,11 @@ class FeatureFinder:
 
         # Part 1: Find internal angles
         for feature in features:
-            internal_bends = self._get_internal_angles(feature)
+            internal_bends: list[tuple[QgsPointXY, float]] = self._get_internal_angles(
+                feature
+            )
             for point, angle in internal_bends:
-                key = (round(point.x(), 4), round(point.y(), 4))
+                key: tuple[float, float] = (round(point.x(), 4), round(point.y(), 4))
                 if key in checked_points:
                     continue
 
@@ -403,8 +411,10 @@ class FeatureFinder:
         # Part 2: Find intersection angles
         for i, feature1 in enumerate(features):
             for j in range(i + 1, len(features)):
-                feature2 = features[j]
-                intersection_bends = self._get_intersection_angles(feature1, feature2)
+                feature2: QgsFeature = features[j]
+                intersection_bends: list[tuple[QgsPointXY, float]] = (
+                    self._get_intersection_angles(feature1, feature2)
+                )
                 for point, angle in intersection_bends:
                     key = (round(point.x(), 4), round(point.y(), 4))
                     if key in checked_points:

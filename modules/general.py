@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import NoReturn
 
 from osgeo import ogr
-from PyQt5.QtCore import QVariant
 from qgis.core import (
     Qgis,
     QgsCoordinateTransform,
@@ -28,6 +27,7 @@ from qgis.core import (
     QgsWkbTypes,
 )
 from qgis.gui import QgisInterface, QgsLayerTreeView
+from qgis.PyQt.QtCore import QMetaType  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def log_debug(message: str, msg_level: Qgis.MessageLevel) -> None:
@@ -328,7 +328,12 @@ class LayerManager:
                 f"Could not get data provider for layer: {empty_layer.name()}"
             )
 
-        data_provider.addAttributes([QgsField("Typ", QVariant.String)])
+        data_provider.addAttributes(
+            [
+                QgsField("Typ", QMetaType.Type.QString),
+                QgsField("Winkel", QMetaType.Type.Double),
+            ]
+        )
         data_provider.addAttributes(self.selected_layer.fields())
         empty_layer.updateFields()
 
