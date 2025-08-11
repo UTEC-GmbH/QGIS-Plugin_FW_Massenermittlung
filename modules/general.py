@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import NoReturn
 
 from osgeo import ogr
-from PyQt5.QtCore import QVariant
 from qgis.core import (
     Qgis,
     QgsCoordinateTransform,
@@ -28,6 +27,7 @@ from qgis.core import (
     QgsWkbTypes,
 )
 from qgis.gui import QgisInterface, QgsLayerTreeView
+from qgis.PyQt.QtCore import QMetaType  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def log_debug(message: str, msg_level: Qgis.MessageLevel) -> None:
@@ -36,6 +36,22 @@ def log_debug(message: str, msg_level: Qgis.MessageLevel) -> None:
     :param message: The message to log.
     """
     QgsMessageLog.logMessage(message, "Massenermittlung", level=msg_level)
+
+
+def log_summary(item_name: str, checked_count: int, found_count: int) -> None:
+    """Log a summary message for a feature finding operation."""
+    if found_count:
+        log_debug(
+            f"{item_name}: {checked_count} Linien geprüft → "
+            f"{found_count} {item_name} gefunden.",
+            Qgis.Success,
+        )
+    else:
+        log_debug(
+            f"{item_name}: {checked_count} Linien geprüft, "
+            f"aber keine {item_name} gefunden!",
+            Qgis.Warning,
+        )
 
 
 def raise_runtime_error(error_msg: str) -> NoReturn:
@@ -312,7 +328,12 @@ class LayerManager:
                 f"Could not get data provider for layer: {empty_layer.name()}"
             )
 
-        data_provider.addAttributes([QgsField("Typ", QVariant.String)])
+        data_provider.addAttributes(
+            [
+                QgsField("Typ", QMetaType.Type.QString),
+                QgsField("Winkel", QMetaType.Type.Double),
+            ]
+        )
         data_provider.addAttributes(self.selected_layer.fields())
         empty_layer.updateFields()
 
