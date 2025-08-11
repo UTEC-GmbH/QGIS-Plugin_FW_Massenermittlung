@@ -266,7 +266,9 @@ class FeatureFinder:
 
         circle_semi: float = 180
         # Check for coincident points which would make angle calculation invalid.
-        if p2.compare(p1, 0.0001) or p2.compare(p3, 0.0001):
+        if p2.compare(p1, FeatureFinder.TINY_NUMBER) or p2.compare(
+            p3, FeatureFinder.TINY_NUMBER
+        ):
             log_debug("Coinciding points found.", Qgis.Warning)
             return 0.0
 
