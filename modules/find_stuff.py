@@ -136,6 +136,26 @@ class FeatureFinder:
 
         return self.new_layer.addFeature(new_feature)
 
+    def _get_connected_attributes(self, connected_features: list[QgsFeature]) -> dict:
+        """Get attributes from connected features."""
+        connected_ids: list[str] = sorted({str(f.id()) for f in connected_features})
+        attributes: dict = {
+            cont.NewLayerFields.verbundene_linien.name: " / ".join(connected_ids)
+        }
+        # Get dimension values if the field exists
+        dim_field: str = cont.Names.sel_layer_field_dim
+        if self.selected_layer.fields().lookupField(dim_field) != -1:
+            dims: list[str] = sorted(
+                {
+                    str(f[dim_field])
+                    for f in connected_features
+                    if f.attribute(dim_field) is not None
+                }
+            )
+            attributes[cont.NewLayerFields.dimensionen.name] = " / ".join(dims)
+
+        return attributes
+
     def _find_hausanschluesse(self, features: list[QgsFeature]) -> int:
         """Find the endpoints of lines that are not connected to other lines."""
         number_of_new_points = 0
@@ -144,11 +164,13 @@ class FeatureFinder:
                 intersecting_ids: list[int] = self._find_intersecting_feature_ids(
                     point, feature.id()
                 )
-                if not intersecting_ids and self._create_feature(
-                    QgsGeometry.fromPointXY(point),
-                    {cont.NewLayerFields.typ.name: cont.Names.type_value_haus},
-                ):
-                    number_of_new_points += 1
+                if not intersecting_ids:
+                    attributes = {
+                        cont.NewLayerFields.typ.name: cont.Names.type_value_haus
+                    }
+                    attributes |= self._get_connected_attributes([feature])
+                    if self._create_feature(QgsGeometry.fromPointXY(point), attributes):
+                        number_of_new_points += 1
 
         log_summary("Hausanschlüsse", len(features), number_of_new_points)
         return number_of_new_points
@@ -223,13 +245,13 @@ class FeatureFinder:
                     self._get_intersecting_features(search_geom)
                 )
 
-                if len(
-                    intersecting_features
-                ) >= cont.Numbers.min_intersec_t and self._create_feature(
-                    intersection,
-                    {cont.NewLayerFields.typ.name: cont.Names.type_value_t_st},
-                ):
-                    number_of_new_points += 1
+                if len(intersecting_features) >= cont.Numbers.min_intersec_t:
+                    attributes = {
+                        cont.NewLayerFields.typ.name: cont.Names.type_value_t_st
+                    }
+                    attributes |= self._get_connected_attributes(intersecting_features)
+                    if self._create_feature(intersection, attributes):
+                        number_of_new_points += 1
 
         log_summary("T-Stücke", len(features), number_of_new_points)
         return number_of_new_points
@@ -380,14 +402,14 @@ class FeatureFinder:
                 if key in checked_points:
                     continue
 
-                if not self._is_t_stueck(point) and self._create_feature(
-                    QgsGeometry.fromPointXY(point),
-                    {
+                if not self._is_t_stueck(point):
+                    attributes = {
                         cont.NewLayerFields.typ.name: cont.Names.type_value_bogen,
                         cont.NewLayerFields.winkel.name: angle,
-                    },
-                ):
-                    number_of_new_points += 1
+                    }
+                    attributes |= self._get_connected_attributes([feature])
+                    if self._create_feature(QgsGeometry.fromPointXY(point), attributes):
+                        number_of_new_points += 1
 
                 checked_points.add(key)
 
@@ -403,14 +425,18 @@ class FeatureFinder:
                     if key in checked_points:
                         continue
 
-                    if not self._is_t_stueck(point) and self._create_feature(
-                        QgsGeometry.fromPointXY(point),
-                        {
+                    if not self._is_t_stueck(point):
+                        attributes = {
                             cont.NewLayerFields.typ.name: cont.Names.type_value_bogen,
                             cont.NewLayerFields.winkel.name: round(angle, 2),
-                        },
-                    ):
-                        number_of_new_points += 1
+                        }
+                        attributes |= self._get_connected_attributes(
+                            [feature1, feature2]
+                        )
+                        if self._create_feature(
+                            QgsGeometry.fromPointXY(point), attributes
+                        ):
+                            number_of_new_points += 1
 
                     checked_points.add(key)
 
