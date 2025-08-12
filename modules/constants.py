@@ -10,6 +10,18 @@ from qgis.PyQt.QtCore import QMetaType as QMeT  # type: ignore[]
 
 
 @dataclass
+class Colours:
+    """Class: Colours
+
+    This class contains colour constants.
+    """
+
+    bogen: str = "#668000"
+    haus: str = "#55ddff"
+    t_st: str = "#e2b60a"
+
+
+@dataclass
 class Names:
     """Class: Names
 
@@ -17,15 +29,18 @@ class Names:
     """
 
     new_layer_suffix: str = " - Massenermittlung"
+    dim_prefix: str = "DN"
+    dim_separator: str = "/"
+    line_separator: str = " / "
 
     # Namen für Saplten der Attributtabelle des alten (gewälten) Layers
     sel_layer_field_dim: str = "diameter"
 
     # Namen für Spalten der Attributtabelle des neuen Layers
     field_type: str = "Typ"
-    field_winkel: str = "Winkel"
+    field_winkel: str = "Bogen-Winkel"
     field_verbundene_linien: str = "verbundene Leitungen"
-    field_dimension: str = "Dimensionen (DN)"
+    field_dimension: str = "Dimensionen"
 
     # Werte der Spalte 'Typ' (Kategorien der Massenermittlung)
     type_value_haus: str = "Hausanschluss"
@@ -58,7 +73,9 @@ class Numbers:
     # A very small number used for floating point comparisons.
     tiny_number: float = 1e-6
 
-    new_layer_font_size: int = 7
+    new_layer_font_size: int = 8
+    new_layer_label_mask_size: float = 0.8
+    new_layer_label_distance: float = 2.5
 
 
 @dataclass
@@ -76,11 +93,11 @@ class NewLayerFields:
     """Constants for layer field attributes, accessible via dot notation."""
 
     typ = FieldAttributes(Names.field_type, QMeT.Type.QString)
-    winkel = FieldAttributes(Names.field_winkel, QMeT.Type.Double)
     verbundene_linien = FieldAttributes(
         Names.field_verbundene_linien, QMeT.Type.QString
     )
     dimensionen = FieldAttributes(Names.field_dimension, QMeT.Type.QString)
+    winkel = FieldAttributes(Names.field_winkel, QMeT.Type.Double)
 
     def __iter__(self) -> Generator[FieldAttributes, None, None]:
         """Make the class iterable."""

@@ -140,19 +140,23 @@ class FeatureFinder:
         """Get attributes from connected features."""
         connected_ids: list[str] = sorted({str(f.id()) for f in connected_features})
         attributes: dict = {
-            cont.NewLayerFields.verbundene_linien.name: " / ".join(connected_ids)
+            cont.NewLayerFields.verbundene_linien.name: cont.Names.line_separator.join(
+                connected_ids
+            )
         }
         # Get dimension values if the field exists
         dim_field: str = cont.Names.sel_layer_field_dim
         if self.selected_layer.fields().lookupField(dim_field) != -1:
             dims: list[str] = sorted(
                 {
-                    str(f[dim_field])
-                    for f in connected_features
-                    if f.attribute(dim_field) is not None
+                    f"{cont.Names.dim_prefix}{feat[dim_field]}"
+                    for feat in connected_features
+                    if feat.attribute(dim_field) is not None
                 }
             )
-            attributes[cont.NewLayerFields.dimensionen.name] = " / ".join(dims)
+            attributes[cont.NewLayerFields.dimensionen.name] = (
+                cont.Names.dim_separator.join(dims)
+            )
 
         return attributes
 
@@ -258,10 +262,7 @@ class FeatureFinder:
 
     @staticmethod
     def _calculate_angle(p1: QgsPointXY, p2: QgsPointXY, p3: QgsPointXY) -> float:
-        """Calculate the angle between three points in degrees using azimuths.
-
-        The result is the interior angle (0-180 degrees).
-        """
+        """Calculate the angle between three points in degrees using azimuths."""
 
         # Check for coincident points which would make angle calculation invalid.
         if p2.compare(p1, cont.Numbers.tiny_number) or p2.compare(
