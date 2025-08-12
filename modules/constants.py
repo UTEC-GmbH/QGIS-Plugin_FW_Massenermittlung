@@ -40,30 +40,25 @@ class Numbers:
 
     This class contains numeric constants used throughout the plugin.
 
-    Attributes:
-        circle_full (float): The number of degrees in a full circle.
-        circle_semi (float): The number of degrees in a semi-circle.
-        min_points_line (int): Minimum number of points for a line.
-        min_points_multiline (int): Minimum number of points for a multiline.
-        min_intersec (int): Minimum number of lines to consider an intersection.
-        min_intersec_t (int): Minimum number of lines to consider a T-intersection.
-        min_angle_bogen (int): Minimum angle to consider a bent line as 'Bogen'.
-        search_radius (float): Search radius for finding intersections betweenlines.
-        tiny_number (float): A very small number used for floating pointcomparisons.
     """
 
-    circle_full: float = 360
-    circle_semi: float = 180
+    circle_full: float = 360  # The number of degrees in a full circle.
+    circle_semi: float = 180  # The number of degrees in a semi-circle.
 
-    min_points_line: int = 2
-    min_points_multiline: int = 3
+    min_points_line: int = 2  # Minimum number of points for a line.
+    min_points_multiline: int = 3  # Minimum number of points for a multiline.
 
-    min_intersec: int = 2
-    min_intersec_t: int = 3
-    min_angle_bogen: int = 15
+    min_intersec: int = 2  # Minimum number of lines to consider an intersection.
+    min_intersec_t: int = 3  # Minimum number of lines to consider a T-intersection.
+    min_angle_bogen: int = 15  # Minimum angle to consider a bent line as 'Bogen'.
 
+    # Search radius for finding intersections between lines.
     search_radius: float = 0.05
+
+    # A very small number used for floating point comparisons.
     tiny_number: float = 1e-6
+
+    new_layer_font_size: int = 7
 
 
 @dataclass

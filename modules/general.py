@@ -17,10 +17,13 @@ from qgis.core import (
     QgsLayerTree,
     QgsLayerTreeNode,
     QgsMessageLog,
+    QgsPalLayerSettings,
     QgsProject,
+    QgsRuleBasedLabeling,
     QgsRuleBasedRenderer,
     QgsSvgMarkerSymbolLayer,
     QgsSymbol,
+    QgsTextFormat,
     QgsVectorDataProvider,
     QgsVectorFileWriter,
     QgsVectorLayer,
@@ -395,18 +398,24 @@ class LayerManager:
         # Define the rules for each 'Typ'
         rules_data: list[dict[str, str]] = [
             {
-                "name": "Hausanschluss",
-                "filter": "\"Typ\" = 'Hausanschluss'",
+                "name": cont.Names.type_value_haus,
+                "filter": (
+                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_haus}'"
+                ),
                 "symbol": str(style_path / "Hausanschluss.svg"),
             },
             {
-                "name": "T-Stück",
-                "filter": "\"Typ\" = 'T-Stück'",
+                "name": cont.Names.type_value_t_st,
+                "filter": (
+                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_t_st}'"
+                ),
                 "symbol": str(style_path / "T-Stück.svg"),
             },
             {
-                "name": "Bogen",
-                "filter": "\"Typ\" = 'Bogen'",
+                "name": cont.Names.type_value_bogen,
+                "filter": (
+                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_bogen}'"
+                ),
                 "symbol": str(style_path / "Bogen.svg"),
             },
         ]
@@ -434,6 +443,48 @@ class LayerManager:
         # Remove the default rule
         root_rule.removeChildAt(0)
 
-        # Apply the renderer to the layer
+        # Labeling rules
+        root_label_rule = QgsRuleBasedLabeling.Rule(QgsPalLayerSettings())
+        labeling = QgsRuleBasedLabeling(root_label_rule)
+
+        label_rules_data: list[dict[str, str]] = [
+            {
+                "filter": (
+                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_haus}'"
+                ),
+                "expression": f'"{cont.Names.field_dimension}"',
+            },
+            {
+                "filter": (
+                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_t_st}'"
+                ),
+                "expression": f'"{cont.Names.field_dimension}"',
+            },
+            {
+                "filter": (
+                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_bogen}'"
+                ),
+                "expression": (
+                    f"'DN' || \"{cont.Names.field_dimension}\" ||'; '|| "
+                    f"format_number(\"{cont.Names.field_winkel}\") ||'°'"
+                ),
+            },
+        ]
+
+        for data in label_rules_data:
+            settings = QgsPalLayerSettings()
+            settings.fieldName = data["expression"]
+
+            text_format = QgsTextFormat()
+            text_format.setSize(cont.Numbers.new_layer_font_size)
+            settings.setFormat(text_format)
+
+            label_rule = QgsRuleBasedLabeling.Rule(settings)
+            label_rule.setFilterExpression(data["filter"])
+            root_label_rule.appendChild(label_rule)
+
+        layer.setLabeling(labeling)
+        layer.setLabelsEnabled(True)
         layer.setRenderer(renderer)
+        layer.emitStyleChanged()
         layer.triggerRepaint()
