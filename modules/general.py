@@ -27,10 +27,11 @@ from qgis.core import (
     QgsWkbTypes,
 )
 from qgis.gui import QgisInterface, QgsLayerTreeView
-from qgis.PyQt.QtCore import QMetaType  # pyright: ignore[reportAttributeAccessIssue]
+
+from . import constants as cont
 
 
-def log_debug(message: str, msg_level: Qgis.MessageLevel) -> None:
+def log_debug(message: str, msg_level: Qgis.MessageLevel = Qgis.Info) -> None:
     """Log a debug message.
 
     :param message: The message to log.
@@ -311,7 +312,8 @@ class LayerManager:
 
         gpkg_path: Path = project_gpkg()
         new_layer_name: str = (
-            f"{self.fix_layer_name(self.selected_layer.name())} - Massenermittlung"
+            f"{self.fix_layer_name(self.selected_layer.name())}"
+            f"{cont.Names.new_layer_suffix}"
         )
 
         if existing_layers := self.project.mapLayersByName(new_layer_name):
@@ -321,7 +323,6 @@ class LayerManager:
             f"Point?crs={self.project.crs().authid()}", "in_memory_layer", "memory"
         )
 
-        # Copy fields from the source layer
         data_provider: QgsVectorDataProvider | None = empty_layer.dataProvider()
         if data_provider is None:
             raise_runtime_error(
@@ -329,12 +330,8 @@ class LayerManager:
             )
 
         data_provider.addAttributes(
-            [
-                QgsField("Typ", QMetaType.Type.QString),
-                QgsField("Winkel", QMetaType.Type.Double),
-            ]
+            [QgsField(field.name, field.data_type) for field in cont.NewLayerFields()]
         )
-        data_provider.addAttributes(self.selected_layer.fields())
         empty_layer.updateFields()
 
         options = QgsVectorFileWriter.SaveVectorOptions()
