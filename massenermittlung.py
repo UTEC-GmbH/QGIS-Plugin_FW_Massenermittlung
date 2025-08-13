@@ -32,7 +32,7 @@ from qgis.PyQt.QtWidgets import (
     QToolButton,  # type: ignore[reportAttributeAccessIssue]
 )
 
-from . import resources  # noqa: F401 - Import is necessary to load resources
+from . import resources
 from .modules.find_stuff import FeatureFinder, FeatureType
 from .modules.general import LayerManager, UserError, raise_runtime_error
 
@@ -59,7 +59,7 @@ class Massenermittlung:
         self.menu: str = "Massenermittlung"
         self.plugin_menu: QMenu | None = None
         self.dlg = None
-        self.icon_path = ":/plugins/Massenermittlung/icon.png"
+        self.icon_path: str = ":/compiled_resources/icon.svg"
 
     def add_action(  # noqa: PLR0913 # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -109,6 +109,10 @@ class Massenermittlung:
 
     def initGui(self) -> None:  # noqa: N802
         """Create the menu entries and toolbar icons for the plugin."""
+        # importlib.reload(resources)
+
+        # Initialize the resources (icons, etc.)
+        resources.qInitResources()
 
         # Create a menu for the plugin in the "Plugins" menu
         self.plugin_menu = QMenu(self.menu, self.iface.pluginMenu())
@@ -162,6 +166,9 @@ class Massenermittlung:
 
         self.actions.clear()
         self.plugin_menu = None
+
+        # Unload resources to allow for reloading them
+        resources.qCleanupResources()
 
     def run_massenermittlung(self) -> None:
         """Call the main function."""
