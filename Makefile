@@ -48,7 +48,7 @@ PY_FILES = \
 
 
 
-EXTRAS = metadata.txt icon.png
+EXTRAS = metadata.txt icon.svg
 
 EXTRA_DIRS =
 

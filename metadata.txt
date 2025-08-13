@@ -27,7 +27,7 @@ tags=
 
 homepage=http://homepage
 category=Plugins
-icon=icon.png
+icon=icon.svg
 # experimental flag
 experimental=True
 

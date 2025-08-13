@@ -17,21 +17,13 @@ from qgis.core import (
     QgsLayerTree,
     QgsLayerTreeNode,
     QgsMessageLog,
-    QgsPalLayerSettings,
     QgsProject,
-    QgsRuleBasedLabeling,
-    QgsRuleBasedRenderer,
-    QgsSvgMarkerSymbolLayer,
-    QgsSymbol,
-    QgsTextFormat,
-    QgsTextMaskSettings,
     QgsVectorDataProvider,
     QgsVectorFileWriter,
     QgsVectorLayer,
     QgsWkbTypes,
 )
 from qgis.gui import QgisInterface, QgsLayerTreeView
-from qgis.PyQt.QtGui import QColor  # type: ignore[]
 
 from . import constants as cont
 
@@ -381,127 +373,10 @@ class LayerManager:
 
         return gpkg_layer
 
-    def _set_symbol_style(self, layer: QgsVectorLayer) -> QgsRuleBasedRenderer:
-        """Set a rule-based renderer for the layer based on the 'Typ' field."""
-        plugin_path: Path = Path(__file__).parent.parent
-        style_path: Path = plugin_path / "layer_style"
-
-        symbol: QgsSymbol | None = QgsSymbol.defaultSymbol(layer.geometryType())
-        renderer = QgsRuleBasedRenderer(symbol)
-
-        root_rule: QgsRuleBasedRenderer.Rule | None = renderer.rootRule()
-        if root_rule is None:
-            raise_runtime_error("Could not get root rule from renderer.")
-
-        rules_data: list[dict[str, str]] = [
-            {
-                "name": cont.Names.type_value_haus,
-                "filter": (
-                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_haus}'"
-                ),
-                "symbol": str(style_path / "Hausanschluss.svg"),
-            },
-            {
-                "name": cont.Names.type_value_t_st,
-                "filter": (
-                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_t_st}'"
-                ),
-                "symbol": str(style_path / "T-Stück.svg"),
-            },
-            {
-                "name": cont.Names.type_value_bogen,
-                "filter": (
-                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_bogen}'"
-                ),
-                "symbol": str(style_path / "Bogen.svg"),
-            },
-        ]
-
-        for rule_data in rules_data:
-            symbol_layer = QgsSvgMarkerSymbolLayer(rule_data["symbol"])
-            symbol_layer.setSize(4)
-
-            rule: QgsRuleBasedRenderer.Rule | None = root_rule.children()[0].clone()
-            if rule is None:
-                raise_runtime_error("Could not clone rule.")
-
-            rule.setLabel(rule_data["name"])
-            rule.setFilterExpression(rule_data["filter"])
-
-            rule_symbol: QgsSymbol | None = rule.symbol()
-            if rule_symbol is None:
-                raise_runtime_error("Could not get rule symbol.")
-
-            rule_symbol.changeSymbolLayer(0, symbol_layer)
-            root_rule.appendChild(rule)
-
-        root_rule.removeChildAt(0)
-        return renderer
-
-    def _set_label_style(self) -> QgsRuleBasedLabeling:
-        """Set rule-based labeling for the layer."""
-        root_label_rule = QgsRuleBasedLabeling.Rule(QgsPalLayerSettings())
-        labeling = QgsRuleBasedLabeling(root_label_rule)
-
-        label_rules_data: list[dict[str, str]] = [
-            {
-                "name": cont.Names.type_value_haus,
-                "filter": (
-                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_haus}'"
-                ),
-                "expression": f'"{cont.Names.field_dimension}"',
-                "color_key": cont.Colours.haus,
-            },
-            {
-                "name": cont.Names.type_value_t_st,
-                "filter": (
-                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_t_st}'"
-                ),
-                "expression": f'"{cont.Names.field_dimension}"',
-                "color_key": cont.Colours.t_st,
-            },
-            {
-                "name": cont.Names.type_value_bogen,
-                "filter": (
-                    f"\"{cont.Names.field_type}\" = '{cont.Names.type_value_bogen}'"
-                ),
-                "expression": (
-                    f"\"{cont.Names.field_dimension}\" || '; ' || "
-                    f"format_number(\"{cont.Names.field_winkel}\") || '°'"
-                ),
-                "color_key": cont.Colours.bogen,
-            },
-        ]
-
-        for data in label_rules_data:
-            settings = QgsPalLayerSettings()
-            settings.fieldName = data["expression"]
-            settings.placement = QgsPalLayerSettings.AroundPoint
-            settings.dist = cont.Numbers.new_layer_label_distance
-
-            text_format = QgsTextFormat()
-            text_format.setSize(cont.Numbers.new_layer_font_size)
-            text_format.setColor(QColor(data["color_key"]))
-            mask_settings = QgsTextMaskSettings()
-            mask_settings.setSize(cont.Numbers.new_layer_label_mask_size)
-            mask_settings.setEnabled(True)
-            text_format.setMask(mask_settings)
-            settings.setFormat(text_format)
-
-            label_rule = QgsRuleBasedLabeling.Rule(settings)
-            label_rule.setFilterExpression(data["filter"])
-            label_rule.setDescription(data["name"])
-            root_label_rule.appendChild(label_rule)
-
-        return labeling
-
     def set_layer_style(self, layer: QgsVectorLayer) -> None:
-        """Set a rule-based renderer and labeling for the layer."""
-        renderer: QgsRuleBasedRenderer = self._set_symbol_style(layer)
-        labeling: QgsRuleBasedLabeling = self._set_label_style()
-
-        layer.setRenderer(renderer)
-        layer.setLabeling(labeling)
-        layer.setLabelsEnabled(True)
+        """Set the layer style from a QML file."""
+        qml_resource_path = (
+            ":/compiled_resources/layer_style/massenermittlung_style.qml"
+        )
+        layer.loadNamedStyle(qml_resource_path)
         layer.triggerRepaint()
-        layer.emitStyleChanged()

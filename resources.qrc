@@ -1,5 +1,9 @@
-<RCC>
-    <qresource prefix="/plugins/Massenermittlung" >
-        <file>icon.png</file>
-    </qresource>
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/compiled_resources">
+    <file>icon.svg</file>
+    <file>layer_style/Symbol_Bogen.svg</file>
+    <file>layer_style/Symbol_Hausanschluss.svg</file>
+    <file>layer_style/Symbol_T-Stück.svg</file>
+    <file>layer_style/massenermittlung_style.qml</file>
+</qresource>
 </RCC>
