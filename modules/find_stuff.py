@@ -16,12 +16,15 @@ from qgis.core import (
     QgsVectorLayer,
     QgsWkbTypes,
 )
+from qgis.PyQt.QtCore import QCoreApplication  # type: ignore[reportMissingTypeStubs]
 
 from . import constants as cont
-from .general import log_debug, log_summary, raise_runtime_error
+from . import general
 
 if TYPE_CHECKING:
     from qgis.core import QgsRectangle
+
+tr = QCoreApplication.translate
 
 
 class FeatureType(Flag):
@@ -61,7 +64,9 @@ class FeatureFinder:
         found_counts: dict[str, int] = {"T-Stücke": 0, "Hausanschlüsse": 0, "Bögen": 0}
 
         if not self.new_layer.startEditing():
-            raise_runtime_error("Failed to start editing the new layer.")
+            general.raise_runtime_error(
+                tr("RuntimeError", "Failed to start editing the new layer.")
+            )
 
         if FeatureType.T_STUECKE in feature_types:
             found_counts["T-Stücke"] = self._find_t_stuecke(
@@ -75,15 +80,25 @@ class FeatureFinder:
             found_counts["Bögen"] = self._find_boegen(self.selected_layer_features)
 
         if not self.new_layer.commitChanges():
-            raise_runtime_error("Failed to commit changes to the new layer.")
+            general.raise_runtime_error(
+                tr("RuntimeError", "Failed to commit changes to the new layer.")
+            )
 
         return found_counts
 
     def _get_all_features(self) -> list[QgsFeature]:
         """Get all features from the selected layer."""
-        features: list[QgsFeature] = list(self.selected_layer.getFeatures())
+        self.selected_layer.selectAll()
+
+        features: list[QgsFeature] = list(self.selected_layer.selectedFeatures())
         if not features:
-            raise_runtime_error("No features found in the selected layer.")
+            general.raise_runtime_error(
+                tr("RuntimeError", "No features found in the selected layer.")
+            )
+        general.log_debug(
+            tr("log", "Found {0} lines in the selected layer.").format(len(features)),
+            Qgis.Success,
+        )
         return features
 
     @staticmethod
@@ -176,7 +191,9 @@ class FeatureFinder:
                     if self._create_feature(QgsGeometry.fromPointXY(point), attributes):
                         number_of_new_points += 1
 
-        log_summary("Hausanschlüsse", len(features), number_of_new_points)
+        general.log_summary(
+            tr("log", "house connections"), len(features), number_of_new_points
+        )
         return number_of_new_points
 
     @staticmethod
@@ -193,7 +210,7 @@ class FeatureFinder:
 
     def _get_intersecting_features(self, search_geom: QgsGeometry) -> list[QgsFeature]:
         search_rect: QgsRectangle = search_geom.boundingBox()
-        candidate_ids = self.selected_layer_index.intersects(search_rect)
+        candidate_ids: list[int] = self.selected_layer_index.intersects(search_rect)
         return [
             self.selected_layer.getFeature(feat_id)
             for feat_id in candidate_ids
@@ -257,7 +274,7 @@ class FeatureFinder:
                     if self._create_feature(intersection, attributes):
                         number_of_new_points += 1
 
-        log_summary("T-Stücke", len(features), number_of_new_points)
+        general.log_summary(tr("log", "T-pieces"), len(features), number_of_new_points)
         return number_of_new_points
 
     @staticmethod
@@ -268,7 +285,7 @@ class FeatureFinder:
         if p2.compare(p1, cont.Numbers.tiny_number) or p2.compare(
             p3, cont.Numbers.tiny_number
         ):
-            log_debug("Coinciding points found.", Qgis.Warning)
+            general.log_debug("Coinciding points found.", Qgis.Warning)
             return 0.0
 
         azimuth1: float = p2.azimuth(p1)
@@ -441,5 +458,5 @@ class FeatureFinder:
 
                     checked_points.add(key)
 
-        log_summary("Bögen", len(features), number_of_new_points)
+        general.log_summary(tr("log", "bends"), len(features), number_of_new_points)
         return number_of_new_points

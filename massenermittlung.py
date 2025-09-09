@@ -25,6 +25,11 @@ from typing import TYPE_CHECKING, Callable
 
 from qgis.core import Qgis
 from qgis.gui import QgisInterface
+from qgis.PyQt.QtCore import (
+    QCoreApplication,  # type: ignore[reportMissingTypeStubs]
+    QSettings,  # type: ignore[reportMissingTypeStubs]
+    QTranslator,  # type: ignore[reportMissingTypeStubs]
+)
 from qgis.PyQt.QtGui import QIcon  # type: ignore[reportAttributeAccessIssue]
 from qgis.PyQt.QtWidgets import (
     QAction,
@@ -33,13 +38,19 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from . import resources
+from .modules import general
 from .modules.find_stuff import FeatureFinder, FeatureType
-from .modules.general import LayerManager, UserError, raise_runtime_error
+from .modules.general import (
+    CustomRuntimeError,
+    LayerManager,
+    UserError,
+    raise_runtime_error,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
-
     from qgis.core import QgsVectorLayer
+
+tr = QCoreApplication.translate
 
 
 class Massenermittlung:
@@ -54,12 +65,24 @@ class Massenermittlung:
         """
 
         self.iface: QgisInterface = iface
+        general.iface = iface
         self.plugin_dir: Path = Path(__file__).parent
         self.actions: list = []
         self.menu: str = "Massenermittlung"
         self.plugin_menu: QMenu | None = None
         self.dlg = None
         self.icon_path: str = ":/compiled_resources/icon.svg"
+        self.translator: QTranslator | None = None
+
+        # initialize translation
+        locale = QSettings().value("locale/userLocale", "en")[:2]
+        translator_path: Path = self.plugin_dir / "i18n" / f"{locale}.qm"
+
+        if translator_path.exists():
+            self.translator = QTranslator()
+            if self.translator is not None:
+                self.translator.load(str(translator_path))
+                QCoreApplication.installTranslator(self.translator)
 
     def add_action(  # noqa: PLR0913 # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -117,7 +140,7 @@ class Massenermittlung:
         # Create a menu for the plugin in the "Plugins" menu
         self.plugin_menu = QMenu(self.menu, self.iface.pluginMenu())
         if self.plugin_menu is None:
-            raise_runtime_error("Failed to create the plugin menu.")
+            raise_runtime_error(tr("RuntimeError", "Failed to create the plugin menu."))
 
         self.plugin_menu.setIcon(QIcon(self.icon_path))
 
@@ -156,6 +179,10 @@ class Massenermittlung:
 
         Called when the plugin is unloaded according to the plugin QGIS metadata.
         """
+        # Remove the translator
+        if self.translator:
+            QCoreApplication.removeTranslator(self.translator)
+
         # Remove toolbar icons for all actions
         for action in self.actions:
             self.iface.removeToolBarIcon(action)
@@ -173,7 +200,7 @@ class Massenermittlung:
     def run_massenermittlung(self) -> None:
         """Call the main function."""
         try:
-            layer_manager: LayerManager = LayerManager(self.iface)
+            layer_manager: LayerManager = LayerManager()
             selected_layer: QgsVectorLayer = layer_manager.selected_layer
             new_layer: QgsVectorLayer = layer_manager.new_layer
 
@@ -184,25 +211,34 @@ class Massenermittlung:
                 FeatureType.T_STUECKE | FeatureType.HAUSANSCHLUESSE | FeatureType.BOEGEN
             )
 
-            base_message: str = (
-                f"Massenermittlung für Layer '{selected_layer.name()}' abgeschlossen"
-            )
+            # 1. Use a placeholder for the layer name in the base message.
+            base_message = tr(
+                "Massenermittlung", "Bulk assessment for layer '{0}' completed"
+            ).format(selected_layer.name())
 
-            found_parts: Generator[str, None, None] = (
-                f"{count} {name}" for name, count in found_features.items() if count > 0
-            )
-
-            details: str = " → ".join(found_parts)
+            # 2. Rephrase the details to be "Name: Count" to avoid complex plurals.
+            #    The name itself is translated from a new 'feature_names' context.
+            found_parts = [
+                f"{tr('feature_names', name)}: {count}"
+                for name, count in found_features.items()
+                if count > 0
+            ]
+            details = " → ".join(found_parts)
 
             layer_manager.set_layer_style(new_layer)
 
             if self.iface and (msg_bar := self.iface.messageBar()):
-                message: str = (
-                    f"{base_message} → {details} gefunden."
-                    if details
-                    else f"{base_message}."
-                )
-                msg_bar.pushMessage("Success", message, level=Qgis.Success)
+                # 3. Combine the base message and the dynamic details.
+                if details:
+                    final_message = f"{base_message} → {details}."
+                else:
+                    final_message = f"{base_message}."
 
-        except UserError:
+                msg_bar.pushMessage(
+                    tr("Massenermittlung", "Success"),
+                    final_message,
+                    level=Qgis.Success,
+                )
+
+        except (UserError, CustomRuntimeError):
             return
