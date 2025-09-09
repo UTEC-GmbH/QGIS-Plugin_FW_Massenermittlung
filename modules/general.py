@@ -29,7 +29,6 @@ from qgis.PyQt.QtCore import QCoreApplication  # type: ignore[reportMissingTypeS
 
 from . import constants as cont
 
-tr = QCoreApplication.translate
 iface: QgisInterface | None = None
 
 if TYPE_CHECKING:
@@ -51,7 +50,7 @@ def log_summary(item_name: str, checked_count: int, found_count: int) -> None:
     if found_count:
         # TRANSLATORS: {0} is the item name (e.g., 'T-piece'),
         # {1} is the number of items checked, {2} is the number of items found.
-        message_format = tr(
+        message_format = QCoreApplication.translate(
             "log", "Search for '{0}': {1} lines checked → {2} items found."
         )
         message = message_format.format(item_name, checked_count, found_count)
@@ -59,7 +58,7 @@ def log_summary(item_name: str, checked_count: int, found_count: int) -> None:
     else:
         # TRANSLATORS: {0} is the item name (e.g., 'T-piece'),
         # {1} is the number of items checked
-        message_format = tr(
+        message_format = QCoreApplication.translate(
             "log", "Search for '{0}': {1} lines checked → No items found."
         )
         message = message_format.format(item_name, checked_count)
@@ -123,7 +122,11 @@ def get_current_project() -> QgsProject:
     """
     project: QgsProject | None = QgsProject.instance()
     if project is None:
-        raise_runtime_error(tr("RuntimeError", "No QGIS project is currently open."))
+        raise_runtime_error(
+            QCoreApplication.translate(
+                "RuntimeError", "No QGIS project is currently open."
+            )
+        )
 
     return project
 
@@ -143,7 +146,9 @@ def project_gpkg() -> Path:
     project_path_str: str = project.fileName()
     if not project_path_str:
         raise_runtime_error(
-            tr("RuntimeError", "Project is not saved. Please save the project first.")
+            QCoreApplication.translate(
+                "RuntimeError", "Project is not saved. Please save the project first."
+            )
         )
 
     project_path: Path = Path(project_path_str)
@@ -154,9 +159,9 @@ def project_gpkg() -> Path:
         data_source = driver.CreateDataSource(str(gpkg_path))
         if data_source is None:
             raise_runtime_error(
-                tr("RuntimeError", "Failed to create GeoPackage at: {0}").format(
-                    gpkg_path
-                )
+                QCoreApplication.translate(
+                    "RuntimeError", "Failed to create GeoPackage at: {0}"
+                ).format(gpkg_path)
             )
 
         # Dereference the data source to close the file and release the lock.
@@ -187,7 +192,9 @@ class LayerManager:
         if self._selected_layer is None:
             self.initialize_selected_layer()
         if self._selected_layer is None:
-            raise_runtime_error(tr("RuntimeError", "Selected layer is not set."))
+            raise_runtime_error(
+                QCoreApplication.translate("RuntimeError", "Selected layer is not set.")
+            )
         return self._selected_layer
 
     @selected_layer.setter
@@ -197,7 +204,9 @@ class LayerManager:
     def initialize_selected_layer(self) -> None:
         """Initialize the selected layer."""
         if iface is None:
-            raise_runtime_error(tr("RuntimeError", "QGIS interface not set."))
+            raise_runtime_error(
+                QCoreApplication.translate("RuntimeError", "QGIS interface not set.")
+            )
         self._selected_layer = self.get_selected_layer()
 
     @property
@@ -206,7 +215,9 @@ class LayerManager:
         if self._new_layer is None:
             self.initialize_new_layer()
         if self._new_layer is None:
-            raise_runtime_error(tr("RuntimeError", "New layer is not set."))
+            raise_runtime_error(
+                QCoreApplication.translate("RuntimeError", "New layer is not set.")
+            )
         return self._new_layer
 
     @new_layer.setter
@@ -216,7 +227,9 @@ class LayerManager:
     def initialize_new_layer(self) -> None:
         """Initialize the new layer."""
         if iface is None:
-            raise_runtime_error(tr("RuntimeError", "QGIS interface not set."))
+            raise_runtime_error(
+                QCoreApplication.translate("RuntimeError", "QGIS interface not set.")
+            )
         self.new_layer = self.create_new_layer()
 
     def fix_layer_name(self, name: str) -> str:
@@ -267,9 +280,9 @@ class LayerManager:
         data_provider: QgsVectorDataProvider | None = reprojected_layer.dataProvider()
         if data_provider is None:
             raise_runtime_error(
-                tr("RuntimeError", "Could not get data provider for layer: {0}").format(
-                    reprojected_layer.name()
-                )
+                QCoreApplication.translate(
+                    "RuntimeError", "Could not get data provider for layer: {0}"
+                ).format(reprojected_layer.name())
             )
 
         data_provider.addAttributes(layer.fields())
@@ -294,9 +307,9 @@ class LayerManager:
             geom = feature.geometry()
             if geom.transform(transform) != 0:  # 0 means success
                 log_debug(
-                    tr("log", "Feature {0} could not be reprojected.").format(
-                        feature.id()
-                    ),
+                    QCoreApplication.translate(
+                        "log", "Feature {0} could not be reprojected."
+                    ).format(feature.id()),
                     Qgis.Warning,
                 )
                 continue
@@ -317,27 +330,47 @@ class LayerManager:
                               or the selected layer is not a line vector layer.
         """
         if iface is None:
-            raise_runtime_error(tr("RuntimeError", "QGIS interface not set."))
+            raise_runtime_error(
+                QCoreApplication.translate("RuntimeError", "QGIS interface not set.")
+            )
         layer_tree: QgsLayerTreeView | None = iface.layerTreeView()
         if not layer_tree:
-            raise_runtime_error(tr("RuntimeError", "Could not get layer tree view."))
+            raise_runtime_error(
+                QCoreApplication.translate(
+                    "RuntimeError", "Could not get layer tree view."
+                )
+            )
 
         selected_nodes: list[QgsLayerTreeNode] = layer_tree.selectedNodes()
         if len(selected_nodes) > 1:
-            raise_user_error(tr("UserError", "Multiple layers selected."))
+            raise_user_error(
+                QCoreApplication.translate("UserError", "Multiple layers selected.")
+            )
         if not selected_nodes:
-            raise_user_error(tr("UserError", "No layer selected."))
+            raise_user_error(
+                QCoreApplication.translate("UserError", "No layer selected.")
+            )
 
         selected_node: QgsLayerTreeNode = next(iter(selected_nodes))
         if not selected_node.layer():
-            raise_user_error(tr("UserError", "Selected node is not a layer."))
+            raise_user_error(
+                QCoreApplication.translate("UserError", "Selected node is not a layer.")
+            )
 
         selected_layer = selected_node.layer()
         if not isinstance(selected_layer, QgsVectorLayer):
-            raise_user_error(tr("UserError", "Selected layer is not a vector layer."))
+            raise_user_error(
+                QCoreApplication.translate(
+                    "UserError", "Selected layer is not a vector layer."
+                )
+            )
 
         if selected_layer.geometryType() != QgsWkbTypes.LineGeometry:
-            raise_user_error(tr("UserError", "The selected layer is not a line layer."))
+            raise_user_error(
+                QCoreApplication.translate(
+                    "UserError", "The selected layer is not a line layer."
+                )
+            )
 
         # Reproject the layer to the project's CRS
         return self.reproject_layer_to_project_crs(selected_layer)
@@ -361,9 +394,9 @@ class LayerManager:
         data_provider: QgsVectorDataProvider | None = empty_layer.dataProvider()
         if data_provider is None:
             raise_runtime_error(
-                tr("RuntimeError", "Could not get data provider for layer: {0}").format(
-                    empty_layer.name()
-                )
+                QCoreApplication.translate(
+                    "RuntimeError", "Could not get data provider for layer: {0}"
+                ).format(empty_layer.name())
             )
         data_provider.addAttributes(
             [QgsField(field.name, field.data_type) for field in cont.NewLayerFields()]
@@ -380,19 +413,25 @@ class LayerManager:
         )
         if error[0] == QgsVectorFileWriter.WriterError.NoError:
             log_debug(
-                tr("log", "Empty layer created: {0}").format(new_layer_name),
+                QCoreApplication.translate("log", "Empty layer created: {0}").format(
+                    new_layer_name
+                ),
                 Qgis.Success,
             )
         else:
             raise_runtime_error(
-                tr(
+                QCoreApplication.translate(
                     "RuntimeError", "Failed to create empty layer '{0}' - Error: {1}"
                 ).format(new_layer_name, error[1])
             )
 
         root: QgsLayerTree | None = self.project.layerTreeRoot()
         if not root:
-            raise_runtime_error(tr("RuntimeError", "Could not get layer tree root."))
+            raise_runtime_error(
+                QCoreApplication.translate(
+                    "RuntimeError", "Could not get layer tree root."
+                )
+            )
 
         # Construct the layer URI and create a QgsVectorLayer
         uri: str = f"{gpkg_path!s}|layername={new_layer_name}"
@@ -400,7 +439,7 @@ class LayerManager:
 
         if not gpkg_layer.isValid():
             raise_runtime_error(
-                tr(
+                QCoreApplication.translate(
                     "RuntimeError", "Could not find layer '{0}' in GeoPackage '{1}'"
                 ).format(new_layer_name, gpkg_path)
             )
@@ -411,9 +450,9 @@ class LayerManager:
         root.insertLayer(0, gpkg_layer)
 
         log_debug(
-            tr("log", "Added {0} from the GeoPackage to the project.").format(
-                new_layer_name
-            ),
+            QCoreApplication.translate(
+                "log", "Added {0} from the GeoPackage to the project."
+            ).format(new_layer_name),
             Qgis.Success,
         )
 

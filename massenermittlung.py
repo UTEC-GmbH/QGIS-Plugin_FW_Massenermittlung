@@ -44,13 +44,12 @@ from .modules.general import (
     CustomRuntimeError,
     LayerManager,
     UserError,
+    log_debug,
     raise_runtime_error,
 )
 
 if TYPE_CHECKING:
     from qgis.core import QgsVectorLayer
-
-tr = QCoreApplication.translate
 
 
 class Massenermittlung:
@@ -78,11 +77,18 @@ class Massenermittlung:
         locale = QSettings().value("locale/userLocale", "en")[:2]
         translator_path: Path = self.plugin_dir / "i18n" / f"{locale}.qm"
 
-        if translator_path.exists():
+        if not translator_path.exists():
+            log_debug(f"Translator not found in: {translator_path}", Qgis.Warning)
+        else:
+            log_debug(f"Translator found in: {translator_path}", Qgis.Success)
             self.translator = QTranslator()
-            if self.translator is not None:
-                self.translator.load(str(translator_path))
+            if self.translator is not None and self.translator.load(
+                str(translator_path)
+            ):
                 QCoreApplication.installTranslator(self.translator)
+                log_debug("Translator installed.", Qgis.Success)
+            else:
+                log_debug("Translator could not be installed.", Qgis.Warning)
 
     def add_action(  # noqa: PLR0913 # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -140,7 +146,11 @@ class Massenermittlung:
         # Create a menu for the plugin in the "Plugins" menu
         self.plugin_menu = QMenu(self.menu, self.iface.pluginMenu())
         if self.plugin_menu is None:
-            raise_runtime_error(tr("RuntimeError", "Failed to create the plugin menu."))
+            raise_runtime_error(
+                QCoreApplication.translate(
+                    "RuntimeError", "Failed to create the plugin menu."
+                )
+            )
 
         self.plugin_menu.setIcon(QIcon(self.icon_path))
 
@@ -212,14 +222,14 @@ class Massenermittlung:
             )
 
             # 1. Use a placeholder for the layer name in the base message.
-            base_message = tr(
+            base_message = QCoreApplication.translate(
                 "Massenermittlung", "Bulk assessment for layer '{0}' completed"
             ).format(selected_layer.name())
 
             # 2. Rephrase the details to be "Name: Count" to avoid complex plurals.
             #    The name itself is translated from a new 'feature_names' context.
             found_parts = [
-                f"{tr('feature_names', name)}: {count}"
+                f"{QCoreApplication.translate('feature_names', name)}: {count}"
                 for name, count in found_features.items()
                 if count > 0
             ]
@@ -235,7 +245,7 @@ class Massenermittlung:
                     final_message = f"{base_message}."
 
                 msg_bar.pushMessage(
-                    tr("Massenermittlung", "Success"),
+                    QCoreApplication.translate("Massenermittlung", "Success"),
                     final_message,
                     level=Qgis.Success,
                 )

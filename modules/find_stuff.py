@@ -24,8 +24,6 @@ from . import general
 if TYPE_CHECKING:
     from qgis.core import QgsRectangle
 
-tr = QCoreApplication.translate
-
 
 class FeatureType(Flag):
     """Enum for the types of features to find."""
@@ -65,7 +63,9 @@ class FeatureFinder:
 
         if not self.new_layer.startEditing():
             general.raise_runtime_error(
-                tr("RuntimeError", "Failed to start editing the new layer.")
+                QCoreApplication.translate(
+                    "RuntimeError", "Failed to start editing the new layer."
+                )
             )
 
         if FeatureType.T_STUECKE in feature_types:
@@ -81,7 +81,9 @@ class FeatureFinder:
 
         if not self.new_layer.commitChanges():
             general.raise_runtime_error(
-                tr("RuntimeError", "Failed to commit changes to the new layer.")
+                QCoreApplication.translate(
+                    "RuntimeError", "Failed to commit changes to the new layer."
+                )
             )
 
         return found_counts
@@ -93,10 +95,14 @@ class FeatureFinder:
         features: list[QgsFeature] = list(self.selected_layer.selectedFeatures())
         if not features:
             general.raise_runtime_error(
-                tr("RuntimeError", "No features found in the selected layer.")
+                QCoreApplication.translate(
+                    "RuntimeError", "No features found in the selected layer."
+                )
             )
         general.log_debug(
-            tr("log", "Found {0} lines in the selected layer.").format(len(features)),
+            QCoreApplication.translate(
+                "log", "Found {0} lines in the selected layer."
+            ).format(len(features)),
             Qgis.Success,
         )
         return features
@@ -192,7 +198,9 @@ class FeatureFinder:
                         number_of_new_points += 1
 
         general.log_summary(
-            tr("log", "house connections"), len(features), number_of_new_points
+            QCoreApplication.translate("log", "house connections"),
+            len(features),
+            number_of_new_points,
         )
         return number_of_new_points
 
@@ -274,7 +282,11 @@ class FeatureFinder:
                     if self._create_feature(intersection, attributes):
                         number_of_new_points += 1
 
-        general.log_summary(tr("log", "T-pieces"), len(features), number_of_new_points)
+        general.log_summary(
+            QCoreApplication.translate("log", "T-pieces"),
+            len(features),
+            number_of_new_points,
+        )
         return number_of_new_points
 
     @staticmethod
@@ -458,5 +470,9 @@ class FeatureFinder:
 
                     checked_points.add(key)
 
-        general.log_summary(tr("log", "bends"), len(features), number_of_new_points)
+        general.log_summary(
+            QCoreApplication.translate("log", "bends"),
+            len(features),
+            number_of_new_points,
+        )
         return number_of_new_points
