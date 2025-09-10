@@ -29,9 +29,10 @@ class FeatureType(Flag):
     """Enum for the types of features to find."""
 
     NONE = 0
-    T_STUECKE = auto()
-    HAUSANSCHLUESSE = auto()
-    BOEGEN = auto()
+    T_PIECES = auto()
+    HOUSES = auto()
+    BENDS = auto()
+    REDUCERS = auto()
 
 
 class FeatureFinder:
@@ -53,13 +54,23 @@ class FeatureFinder:
 
         self.new_layer: QgsVectorLayer = new_layer
 
-    def find_features(self, feature_types: FeatureType) -> dict[str, int]:
+    def find_features(self, feature_to_search: FeatureType) -> dict[str, int]:
         """Find features based on the provided flags.
 
         :param feature_types: A flag combination of the features to find.
         :returns: A dictionary with the count of found features.
         """
-        found_counts: dict[str, int] = {"T-Stücke": 0, "Hausanschlüsse": 0, "Bögen": 0}
+        t_pieces: str = QCoreApplication.translate("general", "T-pieces")
+        houses: str = QCoreApplication.translate("general", "houses")
+        bends: str = QCoreApplication.translate("general", "bends")
+        reducers: str = QCoreApplication.translate("general", "reducers")
+
+        found_counts: dict[str, int] = {
+            t_pieces: 0,
+            houses: 0,
+            bends: 0,
+            reducers: 0,
+        }
 
         if not self.new_layer.startEditing():
             general.raise_runtime_error(
@@ -68,16 +79,14 @@ class FeatureFinder:
                 )
             )
 
-        if FeatureType.T_STUECKE in feature_types:
-            found_counts["T-Stücke"] = self._find_t_stuecke(
+        if FeatureType.T_PIECES in feature_to_search:
+            found_counts[t_pieces] = self._find_t_pieces(self.selected_layer_features)
+        if FeatureType.HOUSES in feature_to_search:
+            found_counts[houses] = self._find_house_connections(
                 self.selected_layer_features
             )
-        if FeatureType.HAUSANSCHLUESSE in feature_types:
-            found_counts["Hausanschlüsse"] = self._find_hausanschluesse(
-                self.selected_layer_features
-            )
-        if FeatureType.BOEGEN in feature_types:
-            found_counts["Bögen"] = self._find_boegen(self.selected_layer_features)
+        if FeatureType.BENDS in feature_to_search:
+            found_counts[bends] = self._find_bends(self.selected_layer_features)
 
         if not self.new_layer.commitChanges():
             general.raise_runtime_error(
@@ -181,7 +190,7 @@ class FeatureFinder:
 
         return attributes
 
-    def _find_hausanschluesse(self, features: list[QgsFeature]) -> int:
+    def _find_house_connections(self, features: list[QgsFeature]) -> int:
         """Find the endpoints of lines that are not connected to other lines."""
         number_of_new_points = 0
         for feature in features:
@@ -227,7 +236,7 @@ class FeatureFinder:
             .intersects(search_geom)
         ]
 
-    def _find_t_stuecke(self, features: list[QgsFeature]) -> int:
+    def _find_t_pieces(self, features: list[QgsFeature]) -> int:
         """Find 3-way (or more) intersections of lines."""
         number_of_new_points = 0
         checked_intersections: set = set()
@@ -310,7 +319,7 @@ class FeatureFinder:
 
         return cont.Numbers.circle_semi - angle
 
-    def _is_t_stueck(self, point: QgsPointXY) -> bool:
+    def _is_t_piece(self, point: QgsPointXY) -> bool:
         """Check if a point is a T-intersection."""
         search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
             cont.Numbers.search_radius, 5
@@ -417,7 +426,7 @@ class FeatureFinder:
 
         return bends
 
-    def _find_boegen(self, features: list[QgsFeature]) -> int:
+    def _find_bends(self, features: list[QgsFeature]) -> int:
         """Find angles in lines and at intersections."""
         number_of_new_points = 0
         checked_points: set = set()
@@ -432,7 +441,7 @@ class FeatureFinder:
                 if key in checked_points:
                     continue
 
-                if not self._is_t_stueck(point):
+                if not self._is_t_piece(point):
                     attributes = {
                         cont.NewLayerFields.typ.name: cont.Names.type_value_bogen,
                         cont.NewLayerFields.winkel.name: angle,
@@ -455,7 +464,7 @@ class FeatureFinder:
                     if key in checked_points:
                         continue
 
-                    if not self._is_t_stueck(point):
+                    if not self._is_t_piece(point):
                         attributes = {
                             cont.NewLayerFields.typ.name: cont.Names.type_value_bogen,
                             cont.NewLayerFields.winkel.name: round(angle, 2),
