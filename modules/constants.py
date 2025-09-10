@@ -16,9 +16,11 @@ class Colours:
     This class contains colour constants.
     """
 
-    bogen: str = "#668000"
-    haus: str = "#55ddff"
-    t_st: str = "#e2b60a"
+    bend: str = "#668000"
+    house: str = "#55ddff"
+    t_piece: str = "#e2b60a"
+    connector: str = "#444444"
+    reduction: str = "#9900ff"
 
 
 @dataclass
@@ -37,16 +39,17 @@ class Names:
     sel_layer_field_dim: str = "diameter"
 
     # Namen für Spalten der Attributtabelle des neuen Layers
-    field_type: str = "Typ"
-    field_winkel: str = "Bogen-Winkel"
-    field_verbundene_linien: str = "verbundene Leitungen"
-    field_dimension: str = "Dimensionen"
+    attr_col_head_type: str = "Typ"
+    attr_col_head_bend_angle: str = "Bogen-Winkel"
+    attr_col_head_connected: str = "verbundene Leitungen"
+    attr_col_head_dimension: str = "Dimensionen"
 
-    # Werte der Spalte 'Typ' (Kategorien der Massenermittlung)
-    type_value_haus: str = "Hausanschluss"
-    type_value_bogen: str = "Bogen"
-    type_value_t_st: str = "T-Stück"
-    type_value_muffe: str = "Muffe"
+    # Werte der Spalte 'Typ' in der Attributtabelle (Kategorien der Massenermittlung)
+    attr_val_type_house: str = "Hausanschluss"
+    attr_val_type_bend: str = "Bogen"
+    attr_val_type_t_piece: str = "T-Stück"
+    attr_val_type_connector: str = "Muffe"
+    attr_val_type_reduction: str = "Reduzierung"
 
 
 @dataclass
@@ -92,12 +95,10 @@ class FieldAttributes:
 class NewLayerFields:
     """Constants for layer field attributes, accessible via dot notation."""
 
-    typ = FieldAttributes(Names.field_type, QMeT.Type.QString)
-    verbundene_linien = FieldAttributes(
-        Names.field_verbundene_linien, QMeT.Type.QString
-    )
-    dimensionen = FieldAttributes(Names.field_dimension, QMeT.Type.QString)
-    winkel = FieldAttributes(Names.field_winkel, QMeT.Type.Double)
+    type = FieldAttributes(Names.attr_col_head_type, QMeT.Type.QString)
+    connected = FieldAttributes(Names.attr_col_head_connected, QMeT.Type.QString)
+    dimensions = FieldAttributes(Names.attr_col_head_dimension, QMeT.Type.QString)
+    angle = FieldAttributes(Names.attr_col_head_bend_angle, QMeT.Type.Double)
 
     def __iter__(self) -> Generator[FieldAttributes, None, None]:
         """Make the class iterable."""

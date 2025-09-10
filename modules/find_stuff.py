@@ -170,7 +170,7 @@ class FeatureFinder:
         """Get attributes from connected features."""
         connected_ids: list[str] = sorted({str(f.id()) for f in connected_features})
         attributes: dict = {
-            cont.NewLayerFields.verbundene_linien.name: cont.Names.line_separator.join(
+            cont.NewLayerFields.connected.name: cont.Names.line_separator.join(
                 connected_ids
             )
         }
@@ -184,7 +184,7 @@ class FeatureFinder:
                     if feat.attribute(dim_field) is not None
                 }
             )
-            attributes[cont.NewLayerFields.dimensionen.name] = (
+            attributes[cont.NewLayerFields.dimensions.name] = (
                 cont.Names.dim_separator.join(dims)
             )
 
@@ -200,7 +200,7 @@ class FeatureFinder:
                 )
                 if not intersecting_ids:
                     attributes = {
-                        cont.NewLayerFields.typ.name: cont.Names.type_value_haus
+                        cont.NewLayerFields.type.name: cont.Names.attr_val_type_house
                     }
                     attributes |= self._get_connected_attributes([feature])
                     if self._create_feature(QgsGeometry.fromPointXY(point), attributes):
@@ -284,8 +284,8 @@ class FeatureFinder:
                 )
 
                 if len(intersecting_features) >= cont.Numbers.min_intersec_t:
-                    attributes = {
-                        cont.NewLayerFields.typ.name: cont.Names.type_value_t_st
+                    attributes: dict[str, str] = {
+                        cont.NewLayerFields.type.name: cont.Names.attr_val_type_t_piece
                     }
                     attributes |= self._get_connected_attributes(intersecting_features)
                     if self._create_feature(intersection, attributes):
@@ -443,8 +443,8 @@ class FeatureFinder:
 
                 if not self._is_t_piece(point):
                     attributes = {
-                        cont.NewLayerFields.typ.name: cont.Names.type_value_bogen,
-                        cont.NewLayerFields.winkel.name: angle,
+                        cont.NewLayerFields.type.name: cont.Names.attr_val_type_bend,
+                        cont.NewLayerFields.angle.name: angle,
                     }
                     attributes |= self._get_connected_attributes([feature])
                     if self._create_feature(QgsGeometry.fromPointXY(point), attributes):
@@ -466,8 +466,8 @@ class FeatureFinder:
 
                     if not self._is_t_piece(point):
                         attributes = {
-                            cont.NewLayerFields.typ.name: cont.Names.type_value_bogen,
-                            cont.NewLayerFields.winkel.name: round(angle, 2),
+                            cont.NewLayerFields.type.name: cont.Names.attr_val_type_bend,
+                            cont.NewLayerFields.angle.name: round(angle, 2),
                         }
                         attributes |= self._get_connected_attributes(
                             [feature1, feature2]

@@ -11,16 +11,14 @@ Notes:
 
   * Compile the resources file using pyrcc5
 
-	  use "compile.bat"
-
-
-  * Run the tests (``make test``)
+	  use "cd PATH_TO_PLUGIN" in the OSGeo4W Shell and execute "compile.bat"
 
 
   * You can use the Makefile to compile your Ui and resource files when
     you make changes. This requires GNU make (gmake)
 
-  * How to Use the Translation Workflow
+
+  * Translation Workflow
     
     1. Compile the Translation by using compile.bat found in the root directory in the OSGeo4W Shell. 
     The pylupdate5 command inside the script will find all your new strings and add them to i18n/de.ts. 
