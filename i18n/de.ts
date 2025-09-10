@@ -4,7 +4,7 @@
 <context>
     <name>RuntimeError</name>
     <message>
-        <location filename="../massenermittlung.py" line="149"/>
+        <location filename="../massenermittlung.py" line="140"/>
         <source>Failed to create the plugin menu.</source>
         <translation>Konnte das plugin-Menu nicht erstellen.</translation>
     </message>
@@ -181,14 +181,9 @@
 <context>
     <name>summary</name>
     <message>
-        <location filename="../massenermittlung.py" line="228"/>
+        <location filename="../massenermittlung.py" line="219"/>
         <source>Bulk assessment for layer '{0}' completed → </source>
-        <translation>Verarbeitung von Layer '{0}' abgeschlossen → </translation>
-    </message>
-    <message>
-        <location filename="../massenermittlung.py" line="250"/>
-        <source>Success</source>
-        <translation>Erfolg</translation>
+        <translation>Verarbeitung von Layer '{0}' abgeschlossen → → </translation>
     </message>
 </context>
 </TS>
