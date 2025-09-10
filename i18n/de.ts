@@ -2,37 +2,24 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="de_DE">
 <context>
-    <name>Massenermittlung</name>
-    <message>
-        <location filename="../massenermittlung.py" line="225"/>
-        <source>Bulk assessment for layer &apos;{0}&apos; completed</source>
-        <translation>Verarbeitung des Layers '{0}' abgeschlossen.</translation>
-    </message>
-    <message>
-        <location filename="../massenermittlung.py" line="247"/>
-        <source>Success</source>
-        <translation>Erfolg</translation>
-    </message>
-</context>
-<context>
     <name>RuntimeError</name>
     <message>
-        <location filename="../massenermittlung.py" line="149"/>
+        <location filename="../massenermittlung.py" line="140"/>
         <source>Failed to create the plugin menu.</source>
         <translation>Konnte das plugin-Menu nicht erstellen.</translation>
     </message>
     <message>
-        <location filename="../modules/find_stuff.py" line="65"/>
+        <location filename="../modules/find_stuff.py" line="76"/>
         <source>Failed to start editing the new layer.</source>
         <translation>Konnte den neuen Layer nicht bearbeiten.</translation>
     </message>
     <message>
-        <location filename="../modules/find_stuff.py" line="83"/>
+        <location filename="../modules/find_stuff.py" line="92"/>
         <source>Failed to commit changes to the new layer.</source>
         <translation>Konnte die Änderungen am neuen Layer nicht speichern.</translation>
     </message>
     <message>
-        <location filename="../modules/find_stuff.py" line="97"/>
+        <location filename="../modules/find_stuff.py" line="106"/>
         <source>No features found in the selected layer.</source>
         <translation>Konnte im gewählten Layer keine Objekte finden.</translation>
     </message>
@@ -121,24 +108,47 @@
     </message>
 </context>
 <context>
-    <name>log</name>
+    <name>general</name>
     <message>
-        <location filename="../modules/find_stuff.py" line="102"/>
-        <source>Found {0} lines in the selected layer.</source>
-        <translation>{0} Linien im gewähten Layer gefunden.</translation>
-    </message>
-    <message>
-        <location filename="../modules/find_stuff.py" line="200"/>
-        <source>house connections</source>
-        <translation>Hausanschlüsse</translation>
-    </message>
-    <message>
-        <location filename="../modules/find_stuff.py" line="285"/>
+        <location filename="../modules/find_stuff.py" line="63"/>
         <source>T-pieces</source>
         <translation>T-Stücke</translation>
     </message>
     <message>
-        <location filename="../modules/find_stuff.py" line="473"/>
+        <location filename="../modules/find_stuff.py" line="64"/>
+        <source>houses</source>
+        <translation>Hausanschlüsse</translation>
+    </message>
+    <message>
+        <location filename="../modules/find_stuff.py" line="65"/>
+        <source>bends</source>
+        <translation>Bögen</translation>
+    </message>
+    <message>
+        <location filename="../modules/find_stuff.py" line="66"/>
+        <source>reducers</source>
+        <translation>Reduzierungen</translation>
+    </message>
+</context>
+<context>
+    <name>log</name>
+    <message>
+        <location filename="../modules/find_stuff.py" line="111"/>
+        <source>Found {0} lines in the selected layer.</source>
+        <translation>{0} Linien im gewähten Layer gefunden.</translation>
+    </message>
+    <message>
+        <location filename="../modules/find_stuff.py" line="209"/>
+        <source>house connections</source>
+        <translation>Hausanschlüsse</translation>
+    </message>
+    <message>
+        <location filename="../modules/find_stuff.py" line="294"/>
+        <source>T-pieces</source>
+        <translation>T-Stücke</translation>
+    </message>
+    <message>
+        <location filename="../modules/find_stuff.py" line="482"/>
         <source>bends</source>
         <translation>Bögen</translation>
     </message>
@@ -166,6 +176,14 @@
         <location filename="../modules/general.py" line="452"/>
         <source>Added {0} from the GeoPackage to the project.</source>
         <translation>Layer '{0}' aus dem GeoPackage in das Projekt eingefügt.</translation>
+    </message>
+</context>
+<context>
+    <name>summary</name>
+    <message>
+        <location filename="../massenermittlung.py" line="219"/>
+        <source>Bulk assessment for layer '{0}' completed → </source>
+        <translation>Verarbeitung von Layer '{0}' abgeschlossen → → </translation>
     </message>
 </context>
 </TS>

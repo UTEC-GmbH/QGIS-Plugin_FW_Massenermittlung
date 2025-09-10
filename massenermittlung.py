@@ -38,15 +38,8 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from . import resources
-from .modules import general
+from .modules import general as ge
 from .modules.find_stuff import FeatureFinder, FeatureType
-from .modules.general import (
-    CustomRuntimeError,
-    LayerManager,
-    UserError,
-    log_debug,
-    raise_runtime_error,
-)
 
 if TYPE_CHECKING:
     from qgis.core import QgsVectorLayer
@@ -64,7 +57,7 @@ class Massenermittlung:
         """
 
         self.iface: QgisInterface = iface
-        general.iface = iface
+        ge.iface = iface
         self.plugin_dir: Path = Path(__file__).parent
         self.actions: list = []
         self.menu: str = "Massenermittlung"
@@ -78,17 +71,15 @@ class Massenermittlung:
         translator_path: Path = self.plugin_dir / "i18n" / f"{locale}.qm"
 
         if not translator_path.exists():
-            log_debug(f"Translator not found in: {translator_path}", Qgis.Warning)
+            ge.log_debug(f"Translator not found in: {translator_path}", Qgis.Warning)
         else:
-            log_debug(f"Translator found in: {translator_path}", Qgis.Success)
             self.translator = QTranslator()
             if self.translator is not None and self.translator.load(
                 str(translator_path)
             ):
                 QCoreApplication.installTranslator(self.translator)
-                log_debug("Translator installed.", Qgis.Success)
             else:
-                log_debug("Translator could not be installed.", Qgis.Warning)
+                ge.log_debug("Translator could not be installed.", Qgis.Warning)
 
     def add_action(  # noqa: PLR0913 # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -146,7 +137,7 @@ class Massenermittlung:
         # Create a menu for the plugin in the "Plugins" menu
         self.plugin_menu = QMenu(self.menu, self.iface.pluginMenu())
         if self.plugin_menu is None:
-            raise_runtime_error(
+            ge.raise_runtime_error(
                 QCoreApplication.translate(
                     "RuntimeError", "Failed to create the plugin menu."
                 )
@@ -210,7 +201,7 @@ class Massenermittlung:
     def run_massenermittlung(self) -> None:
         """Call the main function."""
         try:
-            layer_manager: LayerManager = LayerManager()
+            layer_manager: ge.LayerManager = ge.LayerManager()
             selected_layer: QgsVectorLayer = layer_manager.selected_layer
             new_layer: QgsVectorLayer = layer_manager.new_layer
 
@@ -218,37 +209,37 @@ class Massenermittlung:
 
             # Run the analysis
             found_features: dict[str, int] = finder.find_features(
-                FeatureType.T_STUECKE | FeatureType.HAUSANSCHLUESSE | FeatureType.BOEGEN
+                FeatureType.T_PIECES
+                | FeatureType.HOUSES
+                | FeatureType.BENDS
+                | FeatureType.REDUCERS
             )
 
             # 1. Use a placeholder for the layer name in the base message.
             base_message = QCoreApplication.translate(
-                "Massenermittlung", "Bulk assessment for layer '{0}' completed"
+                "summary", "Bulk assessment for layer '{0}' completed → "
             ).format(selected_layer.name())
 
             # 2. Rephrase the details to be "Name: Count" to avoid complex plurals.
             #    The name itself is translated from a new 'feature_names' context.
-            found_parts = [
-                f"{QCoreApplication.translate('feature_names', name)}: {count}"
+            found_parts: list[str] = [
+                f"{name}: {count}"
                 for name, count in found_features.items()
                 if count > 0
             ]
-            details = " → ".join(found_parts)
+            details: str = " → ".join(found_parts)
 
             layer_manager.set_layer_style(new_layer)
 
             if self.iface and (msg_bar := self.iface.messageBar()):
                 # 3. Combine the base message and the dynamic details.
                 if details:
-                    final_message = f"{base_message} → {details}."
+                    final_message: str = f"{base_message} → {details}."
                 else:
                     final_message = f"{base_message}."
 
-                msg_bar.pushMessage(
-                    QCoreApplication.translate("Massenermittlung", "Success"),
-                    final_message,
-                    level=Qgis.Success,
-                )
+                msg_bar.pushMessage(final_message, level=Qgis.Success)
+                ge.log_debug(final_message, Qgis.Success)
 
-        except (UserError, CustomRuntimeError):
+        except (ge.UserError, ge.CustomRuntimeError):
             return
