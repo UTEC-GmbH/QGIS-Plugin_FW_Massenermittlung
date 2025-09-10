@@ -240,6 +240,7 @@ class FeatureFinder:
         """Find 3-way (or more) intersections of lines."""
         number_of_new_points = 0
         checked_intersections: set = set()
+        dim_field: str = cont.Names.sel_layer_field_dim
 
         for feature in features:
             geom: QgsGeometry = feature.geometry()
@@ -290,6 +291,73 @@ class FeatureFinder:
                     attributes |= self._get_connected_attributes(intersecting_features)
                     if self._create_feature(intersection, attributes):
                         number_of_new_points += 1
+
+                    # Add reducers if dimensions differ
+                    dimensions: dict[int, float] = {}
+                    for f in intersecting_features:
+                        dim_val = f.attribute(dim_field)
+                        if dim_val is not None:
+                            try:
+                                dimensions[f.id()] = float(dim_val)
+                            except (ValueError, TypeError):
+                                general.log_debug(
+                                    f"Could not parse dimension '{dim_val}' for feature {f.id()}"
+                                )
+
+                    if not dimensions:
+                        continue
+
+                    max_dim: float = max(dimensions.values())
+
+                    for f in intersecting_features:
+                        f_id: int = f.id()
+                        if f_id not in dimensions:
+                            continue
+
+                        line_dim: float = dimensions[f_id]
+
+                        if line_dim < max_dim:
+                            line_geom: QgsGeometry = f.geometry()
+                            if not line_geom or line_geom.isNull():
+                                continue
+
+                            line_points: list[QgsPointXY] = line_geom.asPolyline()
+                            if not line_points:
+                                continue
+
+                            start_point: QgsPointXY = QgsPointXY(line_points[0])
+                            end_point: QgsPointXY = QgsPointXY(line_points[-1])
+
+                            dist_to_start: float = intersection_point.distance(
+                                start_point
+                            )
+                            dist_to_end: float = intersection_point.distance(end_point)
+
+                            reducer_point: QgsPointXY | None = None
+                            if dist_to_start < cont.Numbers.search_radius:
+                                if line_geom.length() > cont.Numbers.distance_t_reducer:
+                                    reducer_geom: QgsGeometry = line_geom.interpolate(
+                                        cont.Numbers.distance_t_reducer
+                                    )
+                                    reducer_point = reducer_geom.asPoint()
+                            elif dist_to_end < cont.Numbers.search_radius:
+                                if line_geom.length() > cont.Numbers.distance_t_reducer:
+                                    reducer_geom: QgsGeometry = line_geom.interpolate(
+                                        line_geom.length()
+                                        - cont.Numbers.distance_t_reducer
+                                    )
+                                    reducer_point = reducer_geom.asPoint()
+
+                            if reducer_point:
+                                reducer_attributes: dict[str, str] = {
+                                    cont.NewLayerFields.type.name: cont.Names.attr_val_type_reducer,
+                                    cont.NewLayerFields.dimensions.name: f"{cont.Names.dim_prefix}{int(max_dim)}/{cont.Names.dim_prefix}{int(line_dim)}",
+                                    cont.NewLayerFields.connected.name: str(f.id()),
+                                }
+                                self._create_feature(
+                                    QgsGeometry.fromPointXY(reducer_point),
+                                    reducer_attributes,
+                                )
 
         general.log_summary(
             QCoreApplication.translate("log", "T-pieces"),
