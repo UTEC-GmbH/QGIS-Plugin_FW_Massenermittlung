@@ -39,12 +39,12 @@
      id="layer1"
      transform="translate(-65.342232,-86.444183)">
     <circle
-       style="fill:#800000;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:#668000;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-dasharray:none;stroke-opacity:1"
        id="path1"
        cx="91.092232"
        cy="112.19418"
        r="25" 
-       fill="param(fill) #e2b60a"/>
+       fill="param(fill) #668000" />
     <path
        style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:7;stroke-dasharray:none;stroke-opacity:1"
        d="m 71.34488,105.27962 h 39.4947"

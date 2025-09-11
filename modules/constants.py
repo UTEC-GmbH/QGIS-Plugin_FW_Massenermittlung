@@ -6,7 +6,9 @@ This module contains constant values.
 from collections.abc import Generator
 from dataclasses import dataclass
 
-from qgis.PyQt.QtCore import QMetaType as QMeT  # type: ignore[]
+from qgis.PyQt.QtCore import (
+    QMetaType as QMeT,  # type: ignore[reportAttributeAccessIssue]
+)
 
 
 @dataclass
@@ -16,9 +18,11 @@ class Colours:
     This class contains colour constants.
     """
 
-    bogen: str = "#668000"
-    haus: str = "#55ddff"
-    t_st: str = "#e2b60a"
+    bend: str = "#e2b60a"
+    house: str = "#55ddff"
+    t_piece: str = "#668000"
+    reducer: str = "#9900ff"
+    connector: str = "#444444"
 
 
 @dataclass
@@ -37,16 +41,17 @@ class Names:
     sel_layer_field_dim: str = "diameter"
 
     # Namen für Spalten der Attributtabelle des neuen Layers
-    field_type: str = "Typ"
-    field_winkel: str = "Bogen-Winkel"
-    field_verbundene_linien: str = "verbundene Leitungen"
-    field_dimension: str = "Dimensionen"
+    attr_col_head_type: str = "Typ"
+    attr_col_head_bend_angle: str = "Bogen-Winkel"
+    attr_col_head_connected: str = "verbundene Leitungen"
+    attr_col_head_dimension: str = "Dimensionen"
 
-    # Werte der Spalte 'Typ' (Kategorien der Massenermittlung)
-    type_value_haus: str = "Hausanschluss"
-    type_value_bogen: str = "Bogen"
-    type_value_t_st: str = "T-Stück"
-    type_value_muffe: str = "Muffe"
+    # Werte der Spalte 'Typ' in der Attributtabelle (Kategorien der Massenermittlung)
+    attr_val_type_house: str = "Hausanschluss"
+    attr_val_type_bend: str = "Bogen"
+    attr_val_type_t_piece: str = "T-Stück"
+    attr_val_type_connector: str = "Muffe"
+    attr_val_type_reducer: str = "Reduzierung"
 
 
 @dataclass
@@ -67,11 +72,11 @@ class Numbers:
     min_intersec_t: int = 3  # Minimum number of lines to consider a T-intersection.
     min_angle_bogen: int = 15  # Minimum angle to consider a bent line as 'Bogen'.
 
-    # Search radius for finding intersections between lines.
-    search_radius: float = 0.05
+    distance_t_reducer: float = 0.5  # The distance between T-piece and reducer.
 
-    # A very small number used for floating point comparisons.
-    tiny_number: float = 1e-6
+    search_radius: float = 0.05  # Search radius for finding intersections.
+
+    tiny_number: float = 1e-6  # A small number used for floating point comparisons.
 
     new_layer_font_size: int = 8
     new_layer_label_mask_size: float = 0.8
@@ -92,12 +97,10 @@ class FieldAttributes:
 class NewLayerFields:
     """Constants for layer field attributes, accessible via dot notation."""
 
-    typ = FieldAttributes(Names.field_type, QMeT.Type.QString)
-    verbundene_linien = FieldAttributes(
-        Names.field_verbundene_linien, QMeT.Type.QString
-    )
-    dimensionen = FieldAttributes(Names.field_dimension, QMeT.Type.QString)
-    winkel = FieldAttributes(Names.field_winkel, QMeT.Type.Double)
+    type = FieldAttributes(Names.attr_col_head_type, QMeT.Type.QString)
+    connected = FieldAttributes(Names.attr_col_head_connected, QMeT.Type.QString)
+    dimensions = FieldAttributes(Names.attr_col_head_dimension, QMeT.Type.QString)
+    angle = FieldAttributes(Names.attr_col_head_bend_angle, QMeT.Type.Double)
 
     def __iter__(self) -> Generator[FieldAttributes, None, None]:
         """Make the class iterable."""
