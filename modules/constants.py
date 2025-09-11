@@ -6,7 +6,9 @@ This module contains constant values.
 from collections.abc import Generator
 from dataclasses import dataclass
 
-from qgis.PyQt.QtCore import QMetaType as QMeT  # type: ignore[]
+from qgis.PyQt.QtCore import (
+    QMetaType as QMeT,  # type: ignore[reportAttributeAccessIssue]
+)
 
 
 @dataclass
@@ -16,11 +18,11 @@ class Colours:
     This class contains colour constants.
     """
 
-    bend: str = "#668000"
+    bend: str = "#e2b60a"
     house: str = "#55ddff"
-    t_piece: str = "#e2b60a"
-    connector: str = "#444444"
+    t_piece: str = "#668000"
     reducer: str = "#9900ff"
+    connector: str = "#444444"
 
 
 @dataclass

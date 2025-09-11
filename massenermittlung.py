@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Callable
 from qgis.core import Qgis
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import (
-    QCoreApplication,  # type: ignore[reportMissingTypeStubs]
+    QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
     QSettings,  # type: ignore[reportMissingTypeStubs]
     QTranslator,  # type: ignore[reportMissingTypeStubs]
 )
@@ -40,6 +40,12 @@ from qgis.PyQt.QtWidgets import (
 from . import resources
 from .modules import general as ge
 from .modules.find_stuff import FeatureFinder, FeatureType
+from .modules.logs_and_errors import (
+    CustomRuntimeError,
+    CustomUserError,
+    log_debug,
+    raise_runtime_error,
+)
 
 if TYPE_CHECKING:
     from qgis.core import QgsVectorLayer
@@ -71,7 +77,7 @@ class Massenermittlung:
         translator_path: Path = self.plugin_dir / "i18n" / f"{locale}.qm"
 
         if not translator_path.exists():
-            ge.log_debug(f"Translator not found in: {translator_path}", Qgis.Warning)
+            log_debug(f"Translator not found in: {translator_path}", Qgis.Warning)
         else:
             self.translator = QTranslator()
             if self.translator is not None and self.translator.load(
@@ -79,7 +85,7 @@ class Massenermittlung:
             ):
                 QCoreApplication.installTranslator(self.translator)
             else:
-                ge.log_debug("Translator could not be installed.", Qgis.Warning)
+                log_debug("Translator could not be installed.", Qgis.Warning)
 
     def add_action(  # noqa: PLR0913 # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -137,7 +143,7 @@ class Massenermittlung:
         # Create a menu for the plugin in the "Plugins" menu
         self.plugin_menu = QMenu(self.menu, self.iface.pluginMenu())
         if self.plugin_menu is None:
-            ge.raise_runtime_error(
+            raise_runtime_error(
                 QCoreApplication.translate(
                     "RuntimeError", "Failed to create the plugin menu."
                 )
@@ -217,7 +223,7 @@ class Massenermittlung:
 
             # 1. Use a placeholder for the layer name in the base message.
             base_message = QCoreApplication.translate(
-                "summary", "Bulk assessment for layer '{0}' completed → "
+                "summary", "Bulk assessment for layer '{0}' completed "
             ).format(selected_layer.name())
 
             # 2. Rephrase the details to be "Name: Count" to avoid complex plurals.
@@ -227,7 +233,7 @@ class Massenermittlung:
                 for name, count in found_features.items()
                 if count > 0
             ]
-            details: str = " → ".join(found_parts)
+            details: str = " | ".join(found_parts)
 
             layer_manager.set_layer_style(new_layer)
 
@@ -239,7 +245,7 @@ class Massenermittlung:
                     final_message = f"{base_message}."
 
                 msg_bar.pushMessage(final_message, level=Qgis.Success)
-                ge.log_debug(final_message, Qgis.Success)
+                log_debug(final_message, Qgis.Success)
 
-        except (ge.UserError, ge.CustomRuntimeError):
+        except (CustomUserError, CustomRuntimeError):
             return

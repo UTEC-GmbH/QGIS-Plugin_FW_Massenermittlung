@@ -4,6 +4,7 @@
     <file>layer_style/Symbol_Bogen.svg</file>
     <file>layer_style/Symbol_Hausanschluss.svg</file>
     <file>layer_style/Symbol_T-Stück.svg</file>
+    <file>layer_style/Symbol_Reduzierung.svg</file>
     <file>layer_style/massenermittlung_style.qml</file>
 </qresource>
 </RCC>
