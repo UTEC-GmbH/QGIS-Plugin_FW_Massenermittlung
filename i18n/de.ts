@@ -4,7 +4,7 @@
 <context>
     <name>RuntimeError</name>
     <message>
-        <location filename="../massenermittlung.py" line="146"/>
+        <location filename="../massenermittlung.py" line="145"/>
         <source>Failed to create the plugin menu.</source>
         <translation>Konnte das plugin-Menu nicht erstellen.</translation>
     </message>
@@ -36,7 +36,7 @@
     <message>
         <location filename="../modules/general.py" line="85"/>
         <source>Failed to create GeoPackage at: {0}</source>
-        <translation>Konnte das GeoPackage unter '{0}' nicht erstellen.</translation>
+        <translation>Konnte das GeoPackage unter '{0}' nicht erstellen</translation>
     </message>
     <message>
         <location filename="../modules/general.py" line="119"/>
@@ -56,7 +56,7 @@
     <message>
         <location filename="../modules/general.py" line="320"/>
         <source>Could not get data provider for layer: {0}</source>
-        <translation>Konnte die Daten des Layers '{0}' nicht lesen.</translation>
+        <translation>Konnte die Daten des Layers '{0}' nicht lesen</translation>
     </message>
     <message>
         <location filename="../modules/general.py" line="262"/>
@@ -76,7 +76,7 @@
     <message>
         <location filename="../modules/general.py" line="365"/>
         <source>Could not find layer &apos;{0}&apos; in GeoPackage &apos;{1}&apos;</source>
-        <translation>Konnte den Layer '{0}' im GeoPackage '{1}' nicht finden.</translation>
+        <translation>Konnte den Layer '{0}' im GeoPackage '{1}' nicht finden</translation>
     </message>
 </context>
 <context>
@@ -145,20 +145,45 @@
     <message>
         <location filename="../modules/general.py" line="339"/>
         <source>Empty layer created: {0}</source>
-        <translation>Leerer Layer '{0}' erstellt.</translation>
+        <translation>Leerer Layer '{0}' erstellt</translation>
     </message>
     <message>
         <location filename="../modules/general.py" line="376"/>
         <source>Added layer &apos;{0}&apos; from the GeoPackage to the project.</source>
         <translation>Layer '{0}' aus dem GeoPackage zum Projekt hinzugefügt.</translation>
     </message>
+    <message>
+        <location filename="../modules/logs_and_errors.py" line="37"/>
+        <source>{0}: {1} lines checked → {2} items found.</source>
+        <translation>{0}: {1} Linienobjekte überprüft → {2} gefunden.</translation>
+    </message>
+    <message>
+        <location filename="../modules/logs_and_errors.py" line="42"/>
+        <source>{0}: {1} lines checked → No items found.</source>
+        <translation>{0}: {1} Linienobjekte überprüft → Keine gefunden.</translation>
+    </message>
+    <message>
+        <location filename="../modules/finders/bend_finder.py" line="73"/>
+        <source>bends</source>
+        <translation>Bögen</translation>
+    </message>
+    <message>
+        <location filename="../modules/finders/house_connection_finder.py" line="36"/>
+        <source>house connections</source>
+        <translation>Hausanschlüsse</translation>
+    </message>
+    <message>
+        <location filename="../modules/finders/t_piece_finder.py" line="150"/>
+        <source>T-pieces</source>
+        <translation>T-Stücke</translation>
+    </message>
 </context>
 <context>
     <name>summary</name>
     <message>
-        <location filename="../massenermittlung.py" line="225"/>
-        <source>Bulk assessment for layer '{0}' completed → </source>
-        <translation>Verarbeitung von Layer '{0}' abgeschlossen → → </translation>
+        <location filename="../massenermittlung.py" line="224"/>
+        <source>Bulk assessment for layer &apos;{0}&apos; completed </source>
+        <translation>Überprüfung des Layers '{0}' abgeschlossen </translation>
     </message>
 </context>
 </TS>

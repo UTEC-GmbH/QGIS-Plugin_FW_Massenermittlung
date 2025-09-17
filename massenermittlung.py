@@ -135,7 +135,6 @@ class Massenermittlung:
 
     def initGui(self) -> None:  # noqa: N802
         """Create the menu entries and toolbar icons for the plugin."""
-        # importlib.reload(resources)
 
         # Initialize the resources (icons, etc.)
         resources.qInitResources()
