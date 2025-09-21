@@ -6,7 +6,7 @@
 name=Massenermittlung
 qgisMinimumVersion=3.0
 description=Massenermittlung für Fernwärmenetze
-version=0.1
+version=0.2
 author=Florian Ludwig
 email=devalue-scope-drum@duck.com
 

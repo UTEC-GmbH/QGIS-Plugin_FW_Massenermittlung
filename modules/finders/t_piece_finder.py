@@ -3,7 +3,7 @@
 This module contains the TPieceFinder class.
 """
 
-from qgis.core import QgsFeature, QgsGeometry, QgsPointXY
+from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsPointXY
 from qgis.PyQt.QtCore import (
     QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
 )
@@ -83,7 +83,8 @@ class TPieceFinder(BaseFinder):
                             except (ValueError, TypeError):
                                 log_debug(
                                     f"Could not parse dimension '{dim_val}' "
-                                    f"for feature {f.id()}"
+                                    f"for feature {f.id()}",
+                                    Qgis.Warning,
                                 )
 
                     if not dimensions:

@@ -28,7 +28,7 @@ from qgis.PyQt.QtCore import (
 )
 
 from . import constants as cont
-from .logs_and_errors import raise_runtime_error, raise_user_error, log_debug
+from .logs_and_errors import log_debug, raise_runtime_error, raise_user_error
 
 iface: QgisInterface | None = None
 
@@ -53,6 +53,25 @@ def get_current_project() -> QgsProject:
         )
 
     return project
+
+
+def create_temporary_point_layer(project: QgsProject) -> QgsVectorLayer:
+    """Creates a temporary in-memory point layer with the standard result fields."""
+    temp_layer = QgsVectorLayer(
+        f"Point?crs={project.crs().authid()}", "temporary_results", "memory"
+    )
+    data_provider = temp_layer.dataProvider()
+    if data_provider is None:
+        raise_runtime_error(
+            QCoreApplication.translate(
+                "RuntimeError", "Could not create data provider for temporary layer."
+            )
+        )
+    data_provider.addAttributes(
+        [QgsField(field.name, field.data_type) for field in cont.NewLayerFields()]
+    )
+    temp_layer.updateFields()
+    return temp_layer
 
 
 def project_gpkg() -> Path:
@@ -187,10 +206,20 @@ class LayerManager:
         :param layer: The source QgsVectorLayer to reproject.
         :returns: A new, reprojected in-memory QgsVectorLayer.
         """
+        log_debug(f"Reprojecting layer '{layer.name()}' to project CRS.")
+
+        # Clear any selection on the layer
+        layer.removeSelection()
 
         # If the layer's CRS is already the same as the project's CRS, return a clone.
         if layer.crs() == self.project.crs():
+            log_debug("Layer CRS matches project CRS. Cloning layer.")
             return layer.clone()
+
+        log_debug(
+            f"Layer CRS ({layer.crs().authid()}) does not match project CRS "
+            f"({self.project.crs().authid()}). Reprojecting...",
+        )
 
         # Create a new in-memory layer with the target CRS
         geometry_type_str: str = QgsWkbTypes.displayString(layer.wkbType())
@@ -218,31 +247,66 @@ class LayerManager:
         )
 
         # Copy and reproject features
-        old_features: list[QgsFeature] = list(layer.getFeatures())
-        if not old_features:
+        all_ids = list(layer.allFeatureIds())
+        log_debug(f"Found {len(all_ids)} feature IDs in the source layer.")
+        if not all_ids:
             return reprojected_layer
 
         new_features: list[QgsFeature] = []
-        for feature in old_features:
-            new_feature = QgsFeature()
-            new_feature.setFields(reprojected_layer.fields(), initAttributes=True)
-            new_feature.setAttributes(feature.attributes())
+        for fid in all_ids:
+            try:
+                feature = layer.getFeature(fid)
+                new_feature = QgsFeature()
+                new_feature.setFields(reprojected_layer.fields(), initAttributes=True)
 
-            geom = feature.geometry()
-            if geom.transform(transform) != 0:  # 0 means success
+                # Copy only attributes that exist in the reprojected_layer's fields
+                for field in reprojected_layer.fields():
+                    if feature.fieldNameIndex(field.name()) != -1:
+                        new_feature.setAttribute(field.name(), feature[field.name()])
+
+                geom = feature.geometry()
+                if geom.transform(transform) != 0:  # 0 means success
+                    log_debug(
+                        f"Feature {feature.id()} could not be reprojected.",
+                        Qgis.Warning,
+                    )
+                    continue
+
+                new_feature.setGeometry(geom)
+                new_features.append(new_feature)
+            except Exception as e:
                 log_debug(
-                    QCoreApplication.translate(
-                        "log", "Feature {0} could not be reprojected."
-                    ).format(feature.id()),
+                    f"Could not process feature with ID {fid} for reprojection: {e!s}",
                     Qgis.Warning,
                 )
-                continue
 
-            new_feature.setGeometry(geom)
-            new_features.append(new_feature)
+        log_debug(f"Processed {len(new_features)} features for reprojection.")
 
-        data_provider.addFeatures(new_features)
-        reprojected_layer.updateExtents()
+        if new_features:
+            reprojected_layer.startEditing()
+            reprojected_layer.addFeatures(new_features)
+
+            # Add the in-memory layer to the project to ensure it's not garbage collected
+            # or invalidated. We don't add it to the layer tree, so it remains invisible.
+            self.project.addMapLayer(reprojected_layer, False)
+            log_debug(
+                f"Added reprojected layer to map registry. "
+                f"Feature count: {reprojected_layer.featureCount()}"
+            )
+
+            if reprojected_layer.commitChanges():
+                log_debug(
+                    f"Successfully committed {reprojected_layer.featureCount()} "
+                    "features to reprojected in-memory layer.",
+                    Qgis.Success,
+                )
+            else:
+                log_debug(
+                    f"Failed to commit changes to reprojected in-memory layer. "
+                    f"Feature count: {reprojected_layer.featureCount()}",
+                    Qgis.Critical,
+                )
+            reprojected_layer.updateExtents()
 
         return reprojected_layer
 
@@ -336,12 +400,7 @@ class LayerManager:
             empty_layer, str(gpkg_path), self.project.transformContext(), options
         )
         if error[0] == QgsVectorFileWriter.WriterError.NoError:
-            log_debug(
-                QCoreApplication.translate("log", "Empty layer created: {0}").format(
-                    new_layer_name
-                ),
-                Qgis.Success,
-            )
+            log_debug(f"Empty layer created: {new_layer_name}", Qgis.Success)
         else:
             raise_runtime_error(
                 QCoreApplication.translate(
@@ -374,9 +433,7 @@ class LayerManager:
         root.insertLayer(0, gpkg_layer)
 
         log_debug(
-            QCoreApplication.translate(
-                "log", "Added layer '{0}' from the GeoPackage to the project."
-            ).format(new_layer_name),
+            f"Added layer '{new_layer_name}' from the GeoPackage to the project.",
             Qgis.Success,
         )
 

@@ -24,7 +24,7 @@ def log_debug(message: str, msg_level: Qgis.MessageLevel = Qgis.Info) -> None:
 
     :param message: The message to log.
     """
-    QgsMessageLog.logMessage(message, "Massenermittlung", level=msg_level)
+    QgsMessageLog.logMessage(message, "Plugin - Massenermittlung", level=msg_level)
 
 
 def log_summary(item_name: str, checked_count: int, found_count: int) -> None:

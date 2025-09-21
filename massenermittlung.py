@@ -208,9 +208,13 @@ class Massenermittlung:
         try:
             layer_manager: ge.LayerManager = ge.LayerManager()
             selected_layer: QgsVectorLayer = layer_manager.selected_layer
-            new_layer: QgsVectorLayer = layer_manager.new_layer
 
-            finder = FeatureFinder(selected_layer=selected_layer, new_layer=new_layer)
+            # Create a temporary layer for the results
+            temp_results_layer = ge.create_temporary_point_layer(layer_manager.project)
+
+            finder = FeatureFinder(
+                selected_layer=selected_layer, new_layer=temp_results_layer
+            )
 
             # Run the analysis
             found_features: dict[str, int] = finder.find_features(
@@ -219,6 +223,13 @@ class Massenermittlung:
                 | FeatureType.BENDS
                 | FeatureType.REDUCERS
             )
+
+            # Now create the final layer and copy features
+            new_layer: QgsVectorLayer = layer_manager.new_layer
+            new_layer.startEditing()
+            for feature in temp_results_layer.getFeatures():
+                new_layer.addFeature(feature)
+            new_layer.commitChanges()
 
             # 1. Use a placeholder for the layer name in the base message.
             base_message = QCoreApplication.translate(
