@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<plugins>
+    <pyqgis_plugin name="Massenermittlung" version="0.2">
+        <description>Massenermittlung für Fernwärmenetze</description>
+        <about>Massenermittlung für Fernwärmenetze</about>
+        <version>0.2</version>
+        <qgis_minimum_version>3.0</qgis_minimum_version>
+        <author_name>Florian Ludwig</author_name>
+        <email>devalue-scope-drum@duck.com</email>
+        <homepage>http://homepage</homepage>
+        <file_name>Massenermittlung-0.2.zip</file_name>
+        <download_url>file:////dc1/netz$/Software/QGIS_Plugins_UTEC/Massenermittlung-0.2.zip</download_url>
+        <experimental>False</experimental>
+    </pyqgis_plugin>
+</plugins>

@@ -3,10 +3,10 @@
 # This file should be included when you package your plugin.# Mandatory items:
 
 [general]
+version=0.2
 name=Massenermittlung
 qgisMinimumVersion=3.0
 description=Massenermittlung für Fernwärmenetze
-version=0.2
 author=Florian Ludwig
 email=devalue-scope-drum@duck.com
 
@@ -29,7 +29,7 @@ homepage=http://homepage
 category=Plugins
 icon=icon.svg
 # experimental flag
-experimental=True
+experimental=False
 
 # deprecated flag (applies to the whole plugin, not just a single version)
 deprecated=False

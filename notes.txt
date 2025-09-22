@@ -14,9 +14,6 @@ Notes:
 	  use "cd PATH_TO_PLUGIN" in the OSGeo4W Shell and execute "compile.bat"
 
 
-  * You can use the Makefile to compile your Ui and resource files when
-    you make changes. This requires GNU make (gmake)
-
 
   * Translation Workflow
     
@@ -31,10 +28,16 @@ Notes:
     The lrelease command in the script will take your updated de.ts file and create the final i18n/de.qm file.
 
 
+  * Publishing New Versions (Automated)
+
+    1. Update the `version` number in `metadata.txt`. 
+
+    2. Run the release script from the OSGeo4W Shell in the plugin direcotry:
+       python release.py
+       This script will automatically update `plugins.xml`, compile resources, and package the new .zip file.
+
+    3. Copy the updated `plugins.xml` and the new .zip file from the `packages` directory to the shared folder.
+
 
 For more information, see the PyQGIS Developer Cookbook at:
 http://www.qgis.org/pyqgis-cookbook/index.html
-
-
-
-
