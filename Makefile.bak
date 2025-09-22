@@ -23,7 +23,7 @@
 #################################################
 
 
-# Add iso code for any locales you want to support here (space separated)
+#Add iso code for any locales you want to support here (space separated)
 # default is no locales
 # LOCALES = af
 LOCALES = de
@@ -36,18 +36,25 @@ LOCALES = de
 
 
 # translation
-SOURCES = $(shell find . -name "*.py")
+SOURCES = \
+	__init__.py \
+	massenermittlung.py \
+	modules/constants.py \
+	modules/find_stuff.py \
+	modules/general.py
 
 
 PLUGINNAME = Massenermittlung
 
-PY_FILES = $(shell find . -name "*.py")
+PY_FILES = \
+	__init__.py \
+	massenermittlung.py
 
 
 
 EXTRAS = metadata.txt icon.svg
 
-EXTRA_DIRS = i18n layer_style
+EXTRA_DIRS =
 
 COMPILED_RESOURCE_FILES = resources.py
 
@@ -62,15 +69,7 @@ PEP8EXCLUDE=pydev,resources.py,conf.py,third_party,ui
 #	* Windows:
 #	  AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins'
 
-ifeq ($(OS),Windows_NT)
-    QGISDIR = $(APPDATA)/QGIS/QGIS3/profiles/default/python/plugins
-else
-    ifeq ($(shell uname), Darwin)
-        QGISDIR = $(HOME)/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins
-    else
-        QGISDIR = $(HOME)/.local/share/QGIS/QGIS3/profiles/default/python/plugins
-    endif
-endif
+QGISDIR=C:\Users\fl\AppData/Roaming/QGIS/QGIS3/profiles/default/python/plugins
 
 #################################################
 # Normally you would not need to edit below here
@@ -125,13 +124,15 @@ deploy: compile doc transcompile
 	# The deploy  target only works on unix like operating system where
 	# the Python plugin directory is located at:
 	# $HOME/$(QGISDIR)/python/plugins
-	mkdir -p $(QGISDIR)/$(PLUGINNAME)
-	cp -vf $(PY_FILES) $(QGISDIR)/$(PLUGINNAME)
-	cp -vf $(UI_FILES) $(QGISDIR)/$(PLUGINNAME)
-	cp -vf $(COMPILED_RESOURCE_FILES) $(QGISDIR)/$(PLUGINNAME)
-	cp -vf $(EXTRAS) $(QGISDIR)/$(PLUGINNAME)
-	-cp -vfr $(EXTRA_DIRS) $(QGISDIR)/$(PLUGINNAME)
-	cp -vfr $(HELP) $(QGISDIR)/$(PLUGINNAME)/help
+	mkdir -p $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
+	cp -vf $(PY_FILES) $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
+	cp -vf $(UI_FILES) $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
+	cp -vf $(COMPILED_RESOURCE_FILES) $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
+	cp -vf $(EXTRAS) $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
+	cp -vfr i18n $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
+	cp -vfr $(HELP) $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)/help
+	# Copy extra directories if any
+	(foreach EXTRA_DIR,(EXTRA_DIRS), cp -R (EXTRA_DIR) (HOME)/(QGISDIR)/python/plugins/(PLUGINNAME)/;)
 
 
 # The dclean target removes compiled python files from plugin directory
@@ -141,8 +142,8 @@ dclean:
 	@echo "-----------------------------------"
 	@echo "Removing any compiled python files."
 	@echo "-----------------------------------"
-	find $(QGISDIR)/$(PLUGINNAME) -iname "*.pyc" -delete
-	find $(QGISDIR)/$(PLUGINNAME) -iname ".git" -prune -exec rm -Rf {} \;
+	find $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME) -iname "*.pyc" -delete
+	find $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME) -iname ".git" -prune -exec rm -Rf {} \;
 
 
 derase:
@@ -150,7 +151,7 @@ derase:
 	@echo "-------------------------"
 	@echo "Removing deployed plugin."
 	@echo "-------------------------"
-	rm -Rf $(QGISDIR)/$(PLUGINNAME)
+	rm -Rf $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
 
 zip: deploy dclean
 	@echo
@@ -160,7 +161,7 @@ zip: deploy dclean
 	# The zip target deploys the plugin and creates a zip file with the deployed
 	# content. You can then upload the zip file on http://plugins.qgis.org
 	rm -f $(PLUGINNAME).zip
-	cd $(QGISDIR); zip -9r $(CURDIR)/$(PLUGINNAME).zip $(PLUGINNAME)
+	cd $(HOME)/$(QGISDIR)/python/plugins; zip -9r $(CURDIR)/$(PLUGINNAME).zip $(PLUGINNAME)
 
 package: compile
 	# Create a zip package of the plugin named $(PLUGINNAME).zip.

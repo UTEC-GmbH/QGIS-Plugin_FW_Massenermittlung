@@ -9,9 +9,6 @@ from typing import TYPE_CHECKING, NoReturn
 
 from qgis.core import Qgis, QgsMessageLog
 from qgis.gui import QgisInterface
-from qgis.PyQt.QtCore import (
-    QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
-)
 
 iface: QgisInterface | None = None
 
@@ -24,25 +21,13 @@ def log_debug(message: str, msg_level: Qgis.MessageLevel = Qgis.Info) -> None:
 
     :param message: The message to log.
     """
-    QgsMessageLog.logMessage(message, "Massenermittlung", level=msg_level)
+    frame: FrameType | None = inspect.currentframe()
+    if frame and frame.f_back:
+        filename: str = Path(frame.f_back.f_code.co_filename).name
+        lineno: int = frame.f_back.f_lineno
+        message = f"{message} ({filename}: {lineno})"
 
-
-def log_summary(item_name: str, checked_count: int, found_count: int) -> None:
-    """Log a summary message for a feature finding operation."""
-
-    # TRANSLATORS: {0} is the item name (e.g., 'T-piece'),
-    # {1} is the number of items checked, {2} is the number of items found.
-
-    if found_count:
-        message = QCoreApplication.translate(
-            "log", "{0}: {1} lines checked → {2} items found."
-        ).format(item_name, checked_count, found_count)
-        log_debug(message, Qgis.Success)
-    else:
-        message = QCoreApplication.translate(
-            "log", "{0}: {1} lines checked → No items found."
-        ).format(item_name, checked_count)
-        log_debug(message, Qgis.Warning)
+    QgsMessageLog.logMessage(message, "Plugin: Massenermittlung", level=msg_level)
 
 
 class CustomRuntimeError(Exception):
@@ -65,9 +50,9 @@ def raise_runtime_error(error_msg: str) -> NoReturn:
         error_msg = f"{error_msg} ({filename}: {lineno})"
 
     if iface and (msg_bar := iface.messageBar()):
-        msg_bar.pushMessage("Error", error_msg, level=Qgis.Critical)
+        msg_bar.pushMessage("RuntimeError", error_msg, level=Qgis.Critical)
 
-    QgsMessageLog.logMessage(error_msg, "Error", level=Qgis.Critical)
+    QgsMessageLog.logMessage(error_msg, "RuntimeError", level=Qgis.Critical)
     raise CustomRuntimeError(error_msg)
 
 
@@ -86,7 +71,7 @@ def raise_user_error(error_msg: str) -> NoReturn:
     """
 
     if iface and (msg_bar := iface.messageBar()):
-        msg_bar.pushMessage("Error", error_msg, level=Qgis.Critical)
+        msg_bar.pushMessage("UserError", error_msg, level=Qgis.Warning)
 
-    QgsMessageLog.logMessage(error_msg, "Error", level=Qgis.Critical)
+    QgsMessageLog.logMessage(error_msg, "UserError", level=Qgis.Warning)
     raise CustomUserError(error_msg)

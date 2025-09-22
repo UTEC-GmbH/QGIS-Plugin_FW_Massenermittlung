@@ -4,12 +4,9 @@ This module contains the BendFinder class.
 """
 
 from qgis.core import QgsFeature, QgsGeometry, QgsPointXY, QgsWkbTypes
-from qgis.PyQt.QtCore import (
-    QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
-)
 
 from modules import constants as cont
-from modules.logs_and_errors import log_summary
+from modules.logs_and_errors import log_debug
 
 from .base_finder import BaseFinder
 
@@ -70,11 +67,7 @@ class BendFinder(BaseFinder):
 
                     checked_points.add(key)
 
-        log_summary(
-            QCoreApplication.translate("log", "bends"),
-            len(features),
-            number_of_new_points,
-        )
+        log_debug(f"Checked {len(features)} intersections.")
         return number_of_new_points
 
     def _get_internal_angles(

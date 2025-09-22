@@ -4,12 +4,9 @@ This module contains the HouseConnectionFinder class.
 """
 
 from qgis.core import QgsFeature, QgsGeometry
-from qgis.PyQt.QtCore import (
-    QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
-)
 
 from modules import constants as cont
-from modules.logs_and_errors import log_summary
+from modules.logs_and_errors import log_debug
 
 from .base_finder import BaseFinder
 
@@ -32,10 +29,6 @@ class HouseConnectionFinder(BaseFinder):
                     attributes |= self._get_connected_attributes([feature])
                     if self._create_feature(QgsGeometry.fromPointXY(point), attributes):
                         number_of_new_points += 1
+        log_debug(f"Checked {len(features)} intersections.")
 
-        log_summary(
-            QCoreApplication.translate("log", "house connections"),
-            len(features),
-            number_of_new_points,
-        )
         return number_of_new_points

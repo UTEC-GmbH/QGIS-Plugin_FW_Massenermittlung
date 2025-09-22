@@ -21,9 +21,9 @@
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
-from qgis.core import Qgis
+from qgis.core import Qgis, QgsFeature, QgsProject, QgsVectorLayer
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import (
     QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
@@ -46,9 +46,6 @@ from .modules.logs_and_errors import (
     log_debug,
     raise_runtime_error,
 )
-
-if TYPE_CHECKING:
-    from qgis.core import QgsVectorLayer
 
 
 class Massenermittlung:
@@ -142,11 +139,7 @@ class Massenermittlung:
         # Create a menu for the plugin in the "Plugins" menu
         self.plugin_menu = QMenu(self.menu, self.iface.pluginMenu())
         if self.plugin_menu is None:
-            raise_runtime_error(
-                QCoreApplication.translate(
-                    "RuntimeError", "Failed to create the plugin menu."
-                )
-            )
+            raise_runtime_error("Failed to create the plugin menu.")
 
         self.plugin_menu.setIcon(QIcon(self.icon_path))
 
@@ -205,12 +198,20 @@ class Massenermittlung:
 
     def run_massenermittlung(self) -> None:
         """Call the main function."""
+
+        log_debug("... STARTING PLUGIN RUN ...")
+        temp_point_layer: QgsVectorLayer | None = None
+        reprojected_layer: QgsVectorLayer | None = None
         try:
             layer_manager: ge.LayerManager = ge.LayerManager()
-            selected_layer: QgsVectorLayer = layer_manager.selected_layer
-            new_layer: QgsVectorLayer = layer_manager.new_layer
+            reprojected_layer = layer_manager.selected_layer
 
-            finder = FeatureFinder(selected_layer=selected_layer, new_layer=new_layer)
+            # Create a temporary layer for the results
+            temp_point_layer = ge.create_temporary_point_layer(layer_manager.project)
+
+            finder = FeatureFinder(
+                selected_layer=reprojected_layer, temp_point_layer=temp_point_layer
+            )
 
             # Run the analysis
             found_features: dict[str, int] = finder.find_features(
@@ -220,10 +221,38 @@ class Massenermittlung:
                 | FeatureType.REDUCERS
             )
 
+            # Now create the final layer and copy features
+            new_layer: QgsVectorLayer = layer_manager.new_layer
+            new_layer.startEditing()
+            log_debug(
+                f"Trying to add {temp_point_layer.featureCount()} features "
+                f"from the temporary point layer to the new layer."
+            )
+            log_debug(
+                f"Temporary point layer: {len(temp_point_layer.fields())} Fields / "
+                f"New layer: {len(new_layer.fields())} Fields"
+            )
+
+            target_fields = new_layer.fields()
+            for feature in temp_point_layer.getFeatures():  # pyright: ignore[reportGeneralTypeIssues]
+                new_feature = QgsFeature(target_fields)
+                new_feature.setGeometry(feature.geometry())
+                for field in feature.fields():
+                    # copy attribute if field with same name exists in target
+                    idx = target_fields.indexOf(field.name())
+                    if idx != -1:
+                        new_feature.setAttribute(idx, feature.attribute(field.name()))
+                new_layer.addFeature(new_feature)
+
+            new_layer.commitChanges()
+            log_debug(
+                f"After editing, the new layer has {new_layer.featureCount()} features."
+            )
+
             # 1. Use a placeholder for the layer name in the base message.
             base_message = QCoreApplication.translate(
                 "summary", "Bulk assessment for layer '{0}' completed "
-            ).format(selected_layer.name())
+            ).format(reprojected_layer.name())
 
             # 2. Rephrase the details to be "Name: Count" to avoid complex plurals.
             #    The name itself is translated from a new 'feature_names' context.
@@ -248,3 +277,10 @@ class Massenermittlung:
 
         except (CustomUserError, CustomRuntimeError):
             return
+        finally:
+            if temp_point_layer:  # pyright: ignore[reportGeneralTypeIssues]
+                QgsProject.instance().removeMapLayer(temp_point_layer)  # pyright: ignore[reportOptionalMemberAccess]
+                log_debug("Temporary point layer removed.")
+            if reprojected_layer:  # pyright: ignore[reportGeneralTypeIssues]
+                QgsProject.instance().removeMapLayer(reprojected_layer)  # pyright: ignore[reportOptionalMemberAccess]
+                log_debug("In-memory copy of the selected layer removed.")
