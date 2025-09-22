@@ -4,27 +4,27 @@
 <context>
     <name>UserError</name>
     <message>
-        <location filename="../modules/general.py" line="310"/>
+        <location filename="../modules/general.py" line="344"/>
         <source>Multiple layers selected.</source>
         <translation>Mehrere Layer ausgewählt. Bitte nur einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="314"/>
+        <location filename="../modules/general.py" line="348"/>
         <source>No layer selected.</source>
         <translation>Kein Layer ausgewählt. Bitte einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="320"/>
+        <location filename="../modules/general.py" line="354"/>
         <source>Selected node is not a layer.</source>
         <translation>Das ausgewählte Objekt ist kein Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="326"/>
+        <location filename="../modules/general.py" line="360"/>
         <source>Selected layer is not a vector layer.</source>
         <translation>Der gewählte Layer ist kein Vektorlayer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="333"/>
+        <location filename="../modules/general.py" line="367"/>
         <source>The selected layer is not a line layer.</source>
         <translation>Der gewählte Layer ist kein Linien-Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
@@ -34,7 +34,7 @@
         <translation>Kein QGSI-Projekt geöffnet.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="87"/>
+        <location filename="../modules/general.py" line="94"/>
         <source>Project is not saved. Please save the project first.</source>
         <translation>Das Projekt ist noch nicht gespeichert. Bitte das Projekt abspeichern, damit ein Projektordner erstellt wird.</translation>
     </message>
@@ -42,58 +42,30 @@
 <context>
     <name>general</name>
     <message>
-        <location filename="../modules/find_stuff.py" line="73"/>
+        <location filename="../modules/find_stuff.py" line="77"/>
         <source>T-pieces</source>
         <translation>T-Stücke</translation>
     </message>
     <message>
-        <location filename="../modules/find_stuff.py" line="74"/>
+        <location filename="../modules/find_stuff.py" line="78"/>
         <source>houses</source>
         <translation>Hausanschlüsse</translation>
     </message>
     <message>
-        <location filename="../modules/find_stuff.py" line="75"/>
+        <location filename="../modules/find_stuff.py" line="79"/>
         <source>bends</source>
         <translation>Bögen</translation>
     </message>
     <message>
-        <location filename="../modules/find_stuff.py" line="76"/>
+        <location filename="../modules/find_stuff.py" line="80"/>
         <source>reducers</source>
         <translation>Reduzierungen</translation>
     </message>
 </context>
 <context>
-    <name>log</name>
-    <message>
-        <location filename="../modules/logs_and_errors.py" line="37"/>
-        <source>{0}: {1} lines checked → {2} items found.</source>
-        <translation>{0}: {1} Linienobjekte überprüft → {2} gefunden.</translation>
-    </message>
-    <message>
-        <location filename="../modules/logs_and_errors.py" line="42"/>
-        <source>{0}: {1} lines checked → No items found.</source>
-        <translation>{0}: {1} Linienobjekte überprüft → Keine gefunden.</translation>
-    </message>
-    <message>
-        <location filename="../modules/finders/bend_finder.py" line="73"/>
-        <source>bends</source>
-        <translation>Bögen</translation>
-    </message>
-    <message>
-        <location filename="../modules/finders/house_connection_finder.py" line="36"/>
-        <source>house connections</source>
-        <translation>Hausanschlüsse</translation>
-    </message>
-    <message>
-        <location filename="../modules/finders/t_piece_finder.py" line="151"/>
-        <source>T-pieces</source>
-        <translation>T-Stücke</translation>
-    </message>
-</context>
-<context>
     <name>summary</name>
     <message>
-        <location filename="../massenermittlung.py" line="231"/>
+        <location filename="../massenermittlung.py" line="253"/>
         <source>Bulk assessment for layer &apos;{0}&apos; completed </source>
         <translation>Überprüfung des Layers '{0}' abgeschlossen </translation>
     </message>
