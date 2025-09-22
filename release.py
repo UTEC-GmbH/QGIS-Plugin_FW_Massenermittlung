@@ -12,32 +12,44 @@ To use:
 import configparser
 import logging
 import os
-import re
-import shutil
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from typing import TypedDict
 
 from defusedxml import ElementTree as ElTr
 
 # --- Configuration ---
 METADATA_FILE: Path = Path("metadata.txt")
-PLUGINS_XML_FILE: Path = Path("plugins.xml")
+PLUGINS_XML_FILE: Path = Path("packages") / "plugins.xml"
 
 # --- Logger ---
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class PluginMetadata(TypedDict):
+    """A dictionary representing the plugin's metadata."""
+
+    name: str
+    version: str
+    url_base: str
+    description: str
+    about: str
+    qgis_minimum_version: str
+    author: str
+    email: str
 
 
 class ReleaseScriptError(Exception):
     """Custom exception for errors during the release process."""
 
 
-def get_plugin_metadata() -> tuple[str, str]:
-    """Read the plugin name and version from the metadata.txt file.
+def get_plugin_metadata() -> PluginMetadata:
+    """Read plugin metadata from the metadata.txt file.
 
     Returns:
-        A tuple containing the plugin name and version string.
+        A dictionary containing the plugin's core metadata.
 
     Raises:
         ReleaseScriptError: If the metadata file is not found or is missing keys.
@@ -49,39 +61,60 @@ def get_plugin_metadata() -> tuple[str, str]:
     config = configparser.ConfigParser()
     config.read(METADATA_FILE)
     try:
-        name: str = config.get("general", "name")
-        version: str = config.get("general", "version")
-    except (configparser.NoSectionError, configparser.NoOptionError) as e:
+        metadata: PluginMetadata = {
+            "name": config.get("general", "name"),
+            "version": config.get("general", "version"),
+            "url_base": config.get("general", "download_url_base"),
+            "description": config.get("general", "description"),
+            "about": config.get("general", "about"),
+            "qgis_minimum_version": config.get("general", "qgisMinimumVersion"),
+            "author": config.get("general", "author"),
+            "email": config.get("general", "email"),
+        }
+    except configparser.NoSectionError as e:
+        msg = f"Could not find required section '[{e.section}]' in {METADATA_FILE}."
+        logger.exception("❌ %s", msg)
+        raise ReleaseScriptError(msg) from e
+    except configparser.NoOptionError as e:
         msg = (
-            "Could not find '[general]' section or required keys ('name', "
-            f"'version') in {METADATA_FILE}."
+            f"Missing required key '{e.option}' in section '[{e.section}]' "
+            f"in {METADATA_FILE}."
         )
         logger.exception("❌ %s", msg)
         raise ReleaseScriptError(msg) from e
     else:
         logger.info(
             "✅ Found plugin '%s' version '%s' in %s",
-            name,
-            version,
+            metadata["name"],
+            metadata["version"],
             METADATA_FILE,
         )
-        return name, version
+        return metadata
 
 
-def update_repository_file(plugin_name: str, version: str) -> None:
-    """Update the version, filename, and download URL in the plugins.xml file.
+def update_repository_file(metadata: PluginMetadata) -> None:
+    """Update all relevant tags in the plugins.xml file from metadata.
 
     Args:
-        plugin_name: The name of the plugin.
-        version: The new version string to apply.
+        metadata: A dictionary containing the plugin's core metadata.
 
     Raises:
         ReleaseScriptError: If plugins.xml or required tags are not found.
     """
-    logger.info("Updating %s to version %s...", PLUGINS_XML_FILE, version)
+    plugin_name = metadata["name"]
+    version = metadata["version"]
+    logger.info(
+        "Updating %s for '%s' version %s...", PLUGINS_XML_FILE, plugin_name, version
+    )
+
+    # Ensure the 'packages' directory exists before trying to access the file.
+    PLUGINS_XML_FILE.parent.mkdir(exist_ok=True)
 
     if not PLUGINS_XML_FILE.exists():
-        msg = f"Repository file not found at '{PLUGINS_XML_FILE}'"
+        msg = (
+            f"Repository file not found at '{PLUGINS_XML_FILE}'. If this is the "
+            "first release, please create it inside the 'packages' directory."
+        )
         raise ReleaseScriptError(msg)
 
     try:
@@ -105,20 +138,35 @@ def update_repository_file(plugin_name: str, version: str) -> None:
             msg = f"Plugin '{plugin_name}' not in repository XML."
             raise ReleaseScriptError(msg)
 
+        def _update_tag(parent_node: ElTr.Element, tag_name: str, value: str) -> None:  # pyright: ignore[reportAttributeAccessIssue]
+            """Find and update the text of a child tag."""
+            if (tag := parent_node.find(tag_name)) is not None:
+                tag.text = value
+            else:
+                logger.warning(
+                    "⚠️ Tag '%s' not found in %s. Skipping update.",
+                    tag_name,
+                    PLUGINS_XML_FILE,
+                )
+
         plugin_node.set("version", version)
-        if (version_tag := plugin_node.find("version")) is not None:
-            version_tag.text = version
 
+        # Update all relevant tags from metadata
+        _update_tag(plugin_node, "description", metadata["description"])
+        _update_tag(plugin_node, "about", metadata["about"])
+        _update_tag(plugin_node, "version", version)
+        _update_tag(
+            plugin_node, "qgis_minimum_version", metadata["qgis_minimum_version"]
+        )
+        _update_tag(plugin_node, "author_name", metadata["author"])
+        _update_tag(plugin_node, "email", metadata["email"])
+
+        # Update file name and download URL
         new_zip_filename: str = f"{plugin_name}-{version}.zip"
-        if (filename_tag := plugin_node.find("file_name")) is not None:
-            filename_tag.text = new_zip_filename
+        _update_tag(plugin_node, "file_name", new_zip_filename)
 
-        if (
-            download_url_tag := plugin_node.find("download_url")
-        ) is not None and download_url_tag.text:
-            old_url: str = download_url_tag.text
-            new_url: str = re.sub(r"/[^/]+\.zip$", f"/{new_zip_filename}", old_url)
-            download_url_tag.text = new_url
+        new_url = f"{metadata['url_base'].rstrip('/')}/{new_zip_filename}"
+        _update_tag(plugin_node, "download_url", new_url)
 
         tree.write(PLUGINS_XML_FILE, encoding="utf-8", xml_declaration=True)
         logger.info("✅ Successfully updated %s", PLUGINS_XML_FILE)
@@ -193,8 +241,15 @@ def package_plugin_from_config(plugin_name: str, version: str) -> None:
     config.read(pb_tool_cfg_path)
 
     try:
-        # The root directory name inside the zip file
+        # The root directory name inside the zip file MUST be a valid Python
+        # module name (no spaces). This is read from pb_tool.cfg.
         plugin_zip_dir = config.get("plugin", "name")
+        if " " in plugin_zip_dir:
+            msg = (
+                f"The plugin 'name' in pb_tool.cfg ('{plugin_zip_dir}') "
+                "must not contain spaces. Use an underscore_ or remove them."
+            )
+            raise ReleaseScriptError(msg)
 
         # --- Collect files and directories from config ---
         files_to_zip: list[str] = []
@@ -250,37 +305,6 @@ def package_plugin_from_config(plugin_name: str, version: str) -> None:
         raise ReleaseScriptError(msg) from e
 
 
-def copy_repository_file_to_packages() -> None:
-    """Copy the updated plugins.xml to the packages directory.
-
-    This centralizes all release artifacts into a single folder, simplifying
-    the deployment process.
-
-    Raises:
-        ReleaseScriptError: If the copy operation fails.
-    """
-    logger.info("\n▶️ Copying %s to 'packages/' directory...", PLUGINS_XML_FILE)
-    packages_dir = Path("packages")
-    if not packages_dir.is_dir():
-        msg = f"Packages directory '{packages_dir}' not found. Cannot copy file."
-        raise ReleaseScriptError(msg)
-
-    try:
-        destination_path = packages_dir / PLUGINS_XML_FILE.name
-        shutil.copy2(PLUGINS_XML_FILE, destination_path)
-        logger.info(
-            "✅ Successfully copied %s to %s",
-            PLUGINS_XML_FILE,
-            destination_path,
-        )
-    except (shutil.Error, OSError) as e:
-        msg = (
-            f"Failed to copy {PLUGINS_XML_FILE} to {packages_dir}. "
-            "Check file permissions."
-        )
-        raise ReleaseScriptError(msg) from e
-
-
 def setup_logging() -> None:
     """Configure the module's logger to print to the console."""
     handler = logging.StreamHandler(sys.stdout)
@@ -295,22 +319,20 @@ def run_release_process() -> None:
 
     This main function orchestrates the entire release process:
     1. Reads metadata.
-    2. Updates the repository XML.
+    2. Updates the repository XML in the 'packages' directory.
     3. Compiles resources and translations.
-    4. Packages the plugin into a zip file.
-    5. Copies the repository XML to the packages directory.
+    4. Packages the plugin into a zip file in the 'packages' directory.
 
     Raises:
         ReleaseScriptError: If any step in the release process fails.
     """
-    plugin_name, version = get_plugin_metadata()
-    update_repository_file(plugin_name, version)
+    metadata = get_plugin_metadata()
+    update_repository_file(metadata)
     # The 'shell=True' is required on Windows to run .bat files correctly
     # from the PATH. This is safe as the command is a static string.
-    run_command(["compile.bat"], shell=True)
+    run_command(["compile.bat"], shell=True)  # noqa: S604
 
-    package_plugin_from_config(plugin_name, version)
-    copy_repository_file_to_packages()
+    package_plugin_from_config(metadata["name"], metadata["version"])
 
     logger.info("\n🎉 --- Release process complete! --- 🎉")
     logger.info("Next steps:")

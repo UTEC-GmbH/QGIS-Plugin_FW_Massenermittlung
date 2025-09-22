@@ -32,11 +32,12 @@ Notes:
 
     1. Update the `version` number in `metadata.txt`. 
 
-    2. Run the release script from the OSGeo4W Shell in the plugin direcotry:
+    2. Run the release script from the OSGeo4W Shell in the plugin directory:
        python release.py
-       This script will automatically update `plugins.xml`, compile resources, and package the new .zip file.
+       This script will automatically update `plugins.xml` (in the `packages/` directory), 
+       compile resources, and package the new .zip file.
 
-    3. Copy the updated `plugins.xml` and the new .zip file from the `packages` directory to the shared folder.
+    3. Copy all files from the `packages/` directory to the shared folder.
 
 
 For more information, see the PyQGIS Developer Cookbook at:
