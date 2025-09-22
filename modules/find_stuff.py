@@ -16,6 +16,7 @@ from qgis.PyQt.QtCore import (
     QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
 )
 
+from . import constants as cont
 from .finders.bend_finder import BendFinder
 from .finders.house_connection_finder import HouseConnectionFinder
 from .finders.t_piece_finder import TPieceFinder
@@ -36,7 +37,7 @@ class FeatureFinder:
     """A class to find different types of features in a vector layer."""
 
     def __init__(
-        self, selected_layer: QgsVectorLayer, new_layer: QgsVectorLayer
+        self, selected_layer: QgsVectorLayer, temp_point_layer: QgsVectorLayer
     ) -> None:
         """Initialize the FeatureFinder class.
 
@@ -45,9 +46,12 @@ class FeatureFinder:
         """
         log_debug("Initializing FeatureFinder...")
         log_debug(
-            f"FeatureFinder received layer with feature count: "
-            f"{selected_layer.featureCount()}",
-            Qgis.Info,
+            f"FeatureFinder received selected (in-memory) layer "
+            f"'{selected_layer.name()}' (feature count: "
+            f"{selected_layer.featureCount()}, field count: "
+            f"{len(selected_layer.fields())}), and a tempoprary "
+            f"point layer (feature count: {temp_point_layer.featureCount()}, "
+            f"field count: {len(temp_point_layer.fields())})."
         )
         self.selected_layer: QgsVectorLayer = selected_layer
 
@@ -60,7 +64,7 @@ class FeatureFinder:
 
         self.selected_layer_features: list[QgsFeature] = self._get_all_features()
 
-        self.new_layer: QgsVectorLayer = new_layer
+        self.new_layer: QgsVectorLayer = temp_point_layer
         log_debug("FeatureFinder initialized successfully.", Qgis.Success)
 
     def find_features(self, feature_to_search: FeatureType) -> dict[str, int]:
@@ -69,7 +73,7 @@ class FeatureFinder:
         :param feature_types: A flag combination of the features to find.
         :returns: A dictionary with the count of found features.
         """
-        log_debug(f"Starting feature search for: {feature_to_search}")
+        log_debug("Starting feature search.")
         t_pieces: str = QCoreApplication.translate("general", "T-pieces")
         houses: str = QCoreApplication.translate("general", "houses")
         bends: str = QCoreApplication.translate("general", "bends")
@@ -83,11 +87,7 @@ class FeatureFinder:
         }
 
         if not self.new_layer.startEditing():
-            raise_runtime_error(
-                QCoreApplication.translate(
-                    "RuntimeError", "Failed to start editing the new layer."
-                )
-            )
+            raise_runtime_error("Failed to start editing the new layer.")
 
         if FeatureType.T_PIECES in feature_to_search:
             log_debug("Searching for T-pieces...")
@@ -116,11 +116,7 @@ class FeatureFinder:
             log_debug(f"Found {found_counts[bends]} bends.")
 
         if not self.new_layer.commitChanges():
-            raise_runtime_error(
-                QCoreApplication.translate(
-                    "RuntimeError", "Failed to commit changes to the new layer."
-                )
-            )
+            raise_runtime_error("Failed to commit changes to the new layer.")
 
         log_debug("Feature search completed.", Qgis.Success)
         return found_counts
@@ -129,29 +125,28 @@ class FeatureFinder:
         """Get all features from the selected layer."""
         log_debug("Getting all features from the selected layer...")
 
-        log_debug(
-            f"Getting all features. "
-            f"Layer feature count: {self.selected_layer.featureCount()}"
+        request = QgsFeatureRequest()
+        # Only load the 'diameter' field, and the geometry
+        dim_field_index = self.selected_layer.fields().lookupField(
+            cont.Names.sel_layer_field_dim
         )
-
-        all_ids = list(self.selected_layer.allFeatureIds())
-        log_debug(f"Found {len(all_ids)} feature IDs.")
+        if dim_field_index == -1:
+            raise_runtime_error(
+                f"Field '{cont.Names.sel_layer_field_dim}' not found in selected layer."
+            )
+        request.setSubsetOfAttributes([dim_field_index])
+        request.setFlags(QgsFeatureRequest.NoGeometry)
 
         features: list[QgsFeature] = []
-        for fid in all_ids:
-            try:
-                feature = self.selected_layer.getFeature(fid)
-                features.append(feature)
-            except Exception as e:
-                log_debug(f"Could not fetch feature with ID {fid}: {e!s}", Qgis.Warning)
+        features.extend(iter(self.selected_layer.getFeatures(request)))
 
         if not features:
             raise_runtime_error(
-                QCoreApplication.translate(
-                    "RuntimeError",
-                    "No features could be successfully fetched "
-                    "from the selected layer.",
-                )
+                "No features could be successfully fetched from the selected layer."
             )
-        log_debug(f"Successfully fetched {len(features)} features.", Qgis.Success)
+        log_debug(
+            f"Successfully fetched {len(features)} features from the selected layer.",
+            Qgis.Success,
+        )
+
         return features

@@ -44,11 +44,22 @@ class BaseFinder:
 
     def _create_feature(self, geometry: QgsGeometry, attributes: dict) -> bool:
         """Create a new feature in the new layer."""
-        new_feature = QgsFeature(self.new_layer.fields())
-        new_feature.setGeometry(geometry)
+        data_provider = self.new_layer.dataProvider()
+        if data_provider is None:
+            log_debug("Data provider is None for new_layer.", Qgis.Critical)
+            return False
 
-        for field_name, value in attributes.items():
-            new_feature.setAttribute(field_name, value)
+        layer_fields = self.new_layer.fields()
+        field_names = [layer_fields[idx].name() for idx in range(layer_fields.count())]
+
+        attr_values = [
+            attributes.get(field_name)
+            for field_name in field_names
+            if field_name.lower() != "fid"
+        ]
+        new_feature = QgsFeature(layer_fields)
+        new_feature.setGeometry(geometry)
+        new_feature.setAttributes(attr_values)
 
         return self.new_layer.addFeature(new_feature)
 
