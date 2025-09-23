@@ -15,6 +15,7 @@ from qgis.core import (
 from qgis.PyQt.QtCore import (
     QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
 )
+from qgis.PyQt.QtWidgets import QProgressBar  # type: ignore[reportAttributeAccessIssue]
 
 from . import constants as cont
 from .finders.bend_finder import BendFinder
@@ -67,11 +68,17 @@ class FeatureFinder:
         self.new_layer: QgsVectorLayer = temp_point_layer
         log_debug("FeatureFinder initialized successfully.", Qgis.Success)
 
-    def find_features(self, feature_to_search: FeatureType) -> dict[str, int]:
+    def find_features(
+        self, feature_to_search: FeatureType, progress_bar: QProgressBar
+    ) -> dict[str, int]:
         """Find features based on the provided flags.
 
-        :param feature_types: A flag combination of the features to find.
-        :returns: A dictionary with the count of found features.
+        Args:
+            feature_to_search: A flag combination of the features to find.
+            progress_bar: A QProgressBar to report progress.
+
+        Returns:
+            A dictionary with the count of found features.
         """
         log_debug("Starting feature search.")
         t_pieces: str = QCoreApplication.translate("general", "T-pieces")
@@ -85,6 +92,25 @@ class FeatureFinder:
             bends: 0,
             reducers: 0,
         }
+        # --- Calculate total steps for progress bar ---
+        num_features = len(self.selected_layer_features)
+        num_finders = 0
+        if FeatureType.T_PIECES in feature_to_search:
+            num_finders += 1
+        if FeatureType.HOUSES in feature_to_search:
+            num_finders += 1
+        if FeatureType.BENDS in feature_to_search:
+            num_finders += 1
+        # NOTE: Reducers are not yet implemented, so not counted.
+
+        total_steps = num_features * num_finders
+        progress_bar.setMaximum(total_steps)
+        current_step = 0
+
+        def progress_callback() -> None:
+            nonlocal current_step
+            current_step += 1
+            progress_bar.setValue(current_step)
 
         if not self.new_layer.startEditing():
             raise_runtime_error("Failed to start editing the new layer.")
@@ -94,7 +120,9 @@ class FeatureFinder:
             t_piece_finder = TPieceFinder(
                 self.selected_layer, self.new_layer, self.selected_layer_index
             )
-            found_counts[t_pieces] = t_piece_finder.find(self.selected_layer_features)
+            found_counts[t_pieces] = t_piece_finder.find(
+                self.selected_layer_features, progress_callback
+            )
             log_debug(f"Found {found_counts[t_pieces]} T-pieces.")
 
         if FeatureType.HOUSES in feature_to_search:
@@ -103,7 +131,7 @@ class FeatureFinder:
                 self.selected_layer, self.new_layer, self.selected_layer_index
             )
             found_counts[houses] = house_connection_finder.find(
-                self.selected_layer_features
+                self.selected_layer_features, progress_callback
             )
             log_debug(f"Found {found_counts[houses]} house connections.")
 
@@ -112,7 +140,9 @@ class FeatureFinder:
             bend_finder = BendFinder(
                 self.selected_layer, self.new_layer, self.selected_layer_index
             )
-            found_counts[bends] = bend_finder.find(self.selected_layer_features)
+            found_counts[bends] = bend_finder.find(
+                self.selected_layer_features, progress_callback
+            )
             log_debug(f"Found {found_counts[bends]} bends.")
 
         if not self.new_layer.commitChanges():

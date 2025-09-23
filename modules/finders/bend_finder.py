@@ -3,6 +3,8 @@
 This module contains the BendFinder class.
 """
 
+from typing import Callable
+
 from qgis.core import QgsFeature, QgsGeometry, QgsPointXY, QgsWkbTypes
 
 from modules import constants as cont
@@ -14,7 +16,9 @@ from .base_finder import BaseFinder
 class BendFinder(BaseFinder):
     """A class to find bends."""
 
-    def find(self, features: list[QgsFeature]) -> int:
+    def find(
+        self, features: list[QgsFeature], progress_callback: Callable | None = None
+    ) -> int:
         """Find angles in lines and at intersections."""
         number_of_new_points = 0
         checked_points: set = set()
@@ -67,7 +71,11 @@ class BendFinder(BaseFinder):
 
                     checked_points.add(key)
 
+        if progress_callback:
+            progress_callback()
+
         log_debug(f"Checked {len(features)} intersections.")
+
         return number_of_new_points
 
     def _get_internal_angles(

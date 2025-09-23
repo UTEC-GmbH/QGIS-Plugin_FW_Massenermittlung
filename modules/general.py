@@ -207,12 +207,14 @@ class LayerManager:
         if layer.crs() == target_crs:
             log_debug(
                 "Layer CRS matches project CRS. "
-                "Creating new layer with filtered fields."
+                "Creating new layer with filtered fields.",
+                Qgis.Success,
             )
         else:
             log_debug(
                 f"Layer CRS ({layer.crs().authid()}) does not match project CRS "
                 f"({target_crs.authid()}). Reprojecting...",
+                Qgis.Warning,
             )
 
         # Create a new in-memory layer with the target CRS

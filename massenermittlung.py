@@ -23,31 +23,31 @@ import configparser
 
 import configparser
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from qgis.core import Qgis, QgsFeature, QgsProject, QgsVectorLayer
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import (
     QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
     QSettings,  # type: ignore[reportMissingTypeStubs]
+    Qt,  # type: ignore[reportAttributeAccessIssue]
     QTranslator,  # type: ignore[reportMissingTypeStubs]
 )
 from qgis.PyQt.QtGui import QIcon  # type: ignore[reportAttributeAccessIssue]
 from qgis.PyQt.QtWidgets import (
     QAction,
     QMenu,  # type: ignore[reportAttributeAccessIssue]
+    QProgressBar,  # type: ignore[reportAttributeAccessIssue]
     QToolButton,  # type: ignore[reportAttributeAccessIssue]
 )
 
 from . import resources
 from .modules import general as ge
+from .modules import logs_and_errors as lae
 from .modules.find_stuff import FeatureFinder, FeatureType
-from .modules.logs_and_errors import (
-    CustomRuntimeError,
-    CustomUserError,
-    log_debug,
-    raise_runtime_error,
-)
+
+if TYPE_CHECKING:
+    from qgis._gui import QgsMessageBar, QgsMessageBarItem
 
 
 class Massenermittlung:
@@ -62,7 +62,9 @@ class Massenermittlung:
         """
 
         self.iface: QgisInterface = iface
+        self.msg_bar: QgsMessageBar | None = iface.messageBar()
         ge.iface = iface
+        lae.iface = iface
         self.plugin_dir: Path = Path(__file__).parent
         self.actions: list = []
         self.plugin_menu: QMenu | None = None
@@ -71,7 +73,7 @@ class Massenermittlung:
         self.translator: QTranslator | None = None
 
         # Read metadata to get the plugin name for UI elements
-        self.plugin_name: str = "Massenermittlung"  # Default
+        self.plugin_name: str = "UTEC Massenermittlung (dev)"  # Default
         metadata_path: Path = self.plugin_dir / "metadata.txt"
         if metadata_path.exists():
             config = configparser.ConfigParser()
@@ -79,7 +81,7 @@ class Massenermittlung:
             try:
                 self.plugin_name = config.get("general", "name")
             except (configparser.NoSectionError, configparser.NoOptionError):
-                log_debug("Could not read name from metadata.txt", Qgis.Warning)
+                lae.log_debug("Could not read name from metadata.txt", Qgis.Warning)
 
         self.menu: str = self.plugin_name
 
@@ -88,7 +90,7 @@ class Massenermittlung:
         translator_path: Path = self.plugin_dir / "i18n" / f"{locale}.qm"
 
         if not translator_path.exists():
-            log_debug(f"Translator not found in: {translator_path}", Qgis.Warning)
+            lae.log_debug(f"Translator not found in: {translator_path}", Qgis.Warning)
         else:
             self.translator = QTranslator()
             if self.translator is not None and self.translator.load(
@@ -96,7 +98,7 @@ class Massenermittlung:
             ):
                 QCoreApplication.installTranslator(self.translator)
             else:
-                log_debug("Translator could not be installed.", Qgis.Warning)
+                lae.log_debug("Translator could not be installed.", Qgis.Warning)
 
     def add_action(  # noqa: PLR0913 # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -127,6 +129,7 @@ class Massenermittlung:
         action = QAction(icon, text, parent)
         action.triggered.connect(callback)
         action.setEnabled(enabled_flag)
+        action.setToolTip(text)
 
         if status_tip is not None:
             action.setStatusTip(status_tip)
@@ -153,7 +156,7 @@ class Massenermittlung:
         # Create a menu for the plugin in the "Plugins" menu
         self.plugin_menu = QMenu(self.menu, self.iface.pluginMenu())
         if self.plugin_menu is None:
-            raise_runtime_error("Failed to create the plugin menu.")
+            lae.raise_runtime_error("Failed to create the plugin menu.")
 
         self.plugin_menu.setIcon(QIcon(self.icon_path))
 
@@ -213,10 +216,24 @@ class Massenermittlung:
     def run_massenermittlung(self) -> None:
         """Call the main function."""
 
-        log_debug("... STARTING PLUGIN RUN ...")
+        lae.log_debug("... STARTING PLUGIN RUN ...", icon="✨✨✨")
+        progress_widget = None
         temp_point_layer: QgsVectorLayer | None = None
         reprojected_layer: QgsVectorLayer | None = None
+        progress_bar = QProgressBar()
         try:
+            # Create a progress bar in the message bar
+            if self.msg_bar:
+                progress_widget: QgsMessageBarItem | None = self.msg_bar.createMessage(
+                    QCoreApplication.translate(
+                        "progress_bar", "Performing bulk assessment..."
+                    )
+                )
+                if progress_widget:
+                    progress_bar.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                    progress_widget.layout().addWidget(progress_bar)
+                    self.msg_bar.pushWidget(progress_widget, Qgis.Info)
+
             layer_manager: ge.LayerManager = ge.LayerManager()
             reprojected_layer = layer_manager.selected_layer
 
@@ -232,23 +249,36 @@ class Massenermittlung:
                 FeatureType.T_PIECES
                 | FeatureType.HOUSES
                 | FeatureType.BENDS
-                | FeatureType.REDUCERS
+                | FeatureType.REDUCERS,
+                progress_bar,
             )
 
             # Now create the final layer and copy features
             new_layer: QgsVectorLayer = layer_manager.new_layer
+
+            # Set progress for the copy operation
+            feature_count = temp_point_layer.featureCount()
+            progress_bar.setMaximum(feature_count)
+            progress_bar.setValue(0)
+            if progress_widget:
+                progress_widget.setText(
+                    QCoreApplication.translate(
+                        "progress_bar", "Writing results to new layer..."
+                    )
+                )
+
             new_layer.startEditing()
-            log_debug(
-                f"Trying to add {temp_point_layer.featureCount()} features "
+            lae.log_debug(
+                f"Trying to add {feature_count} features "
                 f"from the temporary point layer to the new layer."
             )
-            log_debug(
+            lae.log_debug(
                 f"Temporary point layer: {len(temp_point_layer.fields())} Fields / "
                 f"New layer: {len(new_layer.fields())} Fields"
             )
 
             target_fields = new_layer.fields()
-            for feature in temp_point_layer.getFeatures():  # pyright: ignore[reportGeneralTypeIssues]
+            for i, feature in enumerate(temp_point_layer.getFeatures()):
                 new_feature = QgsFeature(target_fields)
                 new_feature.setGeometry(feature.geometry())
                 for field in feature.fields():
@@ -257,9 +287,10 @@ class Massenermittlung:
                     if idx != -1:
                         new_feature.setAttribute(idx, feature.attribute(field.name()))
                 new_layer.addFeature(new_feature)
+                progress_bar.setValue(i + 1)
 
             new_layer.commitChanges()
-            log_debug(
+            lae.log_debug(
                 f"After editing, the new layer has {new_layer.featureCount()} features."
             )
 
@@ -279,22 +310,29 @@ class Massenermittlung:
 
             layer_manager.set_layer_style(new_layer)
 
-            if self.iface and (msg_bar := self.iface.messageBar()):
+            if self.msg_bar:
+                # Clear the progress bar before showing the final message
+                self.msg_bar.clearWidgets()
+
                 # 3. Combine the base message and the dynamic details.
                 if details:
-                    final_message: str = f"{base_message} → {details}."
+                    final_message: str = f"🥳 {base_message} → {details}."
                 else:
                     final_message = f"{base_message}."
 
-                msg_bar.pushMessage(final_message, level=Qgis.Success)
-                log_debug(final_message, Qgis.Success)
+                self.msg_bar.pushMessage(final_message, Qgis.Success)
+                lae.log_debug(final_message, Qgis.Success)
 
-        except (CustomUserError, CustomRuntimeError):
+        except (lae.CustomUserError, lae.CustomRuntimeError):
             return
+
         finally:
-            if temp_point_layer:  # pyright: ignore[reportGeneralTypeIssues]
-                QgsProject.instance().removeMapLayer(temp_point_layer)  # pyright: ignore[reportOptionalMemberAccess]
-                log_debug("Temporary point layer removed.")
-            if reprojected_layer:  # pyright: ignore[reportGeneralTypeIssues]
-                QgsProject.instance().removeMapLayer(reprojected_layer)  # pyright: ignore[reportOptionalMemberAccess]
-                log_debug("In-memory copy of the selected layer removed.")
+            project: QgsProject | None = QgsProject.instance()
+
+            if temp_point_layer is not None and project is not None:
+                project.removeMapLayer(temp_point_layer.id())
+                lae.log_debug("Temporary point layer removed.")
+
+            if reprojected_layer is not None and project is not None:
+                project.removeMapLayer(reprojected_layer.id())
+                lae.log_debug("In-memory copy of the selected layer removed.")

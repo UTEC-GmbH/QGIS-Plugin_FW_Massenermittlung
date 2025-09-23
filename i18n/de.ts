@@ -4,27 +4,27 @@
 <context>
     <name>UserError</name>
     <message>
-        <location filename="../modules/general.py" line="344"/>
+        <location filename="../modules/general.py" line="346"/>
         <source>Multiple layers selected.</source>
         <translation>Mehrere Layer ausgewählt. Bitte nur einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="348"/>
+        <location filename="../modules/general.py" line="350"/>
         <source>No layer selected.</source>
         <translation>Kein Layer ausgewählt. Bitte einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="354"/>
+        <location filename="../modules/general.py" line="356"/>
         <source>Selected node is not a layer.</source>
         <translation>Das ausgewählte Objekt ist kein Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="360"/>
+        <location filename="../modules/general.py" line="362"/>
         <source>Selected layer is not a vector layer.</source>
         <translation>Der gewählte Layer ist kein Vektorlayer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="367"/>
+        <location filename="../modules/general.py" line="369"/>
         <source>The selected layer is not a line layer.</source>
         <translation>Der gewählte Layer ist kein Linien-Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
@@ -42,30 +42,43 @@
 <context>
     <name>general</name>
     <message>
-        <location filename="../modules/find_stuff.py" line="77"/>
+        <location filename="../modules/find_stuff.py" line="84"/>
         <source>T-pieces</source>
         <translation>T-Stücke</translation>
     </message>
     <message>
-        <location filename="../modules/find_stuff.py" line="78"/>
+        <location filename="../modules/find_stuff.py" line="85"/>
         <source>houses</source>
         <translation>Hausanschlüsse</translation>
     </message>
     <message>
-        <location filename="../modules/find_stuff.py" line="79"/>
+        <location filename="../modules/find_stuff.py" line="86"/>
         <source>bends</source>
         <translation>Bögen</translation>
     </message>
     <message>
-        <location filename="../modules/find_stuff.py" line="80"/>
+        <location filename="../modules/find_stuff.py" line="87"/>
         <source>reducers</source>
         <translation>Reduzierungen</translation>
     </message>
 </context>
 <context>
+    <name>progress_bar</name>
+    <message>
+        <location filename="../massenermittlung.py" line="227"/>
+        <source>Performing bulk assessment...</source>
+        <translation>Verarbeite Leitungsnetz...</translation>
+    </message>
+    <message>
+        <location filename="../massenermittlung.py" line="264"/>
+        <source>Writing results to new layer...</source>
+        <translation>Schreibe Ergebnisse in neuen Layer...</translation>
+    </message>
+</context>
+<context>
     <name>summary</name>
     <message>
-        <location filename="../massenermittlung.py" line="253"/>
+        <location filename="../massenermittlung.py" line="298"/>
         <source>Bulk assessment for layer &apos;{0}&apos; completed </source>
         <translation>Überprüfung des Layers '{0}' abgeschlossen </translation>
     </message>
