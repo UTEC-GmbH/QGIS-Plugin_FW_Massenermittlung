@@ -1,4 +1,5 @@
 """*******************************************************************
+import configparser
 ***************************************************************************
  Massenermittlung
 
@@ -20,6 +21,7 @@
  ***************************************************************************
 """
 
+import configparser
 from pathlib import Path
 from typing import Callable
 
@@ -63,11 +65,23 @@ class Massenermittlung:
         ge.iface = iface
         self.plugin_dir: Path = Path(__file__).parent
         self.actions: list = []
-        self.menu: str = "Massenermittlung"
         self.plugin_menu: QMenu | None = None
         self.dlg = None
         self.icon_path: str = ":/compiled_resources/icon.svg"
         self.translator: QTranslator | None = None
+
+        # Read metadata to get the plugin name for UI elements
+        self.plugin_name: str = "Massenermittlung"  # Default
+        metadata_path: Path = self.plugin_dir / "metadata.txt"
+        if metadata_path.exists():
+            config = configparser.ConfigParser()
+            config.read(metadata_path)
+            try:
+                self.plugin_name = config.get("general", "name")
+            except (configparser.NoSectionError, configparser.NoOptionError):
+                log_debug("Could not read name from metadata.txt", Qgis.Warning)
+
+        self.menu: str = self.plugin_name
 
         # initialize translation
         locale = QSettings().value("locale/userLocale", "en")[:2]
@@ -146,13 +160,13 @@ class Massenermittlung:
         # Add an action for the main functionality
         run_action = self.add_action(
             self.icon_path,
-            text="Massenermittlung",
+            text=self.plugin_name,
             callback=self.run_massenermittlung,
             parent=self.iface.mainWindow(),
             add_to_menu=False,  # Will be added to our custom menu
             add_to_toolbar=False,  # Will be added manually based on BUTTON_TYPE
-            status_tip="Massenermittlung",
-            whats_this="Massenermittlung.",
+            status_tip=self.plugin_name,
+            whats_this=f"{self.plugin_name}.",
         )
         self.plugin_menu.addAction(run_action)
 

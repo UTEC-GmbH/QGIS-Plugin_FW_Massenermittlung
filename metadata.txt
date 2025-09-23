@@ -2,9 +2,11 @@
 name=UTEC Massenermittlung (dev)
 qgisMinimumVersion=3.0
 version=0.3
-description=Massenermittlung für Fernwärmenetze
-about=Massenermittlung für Fernwärmenetze
+description=Finds and counts T-pieces, bends, reducers, and house connections in district heating networks.
 author=Florian Ludwig
 email=devalue-scope-drum@duck.com
 icon=icon.svg
 download_url_base=file:////dc1/netz$/Software/QGIS_Plugins_UTEC
+changelog=
+    Version 0.3:
+    - Erster Versuch Reduzierungen zu finden.

@@ -31,7 +31,7 @@ Notes:
 
   * Publishing New Versions (Automated)
 
-    1. Update the `version` number in `metadata.txt`. 
+    1. Update the `version` number and changelog in `metadata.txt`. 
 
     2. Run the release script from the OSGeo4W Shell in the plugin directory using the following commands:
        

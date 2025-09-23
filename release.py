@@ -36,7 +36,7 @@ class PluginMetadata(TypedDict):
     version: str
     url_base: str
     description: str
-    about: str
+    changelog: str
     qgis_minimum_version: str
     author: str
     email: str
@@ -67,7 +67,7 @@ def get_plugin_metadata() -> PluginMetadata:
             "version": config.get("general", "version"),
             "url_base": config.get("general", "download_url_base"),
             "description": config.get("general", "description"),
-            "about": config.get("general", "about"),
+            "changelog": config.get("general", "changelog"),
             "qgis_minimum_version": config.get("general", "qgisMinimumVersion"),
             "author": config.get("general", "author"),
             "email": config.get("general", "email"),
@@ -182,6 +182,7 @@ def update_repository_file(metadata: PluginMetadata) -> None:
             for tag in [
                 "description",
                 "about",
+                "changelog",
                 "version",
                 "qgis_minimum_version",
                 "author_name",
@@ -209,7 +210,8 @@ def update_repository_file(metadata: PluginMetadata) -> None:
 
         _update_xml_tag(plugin_node, "version", version)
         _update_xml_tag(plugin_node, "description", metadata["description"])
-        _update_xml_tag(plugin_node, "about", metadata["about"])
+        _update_xml_tag(plugin_node, "about", metadata["changelog"])
+        _update_xml_tag(plugin_node, "changelog", metadata["changelog"])
         _update_xml_tag(plugin_node, "version", version)
         _update_xml_tag(
             plugin_node, "qgis_minimum_version", metadata["qgis_minimum_version"]
@@ -318,6 +320,23 @@ def package_plugin_directly(metadata: PluginMetadata) -> None:
         if config.has_option("files", "extra_dirs"):
             dirs_to_zip.extend(config.get("files", "extra_dirs").split())
 
+        # --- Create a clean metadata.txt in memory for packaging ---
+        # This ensures the released plugin doesn't identify as "(dev)"
+        original_metadata_path = Path("metadata.txt")
+        with open(original_metadata_path, encoding="utf-8") as f:
+            original_content = f.read()
+
+        lines = original_content.splitlines(True)
+        new_lines = []
+        replaced = False
+        for line in lines:
+            if not replaced and line.strip().startswith("name="):
+                new_lines.append(f"name={plugin_name}\n")
+                replaced = True
+            else:
+                new_lines.append(line)
+        clean_metadata_content = "".join(new_lines)
+
         # --- Create the zip archive ---
         shared_repo_path = Path(metadata["url_base"].removeprefix("file://"))
         zip_path = shared_repo_path / f"{clean_plugin_name}.zip"
@@ -326,6 +345,13 @@ def package_plugin_directly(metadata: PluginMetadata) -> None:
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             # Add specified individual files
             for file_str in files_to_zip:
+                # Intercept metadata.txt to write the cleaned version
+                if file_str == "metadata.txt":
+                    arcname = Path(plugin_zip_dir) / "metadata.txt"
+                    zipf.writestr(str(arcname), clean_metadata_content.encode("utf-8"))
+                    logger.info("Writing cleaned metadata.txt to zip archive.")
+                    continue
+
                 file_path = Path(file_str)
                 if file_path.exists():
                     arcname = Path(plugin_zip_dir) / file_path
