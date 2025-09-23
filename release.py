@@ -17,8 +17,9 @@ import sys
 import zipfile
 from pathlib import Path
 from typing import TypedDict
+from xml.etree.ElementTree import Element, ElementTree
 
-from defusedxml import ElementTree as ElTr
+from defusedxml import ElementTree as DefET
 
 # --- Configuration ---
 METADATA_FILE: Path = Path("metadata.txt")
@@ -118,10 +119,10 @@ def update_repository_file(metadata: PluginMetadata) -> None:
         raise ReleaseScriptError(msg)
 
     try:
-        tree: ElTr.ElementTree = ElTr.parse(PLUGINS_XML_FILE)  # pyright: ignore[reportAttributeAccessIssue]
-        root: ElTr.Element = tree.getroot()  # pyright: ignore[reportAttributeAccessIssue]
+        tree: ElementTree = DefET.parse(PLUGINS_XML_FILE)
+        root: Element = tree.getroot()  # pyright: ignore[reportAssignmentType]
 
-        plugin_node = next(
+        plugin_node: Element[str] | None = next(
             (
                 node
                 for node in root.findall("pyqgis_plugin")
@@ -138,7 +139,7 @@ def update_repository_file(metadata: PluginMetadata) -> None:
             msg = f"Plugin '{plugin_name}' not in repository XML."
             raise ReleaseScriptError(msg)
 
-        def _update_tag(parent_node: ElTr.Element, tag_name: str, value: str) -> None:  # pyright: ignore[reportAttributeAccessIssue]
+        def _update_tag(parent_node: Element, tag_name: str, value: str) -> None:
             """Find and update the text of a child tag."""
             if (tag := parent_node.find(tag_name)) is not None:
                 tag.text = value
@@ -171,7 +172,7 @@ def update_repository_file(metadata: PluginMetadata) -> None:
         tree.write(PLUGINS_XML_FILE, encoding="utf-8", xml_declaration=True)
         logger.info("✅ Successfully updated %s", PLUGINS_XML_FILE)
 
-    except ElTr.ParseError as e:
+    except DefET.ParseError as e:
         msg = f"Error parsing {PLUGINS_XML_FILE}."
         logger.exception("❌ %s", msg)
         raise ReleaseScriptError(msg) from e
@@ -181,14 +182,8 @@ def run_command(command: list[str], shell: bool = False) -> None:
     """Run a command in a subprocess and checks for errors."""
     logger.info("\n▶️ Running command: %s", " ".join(command))
     try:
-        # Create a copy of the current environment to avoid modifying the
-        # parent process's environment.
-        env = os.environ.copy()
+        env: dict[str, str] = os.environ.copy()
 
-        # In OSGeo4W, many necessary command-line tools (like 'zip' or '7z')
-        # reside in the same 'bin' directory as the Python executable.
-        # We prepend this directory to the PATH to ensure these tools are found
-        # by subprocesses like pb_tool.
         python_bin_dir = str(Path(sys.executable).parent)
         if "PATH" in env:
             # os.pathsep is ';' on Windows and ':' on Linux/macOS
@@ -197,7 +192,7 @@ def run_command(command: list[str], shell: bool = False) -> None:
         else:
             env["PATH"] = python_bin_dir
 
-        result = subprocess.run(  # noqa: S603
+        result: subprocess.CompletedProcess[str] = subprocess.run(  # noqa: S603
             command,
             check=True,
             capture_output=True,
