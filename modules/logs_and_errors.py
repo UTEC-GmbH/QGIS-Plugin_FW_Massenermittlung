@@ -16,18 +16,31 @@ if TYPE_CHECKING:
     from types import FrameType
 
 
-def log_debug(message: str, msg_level: Qgis.MessageLevel = Qgis.Info) -> None:
+def log_debug(
+    message: str, msg_level: Qgis.MessageLevel = Qgis.Info, icon: str | None = None
+) -> None:
     """Log a debug message.
 
     :param message: The message to log.
     """
+
+    level_icon: dict[Qgis.MessageLevel, str] = {
+        Qgis.Success: "🥳",
+        Qgis.Info: "💡",
+        Qgis.Warning: "⚠️",
+        Qgis.Critical: "☠️",
+    }
+    icon = icon or level_icon[msg_level]
+
     frame: FrameType | None = inspect.currentframe()
     if frame and frame.f_back:
         filename: str = Path(frame.f_back.f_code.co_filename).name
         lineno: int = frame.f_back.f_lineno
         message = f"{message} ({filename}: {lineno})"
 
-    QgsMessageLog.logMessage(message, "Plugin: Massenermittlung", level=msg_level)
+    QgsMessageLog.logMessage(
+        f"{icon} {message}", "Plugin: Massenermittlung", level=msg_level
+    )
 
 
 class CustomRuntimeError(Exception):
@@ -47,10 +60,16 @@ def raise_runtime_error(error_msg: str) -> NoReturn:
     if frame and frame.f_back:
         filename: str = Path(frame.f_back.f_code.co_filename).name
         lineno: int = frame.f_back.f_lineno
-        error_msg = f"{error_msg} ({filename}: {lineno})"
+        error_msg = f"☠️ {error_msg} ({filename}: {lineno})"
 
     if iface and (msg_bar := iface.messageBar()):
+        msg_bar.clearWidgets()
         msg_bar.pushMessage("RuntimeError", error_msg, level=Qgis.Critical)
+    else:
+        QgsMessageLog.logMessage(
+            f"⚠️ iface not set or message bar not available! "
+            f"→ RuntimeError not displayed in message bar. ({filename}: {lineno})"
+        )
 
     QgsMessageLog.logMessage(error_msg, "RuntimeError", level=Qgis.Critical)
     raise CustomRuntimeError(error_msg)
@@ -69,9 +88,21 @@ def raise_user_error(error_msg: str) -> NoReturn:
     :param error_msg: The error message to display and include in the exception.
     :raises CustomUserError: Always raises a UserError with the provided error message.
     """
+    frame: FrameType | None = inspect.currentframe()
+    if frame and frame.f_back:
+        filename: str = Path(frame.f_back.f_code.co_filename).name
+        lineno: int = frame.f_back.f_lineno
+
+    error_msg = f"⚠️ {error_msg} ({filename}: {lineno})"
 
     if iface and (msg_bar := iface.messageBar()):
+        msg_bar.clearWidgets()
         msg_bar.pushMessage("UserError", error_msg, level=Qgis.Warning)
+    else:
+        QgsMessageLog.logMessage(
+            f"⚠️ iface not set or message bar not available! "
+            f"→ UserError not displayed in message bar. ({filename}: {lineno})"
+        )
 
     QgsMessageLog.logMessage(error_msg, "UserError", level=Qgis.Warning)
     raise CustomUserError(error_msg)

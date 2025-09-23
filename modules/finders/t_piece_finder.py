@@ -3,6 +3,8 @@
 This module contains the TPieceFinder class.
 """
 
+from typing import Callable
+
 from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsPointXY
 
 from modules import constants as cont
@@ -14,7 +16,9 @@ from .base_finder import BaseFinder
 class TPieceFinder(BaseFinder):
     """A class to find T-pieces."""
 
-    def find(self, features: list[QgsFeature]) -> int:
+    def find(
+        self, features: list[QgsFeature], progress_callback: Callable | None = None
+    ) -> int:
         """Find 3-way (or more) intersections of lines."""
         number_of_new_points = 0
         checked_intersections: set = set()
@@ -144,5 +148,10 @@ class TPieceFinder(BaseFinder):
                                     QgsGeometry.fromPointXY(reducer_point),
                                     reducer_attributes,
                                 )
+
+        if progress_callback:
+            progress_callback()
+
         log_debug(f"Checked {len(features)} intersections.")
+
         return number_of_new_points
