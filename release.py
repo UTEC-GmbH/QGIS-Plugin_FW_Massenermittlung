@@ -17,13 +17,13 @@ import sys
 import zipfile
 from pathlib import Path
 from typing import TypedDict
-from xml.etree.ElementTree import Element, ElementTree
+from xml.etree.ElementTree import Element, ElementTree, SubElement
 
 from defusedxml import ElementTree as DefET
 
 # --- Configuration ---
 METADATA_FILE: Path = Path("metadata.txt")
-PLUGINS_XML_FILE: Path = Path("packages") / "plugins.xml"
+
 
 # --- Logger ---
 logger: logging.Logger = logging.getLogger(__name__)
@@ -94,34 +94,78 @@ def get_plugin_metadata() -> PluginMetadata:
 
 
 def update_repository_file(metadata: PluginMetadata) -> None:
-    """Update all relevant tags in the plugins.xml file from metadata.
+    """Update the master plugins.xml file directly in the shared repository.
+
+    This function implements a fully automated, multi-plugin-safe workflow:
+    1. It locates the shared repository from the metadata.
+    2. It checks for write permissions to that directory.
+    3. It reads the master plugins.xml (or creates a new one in memory if none
+       exists).
+    4. It updates or adds the entry for the current plugin.
+    5. It writes the result directly back to the shared repository.
 
     Args:
         metadata: A dictionary containing the plugin's core metadata.
 
     Raises:
-        ReleaseScriptError: If plugins.xml or required tags are not found.
+        ReleaseScriptError: If the shared repository is not accessible or the XML
+                            file cannot be parsed.
     """
     plugin_name = metadata["name"]
     version = metadata["version"]
-    logger.info(
-        "Updating %s for '%s' version %s...", PLUGINS_XML_FILE, plugin_name, version
-    )
+    logger.info("Updating repository file for '%s' version %s...", plugin_name, version)
 
-    # Ensure the 'packages' directory exists before trying to access the file.
-    PLUGINS_XML_FILE.parent.mkdir(exist_ok=True)
-
-    if not PLUGINS_XML_FILE.exists():
+    # --- Step 1: Locate repository and check permissions ---
+    # Derive the filesystem path from the file:// URL in metadata.
+    # This works for UNC paths (e.g., "file:////server/share") on Windows.
+    url_base = metadata["url_base"]
+    if not url_base.startswith("file://"):
         msg = (
-            f"Repository file not found at '{PLUGINS_XML_FILE}'. If this is the "
-            "first release, please create it inside the 'packages' directory."
+            f"Cannot determine shared repository path. The 'download_url_base' "
+            f"in {METADATA_FILE} must be a 'file://' URL, but it is '{url_base}'."
         )
         raise ReleaseScriptError(msg)
 
-    try:
-        tree: ElementTree = DefET.parse(PLUGINS_XML_FILE)
-        root: Element = tree.getroot()  # pyright: ignore[reportAssignmentType]
+    # The `removeprefix` method cleanly strips "file://" to get the path.
+    # `pathlib.Path` on Windows correctly interprets "//server/share" as a UNC path.
+    shared_repo_path = Path(url_base.removeprefix("file://"))
+    master_xml_path = shared_repo_path / "plugins.xml"
 
+    # Ensure the shared repository directory exists and is writable.
+    try:
+        shared_repo_path.mkdir(parents=True, exist_ok=True)
+        if not os.access(shared_repo_path, os.W_OK):
+            msg: str = (
+                f"No write permission for the shared repository: {shared_repo_path}. "
+                "Please check permissions or run as a user with access."
+            )
+            raise ReleaseScriptError(msg)
+    except OSError as e:
+        msg = f"Could not access or create shared repository directory: {e}"
+        raise ReleaseScriptError(msg) from e
+
+    # --- Step 2: Read or create the XML tree ---
+    if master_xml_path.exists():
+        logger.info("Reading master repository file: %s", master_xml_path)
+        try:
+            tree: ElementTree = DefET.parse(master_xml_path)
+            root: Element = tree.getroot()  # pyright: ignore[reportAssignmentType]
+        except DefET.ParseError as e:
+            msg = f"Error parsing {master_xml_path}."
+            logger.exception("❌ %s", msg)
+            raise ReleaseScriptError(msg) from e
+    else:
+        logger.warning(
+            "⚠️ Master repository file not found at '%s'. "
+            "This is expected if it's the first plugin release.",
+            master_xml_path,
+        )
+        logger.info("Creating a new XML structure in memory.")
+        root = Element("plugins")
+        tree = ElementTree(root)
+
+    # --- Step 3: Find existing entry or create a new one ---
+    try:
         plugin_node: Element[str] | None = next(
             (
                 node
@@ -130,16 +174,26 @@ def update_repository_file(metadata: PluginMetadata) -> None:
             ),
             None,
         )
-        if plugin_node is None:
-            logger.error(
-                "❌ Could not find plugin '%s' in %s",
-                plugin_name,
-                PLUGINS_XML_FILE,
-            )
-            msg = f"Plugin '{plugin_name}' not in repository XML."
-            raise ReleaseScriptError(msg)
 
-        def _update_tag(parent_node: Element, tag_name: str, value: str) -> None:
+        if plugin_node is None:
+            logger.info("Plugin '%s' not found. Creating new entry.", plugin_name)
+            plugin_node = SubElement(root, "pyqgis_plugin", name=plugin_name)
+            # Pre-populate essential child tags so _update_tag finds them
+            for tag in [
+                "description",
+                "about",
+                "version",
+                "qgis_minimum_version",
+                "author_name",
+                "email",
+                "file_name",
+                "download_url",
+            ]:
+                SubElement(plugin_node, tag)
+        else:
+            logger.info("Found existing entry for '%s'. Updating...", plugin_name)
+
+        def _update_xml_tag(parent_node: Element, tag_name: str, value: str) -> None:
             """Find and update the text of a child tag."""
             if (tag := parent_node.find(tag_name)) is not None:
                 tag.text = value
@@ -147,33 +201,34 @@ def update_repository_file(metadata: PluginMetadata) -> None:
                 logger.warning(
                     "⚠️ Tag '%s' not found in %s. Skipping update.",
                     tag_name,
-                    PLUGINS_XML_FILE,
+                    master_xml_path,
                 )
 
+        # --- Step 4: Update all tags from metadata ---
         plugin_node.set("version", version)
 
-        # Update all relevant tags from metadata
-        _update_tag(plugin_node, "description", metadata["description"])
-        _update_tag(plugin_node, "about", metadata["about"])
-        _update_tag(plugin_node, "version", version)
-        _update_tag(
+        _update_xml_tag(plugin_node, "version", version)
+        _update_xml_tag(plugin_node, "description", metadata["description"])
+        _update_xml_tag(plugin_node, "about", metadata["about"])
+        _update_xml_tag(plugin_node, "version", version)
+        _update_xml_tag(
             plugin_node, "qgis_minimum_version", metadata["qgis_minimum_version"]
         )
-        _update_tag(plugin_node, "author_name", metadata["author"])
-        _update_tag(plugin_node, "email", metadata["email"])
+        _update_xml_tag(plugin_node, "author_name", metadata["author"])
+        _update_xml_tag(plugin_node, "email", metadata["email"])
 
-        # Update file name and download URL
-        new_zip_filename: str = f"{plugin_name}-{version}.zip"
-        _update_tag(plugin_node, "file_name", new_zip_filename)
+        clean_plugin_name: str = plugin_name.replace(" ", "_")
+        new_zip_filename: str = f"{clean_plugin_name}.zip"
+        _update_xml_tag(plugin_node, "file_name", new_zip_filename)
 
         new_url = f"{metadata['url_base'].rstrip('/')}/{new_zip_filename}"
-        _update_tag(plugin_node, "download_url", new_url)
+        _update_xml_tag(plugin_node, "download_url", new_url)
 
-        tree.write(PLUGINS_XML_FILE, encoding="utf-8", xml_declaration=True)
-        logger.info("✅ Successfully updated %s", PLUGINS_XML_FILE)
+        tree.write(master_xml_path, encoding="utf-8", xml_declaration=True)
+        logger.info("✅ Successfully updated repository file: %s", master_xml_path)
 
     except DefET.ParseError as e:
-        msg = f"Error parsing {PLUGINS_XML_FILE}."
+        msg = f"Error parsing {master_xml_path}."
         logger.exception("❌ %s", msg)
         raise ReleaseScriptError(msg) from e
 
@@ -211,22 +266,24 @@ def run_command(command: list[str], shell: bool = False) -> None:
         raise ReleaseScriptError(msg) from e
 
 
-def package_plugin_from_config(plugin_name: str, version: str) -> None:
-    """Create a zip archive of the plugin from pb_tool.cfg.
+def package_plugin_directly(metadata: PluginMetadata) -> None:
+    """Create a zip archive of the plugin directly in the shared repository.
 
-    This function reads the packaging configuration from 'pb_tool.cfg',
-    collects the specified files and directories, and creates a zip archive
-    in the 'packages/' directory. This removes the dependency on an external
-    'zip' or '7z' command-line tool.
+    This function reads packaging configuration from 'pb_tool.cfg', collects
+    the specified files and directories, and creates a zip archive in the
+    shared repository.
 
     Args:
-        plugin_name: The name of the plugin, used for the zip file.
-        version: The plugin version, used for the zip file.
+        metadata: The plugin's metadata, used to determine the output path
+                  and zip file name.
 
     Raises:
         ReleaseScriptError: If 'pb_tool.cfg' is not found or is invalid.
     """
-    logger.info("\n▶️ Packaging plugin using built-in zip functionality...")
+    plugin_name = metadata["name"]
+    clean_plugin_name: str = plugin_name.replace(" ", "_")
+    logger.info("\n▶️ Packaging '%s'...", plugin_name)
+
     pb_tool_cfg_path = Path("pb_tool.cfg")
     if not pb_tool_cfg_path.exists():
         msg = f"Configuration file not found at '{pb_tool_cfg_path}'"
@@ -237,12 +294,16 @@ def package_plugin_from_config(plugin_name: str, version: str) -> None:
 
     try:
         # The root directory name inside the zip file MUST be a valid Python
-        # module name (no spaces). This is read from pb_tool.cfg.
+        # module name. This is read from pb_tool.cfg.
         plugin_zip_dir = config.get("plugin", "name")
-        if " " in plugin_zip_dir:
+
+        # Validate that the directory name in the zip matches the sanitized
+        # name from metadata.txt. This is crucial for QGIS to find the plugin.
+        if plugin_zip_dir != clean_plugin_name:
             msg = (
-                f"The plugin 'name' in pb_tool.cfg ('{plugin_zip_dir}') "
-                "must not contain spaces. Use an underscore_ or remove them."
+                f"Name mismatch: The 'name' in 'pb_tool.cfg' ('{plugin_zip_dir}') "
+                f"must match the 'name' from 'metadata.txt' with spaces replaced "
+                f"by underscores ('{clean_plugin_name}')."
             )
             raise ReleaseScriptError(msg)
 
@@ -258,9 +319,9 @@ def package_plugin_from_config(plugin_name: str, version: str) -> None:
             dirs_to_zip.extend(config.get("files", "extra_dirs").split())
 
         # --- Create the zip archive ---
-        packages_dir = Path("packages")
-        packages_dir.mkdir(exist_ok=True)
-        zip_path = packages_dir / f"{plugin_name}-{version}.zip"
+        shared_repo_path = Path(metadata["url_base"].removeprefix("file://"))
+        zip_path = shared_repo_path / f"{clean_plugin_name}.zip"
+        logger.info("Creating zip archive at: %s", zip_path)
 
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             # Add specified individual files
@@ -293,7 +354,9 @@ def package_plugin_from_config(plugin_name: str, version: str) -> None:
                         arcname = Path(plugin_zip_dir) / file_path
                         zipf.write(file_path, arcname)
 
-        logger.info("✅ Successfully created plugin package at: %s", zip_path)
+        logger.info(
+            "✅ Successfully created plugin package in shared repository: %s", zip_path
+        )
 
     except (configparser.NoSectionError, configparser.NoOptionError) as e:
         msg = f"Invalid 'pb_tool.cfg'. Missing section or option: {e}"
@@ -314,25 +377,40 @@ def run_release_process() -> None:
 
     This main function orchestrates the entire release process:
     1. Reads metadata.
-    2. Updates the repository XML in the 'packages' directory.
+    2. Updates the repository XML directly on the shared drive.
     3. Compiles resources and translations.
-    4. Packages the plugin into a zip file in the 'packages' directory.
+    4. Packages the plugin into a zip file directly on the shared drive.
 
     Raises:
         ReleaseScriptError: If any step in the release process fails.
     """
     metadata = get_plugin_metadata()
+    original_name = metadata["name"]
+    release_name = original_name.replace("(dev)", "").strip()
+
+    if not release_name:
+        msg = "Plugin name cannot be empty after removing '(dev)' marker."
+        raise ReleaseScriptError(msg)
+
+    if original_name != release_name:
+        logger.info(
+            "Note: Development marker '(dev)' found. Releasing with clean name: '%s'",
+            release_name,
+        )
+        metadata["name"] = release_name
+
     update_repository_file(metadata)
     # The 'shell=True' is required on Windows to run .bat files correctly
     # from the PATH. This is safe as the command is a static string.
     run_command(["compile.bat"], shell=True)  # noqa: S604
 
-    package_plugin_from_config(metadata["name"], metadata["version"])
+    package_plugin_directly(metadata)
 
     logger.info("\n🎉 --- Release process complete! --- 🎉")
-    logger.info("Next steps:")
+    shared_repo_path = Path(metadata["url_base"].removeprefix("file://"))
     logger.info(
-        "  - Copy all files from the 'packages/' directory to the shared drive."
+        "✅ Plugin successfully released directly to the shared repository: %s",
+        shared_repo_path,
     )
 
 
