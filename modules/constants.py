@@ -17,6 +17,41 @@ PROBLEMATIC_FIELD_TYPES: list = [QVar.Map, QVar.List, QVar.StringList]
 
 
 @dataclass
+class PipeDimensions:
+    """Class: PipeDimensions
+
+    This class contains pipe dimensions.
+    """
+
+    max_dim_jump_reducer: int = 2
+
+    diameters: tuple = (
+        20,
+        25,
+        32,
+        40,
+        50,
+        65,
+        80,
+        100,
+        125,
+        150,
+        200,
+        250,
+        300,
+        350,
+        400,
+        450,
+        500,
+        600,
+        700,
+        800,
+        900,
+        1000,
+    )
+
+
+@dataclass
 class Colours:
     """Class: Colours
 
@@ -28,6 +63,7 @@ class Colours:
     t_piece: str = "#668000"
     reducer: str = "#9900ff"
     connector: str = "#444444"
+    questionable: str = "#a10707"
 
 
 @dataclass
@@ -57,6 +93,7 @@ class Names:
     attr_val_type_t_piece: str = "T-Stück"
     attr_val_type_connector: str = "Muffe"
     attr_val_type_reducer: str = "Reduzierung"
+    attr_val_type_question: str = "Fragwürdiger Punkt"
 
 
 @dataclass
@@ -75,6 +112,7 @@ class Numbers:
 
     min_intersec: int = 2  # Minimum number of lines to consider an intersection.
     min_intersec_t: int = 3  # Minimum number of lines to consider a T-intersection.
+    min_dim_reducer: int = 3  # Minimum number of dimensions at T-piece for reducer.
     min_angle_bogen: int = 15  # Minimum angle to consider a bent line as 'Bogen'.
 
     distance_t_reducer: float = 0.5  # The distance between T-piece and reducer.

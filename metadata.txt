@@ -10,3 +10,6 @@ download_url_base=file:////dc1/netz$/Software/QGIS_Plugins_UTEC
 changelog=
     Version 0.4:
     - Verlaufsbalken hinzugefügt, damit erkannt werden kann, ob das Tool arbeitet.
+    - Bei Hausanschlüssen wird jetzt überprüft, ob eine Leitung in der Nähe liegt, um zu vermeiden, dass schlampige Zeichnungen zu falsch erkannten Hausanschlüssen führen. An solchen stellen werden "Fragwürdige Puntke" angezeigt.
+    - T-Stücke werden jetzt mit höchstens 2 Dimensionen (Hauptleitung / Anschlussleitung) dargestellt
+    - Reduzierungen können höchstens 2 Dimensionsstufen auf einmal, so dass u.U. mehrere Reduzierungen hintereinander eingefügt werden
