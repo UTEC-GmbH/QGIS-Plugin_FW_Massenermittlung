@@ -83,6 +83,8 @@ class BaseFinder:
             )
             attributes[cont.NewLayerFields.dimensions.name] = (
                 cont.Names.dim_separator.join(dims)
+                if len(dims) < cont.Numbers.min_intersec_t
+                else cont.Names.dim_separator.join([dims[0], dims[-1]])
             )
 
         return attributes
