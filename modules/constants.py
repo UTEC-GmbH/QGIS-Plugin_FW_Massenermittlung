@@ -63,7 +63,7 @@ class Colours:
     t_piece: str = "#668000"
     reducer: str = "#9900ff"
     connector: str = "#444444"
-    questionable: str = "#a10707"
+    questionable: str = "#ff1d1d"
 
 
 @dataclass

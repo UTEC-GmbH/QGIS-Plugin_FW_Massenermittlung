@@ -5,7 +5,7 @@ This module contains the HouseConnectionFinder class.
 
 from typing import Callable
 
-from qgis.core import QgsFeature, QgsGeometry, QgsPoint
+from qgis.core import QgsFeature, QgsGeometry, QgsPoint, QgsPointXY
 
 from modules import constants as cont
 from modules.logs_and_errors import log_debug
@@ -20,7 +20,9 @@ class HouseConnectionFinder(BaseFinder):
         """Check if a point is questionable by looking for nearby poorly drawn lines."""
         # We look for the 2 nearest neighbors,
         # as the feature itself will be the closest.
-        neighbor_ids: list[int] = self.selected_layer_index.nearestNeighbor(point, 2)
+        neighbor_ids: list[int] = self.selected_layer_index.nearestNeighbor(
+            QgsPointXY(point), 2
+        )
 
         # Remove the feature's own ID from the list of neighbors.
         if feature_id in neighbor_ids:
@@ -33,9 +35,7 @@ class HouseConnectionFinder(BaseFinder):
         closest_neighbor_id = neighbor_ids[0]
         if neighbor_feature := self.selected_layer.getFeature(closest_neighbor_id):
             # Calculate the distance to the neighbor's geometry
-            distance = QgsGeometry.fromPointXY(point).distance(
-                neighbor_feature.geometry()
-            )
+            distance = QgsGeometry(point).distance(neighbor_feature.geometry())
 
             # If the distance is within the search radius,
             # it's likely a poorly drawn line
@@ -87,6 +87,6 @@ class HouseConnectionFinder(BaseFinder):
             if progress_callback:
                 progress_callback()
 
-        log_debug(f"Checked {len(features)} intersections.")
+        log_debug(f"Checked {len(features)} features for house connections.")
 
         return number_of_new_points

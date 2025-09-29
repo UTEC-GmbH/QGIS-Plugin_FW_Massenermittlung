@@ -70,6 +70,21 @@ class TPieceFinder(BaseFinder):
 
         return number_of_new_points
 
+    def _is_questionable_intersection(
+        self,
+        intersection_point: QgsPointXY,
+        intersecting_features: list[QgsFeature],
+    ) -> bool:
+        """Check if an intersection is questionable
+        by looking for nearby poorly drawn lines.
+        """
+        for feature in intersecting_features:
+            for point in self._get_start_end_of_line(feature):
+                distance = intersection_point.distance(point)
+                if 0 < distance < cont.Numbers.search_radius:
+                    return True
+        return False
+
     def _process_intersection(
         self, intersection: QgsGeometry, intersection_point: QgsPointXY
     ) -> int:
@@ -90,11 +105,24 @@ class TPieceFinder(BaseFinder):
         if n_intersections < cont.Numbers.min_intersec_t:
             return 0
 
+        if self._is_questionable_intersection(
+            intersection_point, intersecting_features
+        ):
+            attributes = {
+                cont.NewLayerFields.type.name: cont.Names.attr_val_type_question
+            }
+            attributes |= self._get_connected_attributes(intersecting_features)
+            if self._create_feature(
+                QgsGeometry.fromPointXY(intersection_point), attributes
+            ):
+                return 1
+            return 0
+
         num_t_pieces: int = n_intersections - 2
         created_count = 0
 
         # Small offset to place T-pieces next to each other if there are more than one
-        offset_dist: float = cont.Numbers.distance_t_reducer / 2.0
+        offset_dist: float = cont.Numbers.distance_t_reducer / 1.5
 
         for i in range(num_t_pieces):
             if num_t_pieces > 1:

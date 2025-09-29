@@ -4,37 +4,37 @@
 <context>
     <name>UserError</name>
     <message>
-        <location filename="../modules/general.py" line="346"/>
+        <location filename="../modules/general.py" line="348"/>
         <source>Multiple layers selected.</source>
         <translation>Mehrere Layer ausgewählt. Bitte nur einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="350"/>
+        <location filename="../modules/general.py" line="352"/>
         <source>No layer selected.</source>
         <translation>Kein Layer ausgewählt. Bitte einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="356"/>
+        <location filename="../modules/general.py" line="358"/>
         <source>Selected node is not a layer.</source>
         <translation>Das ausgewählte Objekt ist kein Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="362"/>
+        <location filename="../modules/general.py" line="364"/>
         <source>Selected layer is not a vector layer.</source>
         <translation>Der gewählte Layer ist kein Vektorlayer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="369"/>
+        <location filename="../modules/general.py" line="371"/>
         <source>The selected layer is not a line layer.</source>
         <translation>Der gewählte Layer ist kein Linien-Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="49"/>
+        <location filename="../modules/general.py" line="51"/>
         <source>No QGIS project is currently open.</source>
         <translation>Kein QGSI-Projekt geöffnet.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="94"/>
+        <location filename="../modules/general.py" line="96"/>
         <source>Project is not saved. Please save the project first.</source>
         <translation>Das Projekt ist noch nicht gespeichert. Bitte das Projekt abspeichern, damit ein Projektordner erstellt wird.</translation>
     </message>

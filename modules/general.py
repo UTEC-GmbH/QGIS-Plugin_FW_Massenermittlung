@@ -12,6 +12,7 @@ from osgeo import ogr
 from qgis.core import (
     Qgis,
     QgsCoordinateTransform,
+    QgsExpressionContextUtils,
     QgsFeature,
     QgsField,
     QgsLayerTree,
@@ -24,16 +25,17 @@ from qgis.core import (
 )
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import (
-    QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
+    QCoreApplication,  # pyright: ignore[reportAttributeAccessIssue]
 )
 
-from . import constants as cont
-from .logs_and_errors import log_debug, raise_runtime_error, raise_user_error
-
-iface: QgisInterface | None = None
+from modules import constants as cont
+from modules.logs_and_errors import log_debug, raise_runtime_error, raise_user_error
 
 if TYPE_CHECKING:
     from qgis.gui import QgsLayerTreeView
+
+
+iface: QgisInterface | None = None
 
 
 def get_current_project() -> QgsProject:
@@ -456,8 +458,22 @@ class LayerManager:
 
     def set_layer_style(self, layer: QgsVectorLayer) -> None:
         """Set the layer style from a QML file."""
+
+        variables: dict[str, str] = {
+            "colour_questionable": cont.Colours.questionable,
+            "colour_house": cont.Colours.house,
+            "colour_t_piece": cont.Colours.t_piece,
+            "colour_reducer": cont.Colours.reducer,
+            "colour_bend": cont.Colours.bend,
+        }
+
+        for name, value in variables.items():
+            QgsExpressionContextUtils.setLayerVariable(layer, name, value)
+
         qml_resource_path = (
             ":/compiled_resources/layer_style/massenermittlung_style.qml"
         )
         layer.loadNamedStyle(qml_resource_path)
+
         layer.triggerRepaint()
+        log_debug("Layer style set.", Qgis.Success)
