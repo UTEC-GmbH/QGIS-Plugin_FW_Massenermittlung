@@ -180,10 +180,9 @@ def update_repository_file(metadata: PluginMetadata) -> None:
             plugin_node = SubElement(root, "pyqgis_plugin", name=plugin_name)
             # Pre-populate essential child tags so _update_tag finds them
             for tag in [
-                "description",
-                "about",
-                "changelog",
                 "version",
+                "changelog",
+                "description",
                 "qgis_minimum_version",
                 "author_name",
                 "email",
@@ -210,9 +209,7 @@ def update_repository_file(metadata: PluginMetadata) -> None:
 
         _update_xml_tag(plugin_node, "version", version)
         _update_xml_tag(plugin_node, "description", metadata["description"])
-        _update_xml_tag(plugin_node, "about", metadata["changelog"])
         _update_xml_tag(plugin_node, "changelog", metadata["changelog"])
-        _update_xml_tag(plugin_node, "version", version)
         _update_xml_tag(
             plugin_node, "qgis_minimum_version", metadata["qgis_minimum_version"]
         )

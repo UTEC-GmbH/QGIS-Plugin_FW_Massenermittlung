@@ -47,7 +47,7 @@ from .modules import logs_and_errors as lae
 from .modules.find_stuff import FeatureFinder, FeatureType
 
 if TYPE_CHECKING:
-    from qgis._gui import QgsMessageBar, QgsMessageBarItem
+    from qgis.gui import QgsMessageBar, QgsMessageBarItem
 
 
 class Massenermittlung:
