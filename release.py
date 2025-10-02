@@ -29,6 +29,17 @@ METADATA_FILE: Path = Path("metadata.txt")
 
 
 # --- Logger ---
+def setup_logging() -> None:
+    """Configure the module's logger to print to the console."""
+    handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter("%(message)s")
+    handler.setFormatter(formatter)
+    logger.handlers.clear()
+    logger.propagate = False
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -116,6 +127,13 @@ def _file_url_to_path(url: str) -> Path:
     if parsed.netloc:
         return Path(f"//{parsed.netloc}{path_part}")
     return Path(path_part)
+
+
+"""
+
+plugins.xml
+
+"""
 
 
 def _get_repository_path(metadata: PluginMetadata) -> Path:
@@ -328,37 +346,11 @@ def update_repository_file(metadata: PluginMetadata) -> None:
         raise ReleaseScriptError(msg) from e
 
 
-def run_command(command: list[str], *, shell: bool = False) -> None:
-    """Run a command in a subprocess and checks for errors."""
-    logger.info("\n▶️ Running command: %s", " ".join(command))
-    try:
-        env: dict[str, str] = os.environ.copy()
+"""
 
-        python_bin_dir = str(Path(sys.executable).parent)
-        if "PATH" in env:
-            # os.pathsep is ';' on Windows and ':' on Linux/macOS
-            if python_bin_dir not in env["PATH"].split(os.pathsep):
-                env["PATH"] = f"{python_bin_dir}{os.pathsep}{env['PATH']}"
-        else:
-            env["PATH"] = python_bin_dir
+PACKAGING
 
-        result: subprocess.CompletedProcess[str] = subprocess.run(  # noqa: S603
-            command,
-            check=True,
-            capture_output=True,
-            text=True,
-            shell=shell,
-            env=env,
-        )
-        if result.stdout:
-            logger.info(result.stdout.strip())
-    except subprocess.CalledProcessError as e:
-        logger.exception("❌ Error running command: %s", " ".join(command))
-        # Stderr is often the most useful part of a subprocess error
-        if e.stderr:
-            logger.exception("Stderr: %s", e.stderr.strip())
-        msg = f"Command '{' '.join(command)}' failed."
-        raise ReleaseScriptError(msg) from e
+"""
 
 
 class PackagingConfig(TypedDict):
@@ -570,15 +562,44 @@ def package_plugin(metadata: PluginMetadata) -> None:
         raise ReleaseScriptError(msg) from e
 
 
-def setup_logging() -> None:
-    """Configure the module's logger to print to the console."""
-    handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter("%(message)s")
-    handler.setFormatter(formatter)
-    logger.handlers.clear()
-    logger.propagate = False
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+"""
+
+RUN
+
+"""
+
+
+def run_command(command: list[str], *, shell: bool = False) -> None:
+    """Run a command in a subprocess and checks for errors."""
+    logger.info("\n▶️ Running command: %s", " ".join(command))
+    try:
+        env: dict[str, str] = os.environ.copy()
+
+        python_bin_dir = str(Path(sys.executable).parent)
+        if "PATH" in env:
+            # os.pathsep is ';' on Windows and ':' on Linux/macOS
+            if python_bin_dir not in env["PATH"].split(os.pathsep):
+                env["PATH"] = f"{python_bin_dir}{os.pathsep}{env['PATH']}"
+        else:
+            env["PATH"] = python_bin_dir
+
+        result: subprocess.CompletedProcess[str] = subprocess.run(  # noqa: S603
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            shell=shell,
+            env=env,
+        )
+        if result.stdout:
+            logger.info(result.stdout.strip())
+    except subprocess.CalledProcessError as e:
+        logger.exception("❌ Error running command: %s", " ".join(command))
+        # Stderr is often the most useful part of a subprocess error
+        if e.stderr:
+            logger.exception("Stderr: %s", e.stderr.strip())
+        msg = f"Command '{' '.join(command)}' failed."
+        raise ReleaseScriptError(msg) from e
 
 
 def run_release_process() -> None:
