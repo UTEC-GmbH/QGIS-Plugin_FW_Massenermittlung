@@ -31,7 +31,7 @@ METADATA_FILE: Path = Path("metadata.txt")
 # --- Logger ---
 def setup_logging() -> None:
     """Configure the module's logger to print to the console."""
-    handler = logging.StreamHandler(sys.stdout)
+    handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter("%(message)s")
     handler.setFormatter(formatter)
     logger.handlers.clear()
@@ -70,7 +70,7 @@ def get_plugin_metadata() -> PluginMetadata:
         ReleaseScriptError: If the metadata file is not found or is missing keys.
     """
     if not METADATA_FILE.exists():
-        msg = f"Metadata file not found at '{METADATA_FILE}'"
+        msg: str = f"Metadata file not found at '{METADATA_FILE}'"
         raise ReleaseScriptError(msg)
 
     config = configparser.ConfigParser(interpolation=None)
@@ -123,7 +123,7 @@ def _file_url_to_path(url: str) -> Path:
     if parsed.scheme != "file":
         msg = "`download_url_base` must use the file:// scheme."
         raise ReleaseScriptError(msg)
-    path_part = url2pathname(unquote(parsed.path))
+    path_part: str = url2pathname(unquote(parsed.path))
     if parsed.netloc:
         return Path(f"//{parsed.netloc}{path_part}")
     return Path(path_part)
@@ -148,14 +148,14 @@ def _get_repository_path(metadata: PluginMetadata) -> Path:
     Raises:
         ReleaseScriptError: If the directory cannot be accessed or created.
     """
-    url_base = metadata["url_base"]
-    shared_repo_path = _file_url_to_path(url_base)
-    master_xml_path = shared_repo_path / "plugins.xml"
+    url_base: str = metadata["url_base"]
+    shared_repo_path: Path = _file_url_to_path(url_base)
+    master_xml_path: Path = shared_repo_path / "plugins.xml"
 
     try:
         shared_repo_path.mkdir(parents=True, exist_ok=True)
     except OSError as e:
-        msg = f"Could not access or create shared repository directory: {e}"
+        msg: str = f"Could not access or create shared repository directory: {e}"
         raise ReleaseScriptError(msg) from e
 
     return master_xml_path
@@ -219,7 +219,7 @@ def _find_or_create_plugin_node(root: Element, plugin_name: str) -> Element:
     if plugin_node is None:
         logger.info("Plugin '%s' not found. Creating new entry.", plugin_name)
         plugin_node = SubElement(root, "pyqgis_plugin", name=plugin_name)
-        # Pre-populate essential child tags so they can be found later
+
         for tag in [
             "version",
             "changelog",
@@ -239,7 +239,7 @@ def _find_or_create_plugin_node(root: Element, plugin_name: str) -> Element:
 
 def _update_xml_tag(parent_node: Element, tag_name: str, value: str) -> None:
     """Find a child tag and update its text, creating it if it doesn't exist."""
-    tag = parent_node.find(tag_name)
+    tag: Element[str] | None = parent_node.find(tag_name)
     if tag is None:
         tag = SubElement(parent_node, tag_name)
     tag.text = value
@@ -252,8 +252,8 @@ def _update_plugin_node_details(plugin_node: Element, metadata: PluginMetadata) 
         plugin_node: The XML element for the plugin.
         metadata: The plugin's metadata.
     """
-    version = metadata["version"]
-    plugin_name = metadata["name"]
+    version: str = metadata["version"]
+    plugin_name: str = metadata["name"]
 
     plugin_node.set("version", version)
 
@@ -270,7 +270,7 @@ def _update_plugin_node_details(plugin_node: Element, metadata: PluginMetadata) 
     new_zip_filename: str = f"{clean_plugin_name}.zip"
     _update_xml_tag(plugin_node, "file_name", new_zip_filename)
 
-    new_url = f"{metadata['url_base'].rstrip('/')}/{new_zip_filename}"
+    new_url: str = f"{metadata['url_base'].rstrip('/')}/{new_zip_filename}"
     _update_xml_tag(plugin_node, "download_url", new_url)
 
 
@@ -284,7 +284,7 @@ def _write_plugin_xml(tree: ElementTree, destination_path: Path) -> None:
     Raises:
         ReleaseScriptError: If the file cannot be written.
     """
-    repo_path = destination_path.parent
+    repo_path: Path = destination_path.parent
     tmp_fd, tmp_name = tempfile.mkstemp(
         dir=str(repo_path),
         prefix="plugins.xml.",
@@ -295,7 +295,7 @@ def _write_plugin_xml(tree: ElementTree, destination_path: Path) -> None:
         tree.write(tmp_name, encoding="utf-8", xml_declaration=True)
         Path(tmp_name).replace(destination_path)
     except OSError as e:
-        msg = (
+        msg: str = (
             f"Failed to write/update `{destination_path}`. "
             f"Check permissions on `{repo_path}`: {e}"
         )
@@ -318,19 +318,19 @@ def update_repository_file(metadata: PluginMetadata) -> None:
         ReleaseScriptError: If any step in the process fails.
     """
 
-    plugin_name = metadata["name"]
-    version = metadata["version"]
+    plugin_name: str = metadata["name"]
+    version: str = metadata["version"]
     logger.info("Updating repository file for '%s' version %s...", plugin_name, version)
 
     try:
         # 1. Get path and ensure directory exists
-        master_xml_path = _get_repository_path(metadata)
+        master_xml_path: Path = _get_repository_path(metadata)
 
         # 2. Load existing XML or create a new one
         tree, root = _load_or_create_xml_tree(master_xml_path)
 
         # 3. Find this plugin's node or create it
-        plugin_node = _find_or_create_plugin_node(root, plugin_name)
+        plugin_node: Element[str] = _find_or_create_plugin_node(root, plugin_name)
 
         # 4. Populate the node with current metadata
         _update_plugin_node_details(plugin_node, metadata)
@@ -375,14 +375,14 @@ def _read_packaging_config(config_path: Path) -> PackagingConfig:
         ReleaseScriptError: If the config file is not found or is invalid.
     """
     if not config_path.exists():
-        msg = f"Configuration file not found at '{config_path}'"
+        msg: str = f"Configuration file not found at '{config_path}'"
         raise ReleaseScriptError(msg)
 
     config = configparser.ConfigParser(interpolation=None)
     config.read(config_path, encoding="utf-8")
 
     try:
-        plugin_zip_dir = config.get("plugin", "name")
+        plugin_zip_dir: str = config.get("plugin", "name")
 
         files_to_zip: list[str] = []
         if config.has_option("files", "python_files"):
@@ -416,9 +416,9 @@ def _validate_packaging_config(
     Raises:
         ReleaseScriptError: If there is a mismatch that would break the plugin.
     """
-    plugin_zip_dir = packaging_config["plugin_zip_dir"]
+    plugin_zip_dir: str = packaging_config["plugin_zip_dir"]
     if plugin_zip_dir != clean_plugin_name:
-        msg = (
+        msg: str = (
             f"Name mismatch: The 'name' in 'pb_tool.cfg' ('{plugin_zip_dir}') "
             f"must match the 'name' from 'metadata.txt' with spaces replaced "
             f"by underscores ('{clean_plugin_name}')."
@@ -439,10 +439,10 @@ def _get_clean_metadata_content(plugin_name: str) -> str:
         The content of the cleaned metadata.txt file as a string.
     """
     with Path("metadata.txt").open(encoding="utf-8") as f:
-        original_content = f.read()
+        original_content: str = f.read()
 
-    lines = original_content.splitlines(keepends=True)
-    new_lines = [
+    lines: list[str] = original_content.splitlines(keepends=True)
+    new_lines: list[str] = [
         f"name={plugin_name}\n" if line.strip().startswith("name=") else line
         for line in lines
     ]
@@ -465,7 +465,7 @@ def _add_files_to_zip(
     """
     for file_str in files:
         if file_str == "metadata.txt":
-            arcname = (Path(plugin_zip_dir) / "metadata.txt").as_posix()
+            arcname: str = (Path(plugin_zip_dir) / "metadata.txt").as_posix()
             zipf.writestr(arcname, clean_metadata_content.encode("utf-8"))
             logger.info("Writing cleaned metadata.txt to zip archive.")
             continue
@@ -504,8 +504,8 @@ def _add_directories_to_zip(
             for file in files:
                 if file.endswith(".pyc"):
                     continue
-                file_path = Path(root) / file
-                arcname = (Path(plugin_zip_dir) / file_path).as_posix()
+                file_path: Path = Path(root) / file
+                arcname: str = (Path(plugin_zip_dir) / file_path).as_posix()
                 zipf.write(file_path, arcname)
 
 
@@ -523,26 +523,26 @@ def package_plugin(metadata: PluginMetadata) -> None:
     Raises:
         ReleaseScriptError: If the packaging process fails at any step.
     """
-    plugin_name = metadata["name"]
+    plugin_name: str = metadata["name"]
     clean_plugin_name: str = plugin_name.replace(" ", "_")
     logger.info("\n▶️ Packaging '%s'...", plugin_name)
 
     try:
         # 1. Read and validate packaging configuration
-        packaging_config = _read_packaging_config(Path("pb_tool.cfg"))
+        packaging_config: PackagingConfig = _read_packaging_config(Path("pb_tool.cfg"))
         _validate_packaging_config(packaging_config, clean_plugin_name)
 
         # 2. Prepare content and paths
-        clean_metadata_content = _get_clean_metadata_content(plugin_name)
-        shared_repo_path = _file_url_to_path(metadata["url_base"])
-        zip_path = shared_repo_path / f"{clean_plugin_name}.zip"
+        clean_metadata_content: str = _get_clean_metadata_content(plugin_name)
+        shared_repo_path: Path = _file_url_to_path(metadata["url_base"])
+        zip_path: Path = shared_repo_path / f"{clean_plugin_name}.zip"
         logger.info("Creating zip archive at: %s", zip_path)
 
         # 3. Create the zip archive
         with zipfile.ZipFile(
             zip_path, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
         ) as zipf:
-            plugin_zip_dir = packaging_config["plugin_zip_dir"]
+            plugin_zip_dir: str = packaging_config["plugin_zip_dir"]
             _add_files_to_zip(
                 zipf,
                 packaging_config["files_to_zip"],
@@ -558,7 +558,7 @@ def package_plugin(metadata: PluginMetadata) -> None:
         )
 
     except (configparser.NoSectionError, configparser.NoOptionError) as e:
-        msg = f"Invalid 'pb_tool.cfg'. Missing section or option: {e}"
+        msg: str = f"Invalid 'pb_tool.cfg'. Missing section or option: {e}"
         raise ReleaseScriptError(msg) from e
 
 
@@ -598,7 +598,7 @@ def run_command(command: list[str], *, shell: bool = False) -> None:
         # Stderr is often the most useful part of a subprocess error
         if e.stderr:
             logger.exception("Stderr: %s", e.stderr.strip())
-        msg = f"Command '{' '.join(command)}' failed."
+        msg: str = f"Command '{' '.join(command)}' failed."
         raise ReleaseScriptError(msg) from e
 
 
@@ -614,9 +614,9 @@ def run_release_process() -> None:
     Raises:
         ReleaseScriptError: If any step in the release process fails.
     """
-    metadata = get_plugin_metadata()
-    original_name = metadata["name"]
-    release_name = original_name.replace("(dev)", "").strip()
+    metadata: PluginMetadata = get_plugin_metadata()
+    original_name: str = metadata["name"]
+    release_name: str = original_name.replace("(dev)", "").strip()
 
     if not release_name:
         msg = "Plugin name cannot be empty after removing '(dev)' marker."
@@ -637,7 +637,7 @@ def run_release_process() -> None:
     package_plugin(metadata)
 
     logger.info("\n🎉 --- Release process complete! --- 🎉")
-    shared_repo_path = _file_url_to_path(metadata["url_base"])
+    shared_repo_path: Path = _file_url_to_path(metadata["url_base"])
 
     logger.info(
         "✅ Plugin successfully released directly to the shared repository: %s",
