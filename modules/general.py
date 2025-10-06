@@ -14,6 +14,7 @@ from qgis.core import (
     QgsCoordinateTransform,
     QgsExpressionContextUtils,
     QgsFeature,
+    QgsFeatureRequest,
     QgsField,
     QgsLayerTree,
     QgsLayerTreeNode,
@@ -23,28 +24,30 @@ from qgis.core import (
     QgsVectorLayer,
     QgsWkbTypes,
 )
-from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import (
     QCoreApplication,  # pyright: ignore[reportAttributeAccessIssue]
+    QVariant,  # pyright: ignore[reportAttributeAccessIssue]
 )
+from qgis.utils import iface
 
 from modules import constants as cont
 from modules.logs_and_errors import log_debug, raise_runtime_error, raise_user_error
 
 if TYPE_CHECKING:
-    from qgis.gui import QgsLayerTreeView
-
-
-iface: QgisInterface | None = None
+    from qgis._core import QgsGeometry
+    from qgis.gui import QgisInterface, QgsLayerTreeView
 
 
 def get_current_project() -> QgsProject:
-    """Check if a QGIS project is currently open and returns the project instance.
+    """Return the current QGIS project instance, or raise an exception.
 
     If no project is open, an error message is logged.
 
     Returns:
-    QgsProject: The current QGIS project instance.
+        The current QGIS project instance.
+
+    Raises:
+        CustomUserError: If no QGIS project is currently open.
     """
     project: QgsProject | None = QgsProject.instance()
     if project is None:
@@ -62,7 +65,7 @@ def create_temporary_point_layer(project: QgsProject) -> QgsVectorLayer:
     temp_layer = QgsVectorLayer(
         f"Point?crs={project.crs().authid()}", "temporary_point_layer", "memory"
     )
-    data_provider = temp_layer.dataProvider()
+    data_provider: QgsVectorDataProvider | None = temp_layer.dataProvider()
     if data_provider is None:
         raise_runtime_error("Could not create data provider for temporary layer.")
     data_provider.addAttributes(
@@ -119,6 +122,11 @@ class LayerManager:
 
     def __init__(self) -> None:
         """Initialize the layer manager class."""
+        qgis_iface: QgisInterface | None = iface
+        if qgis_iface is None:
+            raise_runtime_error("QGIS interface not available.")
+
+        self._qgis_iface: QgisInterface = qgis_iface
         self._project: QgsProject | None = None
         self._selected_layer: QgsVectorLayer | None = None
         self._new_layer: QgsVectorLayer | None = None
@@ -145,8 +153,6 @@ class LayerManager:
 
     def initialize_selected_layer(self) -> None:
         """Initialize the selected layer."""
-        if iface is None:
-            raise_runtime_error("QGIS interface not set.")
         self._selected_layer = self.get_selected_layer()
 
     @property
@@ -164,8 +170,6 @@ class LayerManager:
 
     def initialize_new_layer(self) -> None:
         """Initialize the new layer."""
-        if iface is None:
-            raise_runtime_error("QGIS interface not set.")
         self.new_layer = self.create_new_layer()
 
     def fix_layer_name(self, name: str) -> str:
@@ -235,7 +239,7 @@ class LayerManager:
             )
 
         # Define problematic field types that QGIS might struggle with
-        filtered_fields = []
+        filtered_fields: list = []
         for field in layer.fields():
             if (
                 field.type() not in cont.PROBLEMATIC_FIELD_TYPES
@@ -249,6 +253,7 @@ class LayerManager:
                 )
 
         data_provider.addAttributes(filtered_fields)
+        data_provider.addAttributes([QgsField("original_fid", QVariant.Int)])
         reprojected_layer.updateFields()
         log_debug(
             f"The in-memory layer has {len(reprojected_layer.fields())} fields "
@@ -261,7 +266,7 @@ class LayerManager:
         )
 
         # Copy and reproject features
-        all_ids = list(layer.allFeatureIds())
+        all_ids: list = list(layer.allFeatureIds())
         log_debug(f"Found {len(all_ids)} feature IDs in the selected layer.")
         if not all_ids:
             return reprojected_layer
@@ -269,16 +274,19 @@ class LayerManager:
         new_features: list[QgsFeature] = []
         for fid in all_ids:
             try:
-                feature = layer.getFeature(fid)
+                feature: QgsFeature = layer.getFeature(fid)
                 new_feature = QgsFeature()
                 new_feature.setFields(reprojected_layer.fields(), initAttributes=True)
+
+                # Copy the original feature ID
+                new_feature.setAttribute("original_fid", fid)
 
                 # Copy only attributes that exist in the reprojected_layer's fields
                 for field in reprojected_layer.fields():
                     if feature.fieldNameIndex(field.name()) != -1:
                         new_feature.setAttribute(field.name(), feature[field.name()])
 
-                geom = feature.geometry()
+                geom: QgsGeometry = feature.geometry()
                 if geom.transform(transform) != 0:  # 0 means success
                     log_debug(
                         f"Feature {feature.id()} could not be reprojected.",
@@ -337,9 +345,7 @@ class LayerManager:
         :raises RuntimeError: If no layer is selected, multiple layers are selected,
                               or the selected layer is not a line vector layer.
         """
-        if iface is None:
-            raise_runtime_error("QGIS interface not set.")
-        layer_tree: QgsLayerTreeView | None = iface.layerTreeView()
+        layer_tree: QgsLayerTreeView | None = self._qgis_iface.layerTreeView()
         if not layer_tree:
             raise_runtime_error("Could not get layer tree view.")
 
@@ -368,6 +374,10 @@ class LayerManager:
             )
 
         if selected_layer.geometryType() != QgsWkbTypes.LineGeometry:
+            raise_user_error("The selected layer is not a line layer.")
+
+        # Check for the required 'diameter' field
+        if selected_layer.fields().lookupField(cont.Names.sel_layer_field_dim) == -1:
             raise_user_error(
                 QCoreApplication.translate(
                     "UserError", "The selected layer is not a line layer."
@@ -451,10 +461,83 @@ class LayerManager:
             "from the project's GeoPackage to the project.",
             Qgis.Success,
         )
-
         self.set_layer_style(gpkg_layer)
 
         return gpkg_layer
+
+    def remove_duplicates_from_layer(self, layer: QgsVectorLayer) -> None:
+        """Detect and remove duplicate features in the given layer.
+
+        Two features are considered duplicates if they share the same location
+        (rounded to 4 decimals) and have identical classification-relevant
+        attributes (type, dimensions, angle, connected). The first occurrence is
+        kept, subsequent ones are removed.
+
+        Args:
+            layer: The layer to process for duplicates.
+        """
+        to_delete: list[int] = []
+        removed_by_type: dict[str, int] = {}
+        seen: dict[tuple, int] = {}
+
+        request = QgsFeatureRequest()  # geometry + all attributes
+        for feature in layer.getFeatures(request):  # pyright: ignore[reportGeneralTypeIssues]
+            feature_geometry = feature.geometry()
+            if feature_geometry is None or feature_geometry.isEmpty():
+                # Skip invalid/empty geometries
+                continue
+
+            key: tuple = (
+                round(feature_geometry.asPoint().x(), 4),
+                round(feature_geometry.asPoint().y(), 4),
+                feature.attribute(cont.NewLayerFields.type.name),
+                feature.attribute(cont.NewLayerFields.dimensions.name) or "",
+                feature.attribute(cont.NewLayerFields.angle.name) or None,
+                feature.attribute(cont.NewLayerFields.connected.name) or "",
+            )
+
+            if key in seen:
+                original_fid: int = seen[key]
+                log_debug(
+                    f"Duplicate feature found: "
+                    f"{feature.id()} "
+                    f"Keeping original feature {original_fid}."
+                )
+                to_delete.append(feature.id())
+                feature_type = str(key[2])
+                removed_by_type[feature_type] = removed_by_type.get(feature_type, 0) + 1
+            else:
+                seen[key] = feature.id()
+
+        if to_delete:
+            if not layer.isEditable() and not layer.startEditing():
+                raise_runtime_error("Failed to start editing to remove duplicates.")
+
+            # Prefer batch deletion if available
+            try:
+                if hasattr(layer, "deleteFeatures"):
+                    layer.deleteFeatures(to_delete)
+                else:
+                    for fid in to_delete:
+                        layer.deleteFeature(fid)
+            except Exception:
+                # Fallback to per-feature deletion
+                for fid in to_delete:
+                    layer.deleteFeature(fid)
+
+            if not layer.commitChanges():
+                raise_runtime_error("Failed to commit duplicate deletions.")
+
+        summary_parts: list[str] = [
+            f"{type_name}: {count}" for type_name, count in removed_by_type.items()
+        ]
+        type_summary: str = f" ({', '.join(summary_parts)})" if summary_parts else ""
+
+        log_debug(
+            f"Duplicate check finished. {len(to_delete)} duplicates removed."
+            f"{type_summary}",
+            Qgis.Success,
+        )
 
     def set_layer_style(self, layer: QgsVectorLayer) -> None:
         """Set the layer style from a QML file."""

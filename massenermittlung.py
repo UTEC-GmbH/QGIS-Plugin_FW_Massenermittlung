@@ -25,7 +25,13 @@ import configparser
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
-from qgis.core import Qgis, QgsFeature, QgsProject, QgsVectorLayer
+from qgis.core import (
+    Qgis,
+    QgsFeature,
+    QgsFields,
+    QgsProject,
+    QgsVectorLayer,
+)
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import (
     QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
@@ -42,6 +48,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from . import resources
+from .modules import constants as cont
 from .modules import general as ge
 from .modules import logs_and_errors as lae
 from .modules.find_stuff import FeatureFinder, FeatureType
@@ -63,8 +70,6 @@ class Massenermittlung:
 
         self.iface: QgisInterface = iface
         self.msg_bar: QgsMessageBar | None = iface.messageBar()
-        ge.iface = iface
-        lae.iface = iface
         self.plugin_dir: Path = Path(__file__).parent
         self.actions: list = []
         self.plugin_menu: QMenu | None = None
@@ -213,6 +218,49 @@ class Massenermittlung:
         # Unload resources to allow for reloading them
         resources.qCleanupResources()
 
+    def _summary_message(
+        self, new_layer: QgsVectorLayer, selected_layer_name: str
+    ) -> str:
+        """Create a summary message of the features found in the new layer.
+
+        Args:
+            new_layer: The layer containing the new features.
+            selected_layer_name: The name of the selected layer.
+
+        Returns:
+            A string summarizing the number of features of each type.
+        """
+        base_message = QCoreApplication.translate(
+            "summary", "Bulk assessment for layer '{0}' completed "
+        ).format(selected_layer_name)
+
+        fail_field = QCoreApplication.translate(
+            "summary", "Type field not found in new layer."
+        )
+
+        fail_counts = QCoreApplication.translate(
+            "summary", "Failed to get type counts from new layer."
+        )
+
+        if new_layer.fields().indexFromName(cont.NewLayerFields.type.name) == -1:
+            lae.log_debug("Type field not found in new layer.", Qgis.Warning)
+            return f"{base_message} ({cont.Icons.Warning} {fail_field})"
+
+        type_counts: dict[str, int] = {}
+        for feature in new_layer.getFeatures():  # pyright: ignore[reportGeneralTypeIssues]
+            type_value = feature.attribute(cont.NewLayerFields.type.name)
+            if isinstance(type_value, str) and type_value:
+                type_counts[type_value] = type_counts.get(type_value, 0) + 1
+
+        if not type_counts:
+            lae.log_debug("Failed to get type counts from new layer.", Qgis.Warning)
+            return f"{base_message} ({cont.Icons.Warning} {fail_counts})"
+
+        found_parts: list[str] = [
+            f"{name}: {count}" for name, count in type_counts.items()
+        ]
+        return f"{cont.Icons.Success} {base_message} → {' | '.join(found_parts)}"
+
     def run_massenermittlung(self) -> None:
         """Call the main function."""
 
@@ -220,8 +268,8 @@ class Massenermittlung:
         progress_widget = None
         temp_point_layer: QgsVectorLayer | None = None
         reprojected_layer: QgsVectorLayer | None = None
-        progress_bar = QProgressBar()
         try:
+            progress_bar = QProgressBar()
             # Create a progress bar in the message bar
             if self.msg_bar:
                 progress_widget: QgsMessageBarItem | None = self.msg_bar.createMessage(
@@ -256,6 +304,9 @@ class Massenermittlung:
             # Now create the final layer and copy features
             new_layer: QgsVectorLayer = layer_manager.new_layer
 
+            if not new_layer.startEditing():
+                lae.raise_runtime_error("Failed to start editing the new layer.")
+
             # Set progress for the copy operation
             feature_count = temp_point_layer.featureCount()
             progress_bar.setMaximum(feature_count)
@@ -267,7 +318,6 @@ class Massenermittlung:
                     )
                 )
 
-            new_layer.startEditing()
             lae.log_debug(
                 f"Trying to add {feature_count} features "
                 f"from the temporary point layer to the new layer."
@@ -277,7 +327,7 @@ class Massenermittlung:
                 f"New layer: {len(new_layer.fields())} Fields"
             )
 
-            target_fields = new_layer.fields()
+            target_fields: QgsFields = new_layer.fields()
             for i, feature in enumerate(temp_point_layer.getFeatures()):
                 new_feature = QgsFeature(target_fields)
                 new_feature.setGeometry(feature.geometry())
@@ -289,24 +339,16 @@ class Massenermittlung:
                 new_layer.addFeature(new_feature)
                 progress_bar.setValue(i + 1)
 
-            new_layer.commitChanges()
+            if not new_layer.commitChanges():
+                lae.raise_runtime_error("Failed to commit features to new layer.")
+
             lae.log_debug(
                 f"After editing, the new layer has {new_layer.featureCount()} features."
             )
 
-            # 1. Use a placeholder for the layer name in the base message.
-            base_message = QCoreApplication.translate(
-                "summary", "Bulk assessment for layer '{0}' completed "
-            ).format(reprojected_layer.name())
-
-            # 2. Rephrase the details to be "Name: Count" to avoid complex plurals.
-            #    The name itself is translated from a new 'feature_names' context.
-            found_parts: list[str] = [
-                f"{name}: {count}"
-                for name, count in found_features.items()
-                if count > 0
-            ]
-            details: str = " | ".join(found_parts)
+            # --- Remove duplicates from the final layer ---
+            lae.log_debug("Starting duplicate check on the final layer...")
+            layer_manager.remove_duplicates_from_layer(new_layer)
 
             layer_manager.set_layer_style(new_layer)
 
@@ -314,18 +356,32 @@ class Massenermittlung:
                 # Clear the progress bar before showing the final message
                 self.msg_bar.clearWidgets()
 
-                # 3. Combine the base message and the dynamic details.
-                if details:
-                    final_message: str = f"🥳 {base_message} → {details}."
-                else:
-                    final_message = f"{base_message}."
-
+                final_message: str = self._summary_message(
+                    new_layer, reprojected_layer.name()
+                )
                 self.msg_bar.pushMessage(final_message, Qgis.Success)
+
+                lae.log_debug(
+                    f"Found features according to FeatureFinder: {
+                        ' | '.join(
+                            [
+                                f'{name}: {count}'
+                                for name, count in found_features.items()
+                                if count > 0
+                            ]
+                        )
+                    }"
+                )
                 lae.log_debug(final_message, Qgis.Success)
 
         except (lae.CustomUserError, lae.CustomRuntimeError):
+            # Expected, user-facing or controlled runtime issues: just stop silently
             return
-
+        except Exception as e:  # noqa: BLE001
+            if e.__class__.__name__ in {"CustomUserError", "CustomRuntimeError"}:
+                return
+            lae.log_and_show_error(f"Unexpected error: {e!s}", level=Qgis.Critical)
+            return
         finally:
             project: QgsProject | None = QgsProject.instance()
 

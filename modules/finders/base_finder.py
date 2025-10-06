@@ -9,9 +9,11 @@ from qgis.core import (
     Qgis,
     QgsFeature,
     QgsFeatureRequest,
+    QgsFields,
     QgsGeometry,
     QgsPointXY,
     QgsSpatialIndex,
+    QgsVectorDataProvider,
     QgsVectorLayer,
     QgsWkbTypes,
 )
@@ -44,13 +46,15 @@ class BaseFinder:
 
     def _create_feature(self, geometry: QgsGeometry, attributes: dict) -> bool:
         """Create a new feature in the new layer."""
-        data_provider = self.new_layer.dataProvider()
+        data_provider: QgsVectorDataProvider | None = self.new_layer.dataProvider()
         if data_provider is None:
             log_debug("Data provider is None for new_layer.", Qgis.Critical)
             return False
 
-        layer_fields = self.new_layer.fields()
-        field_names = [layer_fields[idx].name() for idx in range(layer_fields.count())]
+        layer_fields: QgsFields = self.new_layer.fields()
+        field_names: list[str] = [
+            layer_fields[idx].name() for idx in range(layer_fields.count())
+        ]
 
         attr_values = [
             attributes.get(field_name)
@@ -65,10 +69,12 @@ class BaseFinder:
 
     def _get_connected_attributes(self, connected_features: list[QgsFeature]) -> dict:
         """Get attributes from connected features."""
-        connected_ids: list[str] = sorted({str(f.id()) for f in connected_features})
+        connected_ids: list[int] = sorted(
+            {feature.attribute("original_fid") for feature in connected_features}
+        )
         attributes: dict = {
             cont.NewLayerFields.connected.name: cont.Names.line_separator.join(
-                connected_ids
+                str(id_int) or "???" for id_int in connected_ids
             )
         }
         # Get dimension values if the field exists

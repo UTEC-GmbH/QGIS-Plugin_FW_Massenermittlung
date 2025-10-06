@@ -80,7 +80,7 @@ class TPieceFinder(BaseFinder):
         """
         for feature in intersecting_features:
             for point in self._get_start_end_of_line(feature):
-                distance = intersection_point.distance(point)
+                distance: float = intersection_point.distance(point)
                 if 0 < distance < cont.Numbers.search_radius:
                     return True
         return False
@@ -108,7 +108,7 @@ class TPieceFinder(BaseFinder):
         if self._is_questionable_intersection(
             intersection_point, intersecting_features
         ):
-            attributes = {
+            attributes: dict[str, str] = {
                 cont.NewLayerFields.type.name: cont.Names.attr_val_type_question
             }
             attributes |= self._get_connected_attributes(intersecting_features)
@@ -126,15 +126,15 @@ class TPieceFinder(BaseFinder):
 
         for i in range(num_t_pieces):
             if num_t_pieces > 1:
-                angle = i * (2 * math.pi / num_t_pieces)
-                offset_x = offset_dist * math.cos(angle)
-                offset_y = offset_dist * math.sin(angle)
+                angle: float = i * (2 * math.pi / num_t_pieces)
+                offset_x: float = offset_dist * math.cos(angle)
+                offset_y: float = offset_dist * math.sin(angle)
                 t_piece_point = QgsPointXY(
                     intersection_point.x() + offset_x, intersection_point.y() + offset_y
                 )
-                t_piece_geom = QgsGeometry.fromPointXY(t_piece_point)
+                t_piece_geom: QgsGeometry = QgsGeometry.fromPointXY(t_piece_point)
             else:
-                t_piece_point = intersection_point
+                t_piece_point: QgsPointXY = intersection_point
                 t_piece_geom = intersection
 
             if self._create_t_piece_and_reducers(
@@ -167,9 +167,9 @@ class TPieceFinder(BaseFinder):
         if not dimensions:
             return False
 
-        unique_dimensions = set(dimensions.values())
-        max_dim = max(unique_dimensions)
-        min_dim = min(unique_dimensions)
+        unique_dimensions: set[float] = set(dimensions.values())
+        max_dim: float = max(unique_dimensions)
+        min_dim: float = min(unique_dimensions)
 
         attributes: dict[str, str] = {
             cont.NewLayerFields.type.name: cont.Names.attr_val_type_t_piece,
@@ -187,7 +187,7 @@ class TPieceFinder(BaseFinder):
         if len(unique_dimensions) < cont.Numbers.min_dim_reducer:
             return True
 
-        middle_dimensions = {
+        middle_dimensions: set[float] = {
             d for d in unique_dimensions if d not in [max_dim, min_dim]
         }
 
@@ -222,17 +222,17 @@ class TPieceFinder(BaseFinder):
             return
 
         start_point = QgsPointXY(line_points[0])
-        is_at_start = (
+        is_at_start: bool = (
             intersection_point.distance(start_point) < cont.Numbers.search_radius
         )
 
         # --- Get dimension lists and jump settings ---
-        all_dims = cont.PipeDimensions.diameters
-        max_jump = cont.PipeDimensions.max_dim_jump_reducer
+        all_dims: tuple = cont.PipeDimensions.diameters
+        max_jump: int = cont.PipeDimensions.max_dim_jump_reducer
 
         try:
-            from_idx = all_dims.index(int(from_dim))
-            to_idx = all_dims.index(int(to_dim))
+            from_idx: int = all_dims.index(int(from_dim))
+            to_idx: int = all_dims.index(int(to_dim))
         except ValueError:
             # If dimensions are not in the standard list,
             # create a single reducer as a fallback.
@@ -242,9 +242,8 @@ class TPieceFinder(BaseFinder):
             return
 
         # --- Iterate and create chained reducers ---
-        current_idx = from_idx
-        reducer_distance = cont.Numbers.distance_t_reducer
-        reducer_spacing = 0.5  # Spacing between chained reducers
+        current_idx: int = from_idx
+        reducer_distance: float = cont.Numbers.distance_t_reducer
 
         if current_idx <= to_idx:
             self._create_single_reducer(
@@ -280,7 +279,7 @@ class TPieceFinder(BaseFinder):
 
             # Update for the next iteration
             current_idx = next_idx
-            reducer_distance += reducer_spacing
+            reducer_distance += cont.Numbers.distance_t_reducer
 
             if current_idx == to_idx:
                 break
@@ -317,7 +316,8 @@ class TPieceFinder(BaseFinder):
             cont.NewLayerFields.dimensions.name: (
                 f"{cont.Names.dim_prefix}{int(dim1)}/{cont.Names.dim_prefix}{int(dim2)}"
             ),
-            cont.NewLayerFields.connected.name: str(feature.id()),
+            cont.NewLayerFields.connected.name: str(feature.attribute("original_fid"))
+            or "???",
         }
         self._create_feature(
             QgsGeometry.fromPointXY(reducer_point),
