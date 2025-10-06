@@ -17,6 +17,19 @@ PROBLEMATIC_FIELD_TYPES: list = [QVar.Map, QVar.List, QVar.StringList]
 
 
 @dataclass
+class Icons:
+    """Class: Icons
+
+    This class contains icon constants.
+    """
+
+    Success: str = "🎉"
+    Info: str = "💡"
+    Warning: str = "⚠️"
+    Critical: str = "☠️"
+
+
+@dataclass
 class PipeDimensions:
     """Class: PipeDimensions
 

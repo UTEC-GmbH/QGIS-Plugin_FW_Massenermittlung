@@ -101,9 +101,8 @@ class FeatureFinder:
             num_finders += 1
         if FeatureType.BENDS in feature_to_search:
             num_finders += 1
-        # NOTE: Reducers are not yet implemented, so not counted.
 
-        total_steps = num_features * num_finders
+        total_steps: int = num_features * num_finders
         progress_bar.setMaximum(total_steps)
         current_step = 0
 
