@@ -6,13 +6,17 @@
 # A comma-separated list of package or module names from which C extensions may
 # be loaded. This helps Pylint understand QGIS/PyQt modules and avoid false
 # import errors.
-extension-pkg-whitelist=
+extension-pkg-whitelist=(
     PyQt5.QtCore,
     PyQt5.QtGui,
     PyQt5.QtWidgets,
     qgis.core,
     qgis.gui
-
+    qgis.PyQt
+    qgis.PyQt.QtCore
+    qgis.PyQt.QtGui
+    qgis.PyQt.QtWidgets
+)
 
 [MASTER]
 

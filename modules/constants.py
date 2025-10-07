@@ -6,12 +6,8 @@ This module contains constant values.
 from collections.abc import Generator
 from dataclasses import dataclass
 
-from qgis.PyQt.QtCore import (
-    QMetaType as QMeT,  # type: ignore[reportAttributeAccessIssue]
-)
-from qgis.PyQt.QtCore import (
-    QVariant as QVar,  # type: ignore[reportAttributeAccessIssue]
-)
+from qgis.PyQt.QtCore import QMetaType as QMeT
+from qgis.PyQt.QtCore import QVariant as QVar
 
 PROBLEMATIC_FIELD_TYPES: list = [QVar.Map, QVar.List, QVar.StringList]
 

@@ -12,10 +12,8 @@ from qgis.core import (
     QgsSpatialIndex,
     QgsVectorLayer,
 )
-from qgis.PyQt.QtCore import (
-    QCoreApplication,  # type: ignore[reportAttributeAccessIssue]
-)
-from qgis.PyQt.QtWidgets import QProgressBar  # type: ignore[reportAttributeAccessIssue]
+from qgis.PyQt.QtCore import QCoreApplication
+from qgis.PyQt.QtWidgets import QProgressBar
 
 from . import constants as cont
 from .finders.bend_finder import BendFinder
