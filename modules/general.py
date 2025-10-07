@@ -6,7 +6,7 @@ This module contains general functions.
 import contextlib
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from osgeo import ogr
 from qgis.core import (
@@ -16,6 +16,7 @@ from qgis.core import (
     QgsFeature,
     QgsFeatureRequest,
     QgsField,
+    QgsFields,
     QgsLayerTree,
     QgsLayerTreeNode,
     QgsProject,
@@ -25,9 +26,10 @@ from qgis.core import (
     QgsWkbTypes,
 )
 from qgis.PyQt.QtCore import (
-    QCoreApplication,  # pyright: ignore[reportAttributeAccessIssue]
-    QVariant,  # pyright: ignore[reportAttributeAccessIssue]
+    QCoreApplication,
+    QVariant,
 )
+from qgis.PyQt.QtWidgets import QProgressBar
 from qgis.utils import iface
 
 from modules import constants as cont
@@ -469,6 +471,61 @@ class LayerManager:
 
         return gpkg_layer
 
+    def copy_features_to_layer(
+        self,
+        source_layer: QgsVectorLayer,
+        target_layer: QgsVectorLayer,
+        progress_bar: QProgressBar,
+        pgb_update_text: Callable[[str], None],
+    ) -> None:
+        """Copy features from a source layer to a target layer.
+
+        This method handles the editing session, progress reporting, and attribute
+        mapping between the two layers.
+
+        Args:
+            source_layer: The temporary layer to copy features from.
+            target_layer: The final layer to copy features to.
+            progress_bar: The QProgressBar instance to update.
+            pgb_update_text: A function to update the progress bar's text.
+        """
+        if not target_layer.startEditing():
+            raise_runtime_error("Failed to start editing the new layer.")
+
+        feature_count = source_layer.featureCount()
+        progress_bar.setMaximum(feature_count)
+        progress_bar.setValue(0)
+        pgb_update_text(
+            QCoreApplication.translate(
+                "progress_bar", "Writing results to new layer..."
+            )
+        )
+
+        log_debug(
+            f"Trying to add {feature_count} features "
+            f"from '{source_layer.name()}' to '{target_layer.name()}'."
+        )
+
+        target_fields: QgsFields = target_layer.fields()
+        for i, feature in enumerate(source_layer.getFeatures()):
+            new_feature = QgsFeature(target_fields)
+            new_feature.setGeometry(feature.geometry())
+            for field in feature.fields():
+                # Copy attribute if a field with the same name exists in the target
+                idx = target_fields.indexOf(field.name())
+                if idx != -1:
+                    new_feature.setAttribute(idx, feature.attribute(field.name()))
+            target_layer.addFeature(new_feature)
+            progress_bar.setValue(i + 1)
+
+        if not target_layer.commitChanges():
+            raise_runtime_error("Failed to commit features to new layer.")
+
+        log_debug(
+            f"After editing, '{target_layer.name()}' has "
+            f"{target_layer.featureCount()} features."
+        )
+
     def remove_duplicates_from_layer(self, layer: QgsVectorLayer) -> None:
         """Detect and remove duplicate features in the given layer.
 
@@ -480,6 +537,9 @@ class LayerManager:
         Args:
             layer: The layer to process for duplicates.
         """
+
+        log_debug("Starting duplicate check on the final layer...")
+
         to_delete: list[int] = []
         removed_by_type: dict[str, int] = {}
         seen: dict[tuple, int] = {}
@@ -503,9 +563,8 @@ class LayerManager:
             if key in seen:
                 original_fid: int = seen[key]
                 log_debug(
-                    f"Duplicate feature found: "
-                    f"{feature.id()} "
-                    f"Keeping original feature {original_fid}."
+                    f"Duplicate feature found: {key[2]} (fid {feature.id()}). "
+                    f"Keeping original feature (fid {original_fid})."
                 )
                 to_delete.append(feature.id())
                 feature_type = str(key[2])

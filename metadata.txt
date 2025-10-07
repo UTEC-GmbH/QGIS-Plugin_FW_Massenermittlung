@@ -1,14 +1,9 @@
 [general]
 name=UTEC Massenermittlung (dev)
 
-version=0.5
+version=0.6
 changelog=
-    Version 0.5:
-    - Entfernung von Duplikaten nach der Suche nach Formstücken
-    - Überarbeitung der Suche nach fragwürdigen Punkten
-    - Verbundene Leitungen IDs korrigiert
-    - Verbesserte Zusammenfassung nach Durchlauf
-    - Verbesserte Fehlermeldungen
+    - 
 
 description=Massenermittlung für Netze. Es werden Hausanschlüsse, Bögen, T-Stücke und Reduzierungen ausgegeben.
 qgisMinimumVersion=3.0
