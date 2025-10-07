@@ -25,7 +25,7 @@ class Icons:
 
     Success: str = "🎉"
     Info: str = "💡"
-    Warning: str = "⚠️"
+    Warning: str = "💥"
     Critical: str = "☠️"
 
 

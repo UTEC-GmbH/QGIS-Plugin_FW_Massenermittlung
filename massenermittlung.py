@@ -374,14 +374,12 @@ class Massenermittlung:
                 )
                 lae.log_debug(final_message, Qgis.Success)
 
-        except (lae.CustomUserError, lae.CustomRuntimeError):
-            # Expected, user-facing or controlled runtime issues: just stop silently
-            return
         except Exception as e:  # noqa: BLE001
             if e.__class__.__name__ in {"CustomUserError", "CustomRuntimeError"}:
                 return
             lae.log_and_show_error(f"Unexpected error: {e!s}", level=Qgis.Critical)
             return
+
         finally:
             project: QgsProject | None = QgsProject.instance()
 

@@ -374,7 +374,11 @@ class LayerManager:
             )
 
         if selected_layer.geometryType() != QgsWkbTypes.LineGeometry:
-            raise_user_error("The selected layer is not a line layer.")
+            raise_user_error(
+                QCoreApplication.translate(
+                    "UserError", "The selected layer is not a line layer."
+                )
+            )
 
         # Check for the required 'diameter' field
         if selected_layer.fields().lookupField(cont.Names.sel_layer_field_dim) == -1:

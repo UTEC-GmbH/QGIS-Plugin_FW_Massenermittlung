@@ -85,9 +85,8 @@ def log_and_show_error(
     :param level: The QGIS message level (Warning, Critical, etc.).
     """
 
-    file_line_number: str = file_line(inspect.currentframe())
-
-    error_msg = f"{LEVEL_ICON[level]} {error_msg}{file_line_number}"
+    error_msg = f"{LEVEL_ICON[level]} {error_msg}"
+    log_debug(error_msg, msg_level=level)
 
     qgis_iface: QgisInterface | None = iface
     if qgis_iface and (msg_bar := qgis_iface.messageBar()):
@@ -96,10 +95,8 @@ def log_and_show_error(
     else:
         QgsMessageLog.logMessage(
             f"{cont.Icons.Warning} iface not set or message bar not available! "
-            f"→ Error not displayed in message bar.{file_line_number}"
+            f"→ Error not displayed in message bar."
         )
-
-    log_debug(error_msg, msg_level=level)
 
 
 class CustomUserError(Exception):
@@ -112,11 +109,19 @@ class CustomRuntimeError(Exception):
 
 def raise_user_error(error_msg: str) -> NoReturn:
     """Log a user-facing warning, display it, and raise a CustomUserError."""
+
+    file_line_number: str = file_line(inspect.currentframe())
+    error_msg = f"{error_msg}{file_line_number}"
+
     log_and_show_error(error_msg, level=Qgis.Warning)
     raise CustomUserError(error_msg)
 
 
 def raise_runtime_error(error_msg: str) -> NoReturn:
     """Log a critical error, display it, and raise a CustomRuntimeError."""
+
+    file_line_number: str = file_line(inspect.currentframe())
+    error_msg = f"{error_msg}{file_line_number}"
+
     log_and_show_error(error_msg)
     raise CustomRuntimeError(error_msg)

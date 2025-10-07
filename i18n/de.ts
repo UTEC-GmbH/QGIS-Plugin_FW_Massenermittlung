@@ -24,7 +24,7 @@
         <translation>Der gewählte Layer ist kein Vektorlayer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="381"/>
+        <location filename="../modules/general.py" line="385"/>
         <source>The selected layer is not a line layer.</source>
         <translation>Der gewählte Layer ist kein Linien-Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
