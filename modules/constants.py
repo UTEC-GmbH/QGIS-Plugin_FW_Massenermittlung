@@ -88,7 +88,8 @@ class Names:
     line_separator: str = " / "
 
     # Namen für Saplten der Attributtabelle des alten (gewälten) Layers
-    sel_layer_field_dim: str = "diameter"
+    sel_layer_field_dim: tuple[str, ...] = ("diameter", "dim", "DN")
+    no_dim_field_found: str = "DN field not found"
 
     # Namen für Spalten der Attributtabelle des neuen Layers
     attr_col_head_type: str = "Typ"

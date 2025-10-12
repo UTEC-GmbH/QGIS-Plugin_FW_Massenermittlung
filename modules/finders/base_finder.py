@@ -33,16 +33,20 @@ class BaseFinder:
         selected_layer: QgsVectorLayer,
         new_layer: QgsVectorLayer,
         selected_layer_index: QgsSpatialIndex,
+        dim_field_name: str | None,
     ) -> None:
         """Initialize the BaseFinder class.
 
-        :param selected_layer: The QgsVectorLayer to search within.
-        :param new_layer: The QgsVectorLayer to add new features to.
-        :param selected_layer_index: The spatial index of the selected layer.
+        Args:
+            selected_layer: The QgsVectorLayer to search within.
+            new_layer: The QgsVectorLayer to add new features to.
+            selected_layer_index: The spatial index of the selected layer.
+            dim_field_name: The name of the dimension field, if found.
         """
         self.selected_layer: QgsVectorLayer = selected_layer
         self.new_layer: QgsVectorLayer = new_layer
         self.selected_layer_index: QgsSpatialIndex = selected_layer_index
+        self.dim_field_name: str | None = dim_field_name
 
     def _create_feature(self, geometry: QgsGeometry, attributes: dict) -> bool:
         """Create a new feature in the new layer."""
@@ -77,20 +81,23 @@ class BaseFinder:
                 str(id_int) or "???" for id_int in connected_ids
             )
         }
-        # Get dimension values if the field exists
-        dim_field: str = cont.Names.sel_layer_field_dim
-        if self.selected_layer.fields().lookupField(dim_field) != -1:
+        # Get dimension values if the dimension field was found
+        if self.dim_field_name:
             dims: list[str] = sorted(
                 {
-                    f"{cont.Names.dim_prefix}{feat[dim_field]}"
+                    f"{cont.Names.dim_prefix}{feat[self.dim_field_name]}"
                     for feat in connected_features
-                    if feat.attribute(dim_field) is not None
+                    if feat.attribute(self.dim_field_name) is not None
                 }
             )
             attributes[cont.NewLayerFields.dimensions.name] = (
                 cont.Names.dim_separator.join(dims)
                 if len(dims) < cont.Numbers.min_intersec_t
                 else cont.Names.dim_separator.join([dims[0], dims[-1]])
+            )
+        else:
+            attributes[cont.NewLayerFields.dimensions.name] = (
+                cont.Names.no_dim_field_found
             )
 
         return attributes
@@ -189,3 +196,28 @@ class BaseFinder:
                 and feat.geometry().intersects(search_geom)
             ]
         return []
+
+    def _get_dimensions(self, features: list[QgsFeature]) -> dict[int, float]:
+        """Extract dimension values for a list of features.
+
+        Args:
+            features: A list of features to extract dimensions from.
+
+        Returns:
+            A dictionary mapping feature ID to its dimension value (as a float).
+        """
+        dimensions: dict[int, float] = {}
+        if not self.dim_field_name:
+            return dimensions
+
+        for f in features:
+            dim_val = f.attribute(self.dim_field_name)
+            if dim_val is not None:
+                try:
+                    dimensions[f.id()] = float(dim_val)
+                except (ValueError, TypeError):
+                    log_debug(
+                        f"Could not parse dimension '{dim_val}' for feature {f.id()}",
+                        Qgis.Warning,
+                    )
+        return dimensions

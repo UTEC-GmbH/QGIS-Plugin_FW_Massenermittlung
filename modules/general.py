@@ -5,8 +5,9 @@ This module contains general functions.
 
 import contextlib
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from osgeo import ogr
 from qgis.core import (
@@ -36,7 +37,7 @@ from modules import constants as cont
 from modules.logs_and_errors import log_debug, raise_runtime_error, raise_user_error
 
 if TYPE_CHECKING:
-    from qgis._core import QgsGeometry
+    from qgis.core import QgsGeometry
     from qgis.gui import QgisInterface, QgsLayerTreeView
 
 
@@ -382,12 +383,17 @@ class LayerManager:
                 )
             )
 
-        # Check for the required 'diameter' field
-        if selected_layer.fields().lookupField(cont.Names.sel_layer_field_dim) == -1:
-            raise_user_error(
-                QCoreApplication.translate(
-                    "UserError", "The selected layer is not a line layer."
-                )
+        # Check for one of the required 'diameter' fields
+        if all(
+            selected_layer.fields().lookupField(name) == -1
+            for name in cont.Names.sel_layer_field_dim
+        ):
+            log_debug(
+                f"None of the specified dimension fields "
+                f"({', '.join(cont.Names.sel_layer_field_dim)}) "
+                f"were found in the selected layer. Dimension-related "
+                f"attributes will be skipped.",
+                Qgis.Warning,
             )
 
         # Reproject the layer to the project's CRS
@@ -583,7 +589,7 @@ class LayerManager:
                 else:
                     for fid in to_delete:
                         layer.deleteFeature(fid)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 # Fallback to per-feature deletion
                 for fid in to_delete:
                     layer.deleteFeature(fid)

@@ -4,9 +4,9 @@ This module contains the TPieceFinder class.
 """
 
 import math
-from typing import Callable
+from collections.abc import Callable
 
-from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsPointXY
+from qgis.core import QgsFeature, QgsGeometry, QgsPointXY
 
 from modules import constants as cont
 from modules.logs_and_errors import log_debug
@@ -151,21 +151,15 @@ class TPieceFinder(BaseFinder):
         intersecting_features: list[QgsFeature],
     ) -> bool:
         """Create a T-piece and its associated reducers."""
-        dim_field: str = cont.Names.sel_layer_field_dim
-        dimensions: dict[int, float] = {}
-        for f in intersecting_features:
-            dim_val = f.attribute(dim_field)
-            if dim_val is not None:
-                try:
-                    dimensions[f.id()] = float(dim_val)
-                except (ValueError, TypeError):
-                    log_debug(
-                        f"Could not parse dimension '{dim_val}' for feature {f.id()}",
-                        Qgis.Warning,
-                    )
+        dimensions: dict[int, float] = self._get_dimensions(intersecting_features)
 
         if not dimensions:
-            return False
+            # If no dimensions are found, still create a T-piece but with default text.
+            attributes: dict[str, str] = {
+                cont.NewLayerFields.type.name: cont.Names.attr_val_type_t_piece
+            }
+            attributes |= self._get_connected_attributes(intersecting_features)
+            return self._create_feature(t_piece_geom, attributes)
 
         unique_dimensions: set[float] = set(dimensions.values())
         max_dim: float = max(unique_dimensions)

@@ -3,8 +3,6 @@
 This module contains the FeatureFinder class that finds things in the selected layer.
 """
 
-from enum import Flag, auto
-
 from qgis.core import (
     Qgis,
     QgsFeature,
@@ -20,16 +18,6 @@ from .finders.bend_finder import BendFinder
 from .finders.house_connection_finder import HouseConnectionFinder
 from .finders.t_piece_finder import TPieceFinder
 from .logs_and_errors import log_debug, raise_runtime_error
-
-
-class FeatureType(Flag):
-    """Enum for the types of features to find."""
-
-    NONE = 0
-    T_PIECES = auto()
-    HOUSES = auto()
-    BENDS = auto()
-    REDUCERS = auto()
 
 
 class FeatureFinder:
@@ -59,6 +47,7 @@ class FeatureFinder:
         self.selected_layer_index: QgsSpatialIndex = QgsSpatialIndex(
             self.selected_layer.getFeatures(request)
         )
+        self.dim_field_name: str | None = self._find_dim_field_name()
         log_debug("Spatial index created for selected layer.")
 
         self.selected_layer_features: list[QgsFeature] = self._get_all_features()
@@ -66,9 +55,21 @@ class FeatureFinder:
         self.new_layer: QgsVectorLayer = temp_point_layer
         log_debug("FeatureFinder initialized successfully.", Qgis.Success)
 
-    def find_features(
-        self, feature_to_search: FeatureType, progress_bar: QProgressBar
-    ) -> dict[str, int]:
+    def _find_dim_field_name(self) -> str | None:
+        """Find the first matching dimension field name from the constants.
+
+        Returns:
+            The name of the found field, or None if no match is found.
+        """
+        layer_fields = self.selected_layer.fields()
+        for name in cont.Names.sel_layer_field_dim:
+            if layer_fields.lookupField(name) != -1:
+                log_debug(f"Found dimension field: '{name}'", Qgis.Success)
+                return name
+        log_debug("No dimension field found in the selected layer.", Qgis.Warning)
+        return None
+
+    def find_features(self, progress_bar: QProgressBar) -> dict[str, int]:
         """Find features based on the provided flags.
 
         Args:
@@ -79,6 +80,7 @@ class FeatureFinder:
             A dictionary with the count of found features.
         """
         log_debug("Starting feature search.")
+
         t_pieces: str = QCoreApplication.translate("general", "T-pieces")
         houses: str = QCoreApplication.translate("general", "houses")
         bends: str = QCoreApplication.translate("general", "bends")
@@ -90,17 +92,9 @@ class FeatureFinder:
             bends: 0,
             reducers: 0,
         }
-        # --- Calculate total steps for progress bar ---
-        num_features = len(self.selected_layer_features)
-        num_finders = 0
-        if FeatureType.T_PIECES in feature_to_search:
-            num_finders += 1
-        if FeatureType.HOUSES in feature_to_search:
-            num_finders += 1
-        if FeatureType.BENDS in feature_to_search:
-            num_finders += 1
 
-        total_steps: int = num_features * num_finders
+        # --- Calculate total steps for progress bar ---
+        total_steps: int = len(self.selected_layer_features) * len(found_counts.keys())
         progress_bar.setMaximum(total_steps)
         current_step = 0
 
@@ -112,36 +106,46 @@ class FeatureFinder:
         if not self.new_layer.startEditing():
             raise_runtime_error("Failed to start editing the new layer.")
 
-        if FeatureType.T_PIECES in feature_to_search:
-            log_debug("Searching for T-pieces...")
-            t_piece_finder = TPieceFinder(
-                self.selected_layer, self.new_layer, self.selected_layer_index
-            )
-            found_counts[t_pieces] = t_piece_finder.find(
-                self.selected_layer_features, progress_callback
-            )
-            log_debug(f"Found {found_counts[t_pieces]} T-pieces.")
+        # --- Search for T-pieces and reducers---
+        log_debug("Searching for T-pieces and reducers...")
+        t_piece_finder = TPieceFinder(
+            self.selected_layer,
+            self.new_layer,
+            self.selected_layer_index,
+            self.dim_field_name,
+        )
+        found_counts[t_pieces] = t_piece_finder.find(
+            self.selected_layer_features, progress_callback
+        )
+        log_debug(f"Found {found_counts[t_pieces]} T-pieces.")
 
-        if FeatureType.HOUSES in feature_to_search:
-            log_debug("Searching for house connections...")
-            house_connection_finder = HouseConnectionFinder(
-                self.selected_layer, self.new_layer, self.selected_layer_index
-            )
-            found_counts[houses] = house_connection_finder.find(
-                self.selected_layer_features, progress_callback
-            )
-            log_debug(f"Found {found_counts[houses]} house connections.")
+        # --- Search for house connections ---
+        log_debug("Searching for house connections...")
+        house_connection_finder = HouseConnectionFinder(
+            self.selected_layer,
+            self.new_layer,
+            self.selected_layer_index,
+            self.dim_field_name,
+        )
+        found_counts[houses] = house_connection_finder.find(
+            self.selected_layer_features, progress_callback
+        )
+        log_debug(f"Found {found_counts[houses]} house connections.")
 
-        if FeatureType.BENDS in feature_to_search:
-            log_debug("Searching for bends...")
-            bend_finder = BendFinder(
-                self.selected_layer, self.new_layer, self.selected_layer_index
-            )
-            found_counts[bends] = bend_finder.find(
-                self.selected_layer_features, progress_callback
-            )
-            log_debug(f"Found {found_counts[bends]} bends.")
+        # --- Search for bends ---
+        log_debug("Searching for bends...")
+        bend_finder = BendFinder(
+            self.selected_layer,
+            self.new_layer,
+            self.selected_layer_index,
+            self.dim_field_name,
+        )
+        found_counts[bends] = bend_finder.find(
+            self.selected_layer_features, progress_callback
+        )
+        log_debug(f"Found {found_counts[bends]} bends.")
 
+        # --- Commit changes to the new layer ---
         if not self.new_layer.commitChanges():
             raise_runtime_error("Failed to commit changes to the new layer.")
 
@@ -153,15 +157,13 @@ class FeatureFinder:
         log_debug("Getting all features from the selected layer...")
 
         request = QgsFeatureRequest()
+
         # Only load the 'diameter' field, and the geometry
-        dim_field_index = self.selected_layer.fields().lookupField(
-            cont.Names.sel_layer_field_dim
-        )
-        if dim_field_index == -1:
-            raise_runtime_error(
-                f"Field '{cont.Names.sel_layer_field_dim}' not found in selected layer."
+        if self.dim_field_name:
+            dim_field_index: int = self.selected_layer.fields().lookupField(
+                self.dim_field_name
             )
-        request.setSubsetOfAttributes([dim_field_index])
+            request.setSubsetOfAttributes([dim_field_index])
         request.setFlags(QgsFeatureRequest.NoGeometry)
 
         features: list[QgsFeature] = []
@@ -171,6 +173,7 @@ class FeatureFinder:
             raise_runtime_error(
                 "No features could be successfully fetched from the selected layer."
             )
+
         log_debug(
             f"Successfully fetched {len(features)} features from the selected layer.",
             Qgis.Success,

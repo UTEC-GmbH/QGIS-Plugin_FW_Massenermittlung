@@ -21,9 +21,9 @@
 
 import configparser
 import contextlib
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from qgis.core import Qgis, QgsProject, QgsVectorLayer
 from qgis.gui import QgisInterface
@@ -34,7 +34,7 @@ from qgis.PyQt.QtWidgets import QAction, QMenu, QProgressBar, QToolButton
 from . import resources
 from .modules import general as ge
 from .modules import logs_and_errors as lae
-from .modules.find_stuff import FeatureFinder, FeatureType
+from .modules.find_stuff import FeatureFinder
 
 if TYPE_CHECKING:
     from qgis.gui import QgsMessageBar, QgsMessageBarItem
@@ -267,13 +267,7 @@ class Massenermittlung:
                 )
 
                 # Run the analysis
-                found_features: dict[str, int] = finder.find_features(
-                    FeatureType.T_PIECES
-                    | FeatureType.HOUSES
-                    | FeatureType.BENDS
-                    | FeatureType.REDUCERS,
-                    progress_bar,
-                )
+                found_features: dict[str, int] = finder.find_features(progress_bar)
 
                 # Copy features from the temporary layer to the final layer
                 new_layer: QgsVectorLayer = layer_manager.new_layer
