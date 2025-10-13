@@ -92,7 +92,7 @@ class BaseFinder:
             )
             attributes[cont.NewLayerFields.dimensions.name] = (
                 cont.Names.dim_separator.join(dims)
-                if len(dims) < cont.Numbers.min_intersec_t
+                if len(dims) < cont.Numbers.intersec_t
                 else cont.Names.dim_separator.join([dims[0], dims[-1]])
             )
         else:
@@ -175,7 +175,7 @@ class BaseFinder:
         intersecting_features: list[QgsFeature] = self._get_intersecting_features(
             search_geom
         )
-        return len(intersecting_features) >= cont.Numbers.min_intersec_t
+        return len(intersecting_features) == cont.Numbers.intersec_t
 
     def _find_intersecting_feature_ids(
         self, point: QgsPointXY, current_feature_id: int
@@ -197,16 +197,16 @@ class BaseFinder:
             ]
         return []
 
-    def _get_dimensions(self, features: list[QgsFeature]) -> dict[int, float]:
+    def _get_dimensions(self, features: list[QgsFeature]) -> dict[int, int]:
         """Extract dimension values for a list of features.
 
         Args:
             features: A list of features to extract dimensions from.
 
         Returns:
-            A dictionary mapping feature ID to its dimension value (as a float).
+            A dictionary mapping feature ID to its dimension value (as int).
         """
-        dimensions: dict[int, float] = {}
+        dimensions: dict[int, int] = {}
         if not self.dim_field_name:
             return dimensions
 
@@ -214,7 +214,7 @@ class BaseFinder:
             dim_val = f.attribute(self.dim_field_name)
             if dim_val is not None:
                 try:
-                    dimensions[f.id()] = float(dim_val)
+                    dimensions[f.id()] = int(dim_val)
                 except (ValueError, TypeError):
                     log_debug(
                         f"Could not parse dimension '{dim_val}' for feature {f.id()}",

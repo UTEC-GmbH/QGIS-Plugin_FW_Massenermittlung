@@ -28,7 +28,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtCore import (
     QCoreApplication,
-    QVariant,
+    QMetaType,
 )
 from qgis.PyQt.QtWidgets import QProgressBar
 from qgis.utils import iface
@@ -256,7 +256,7 @@ class LayerManager:
                 )
 
         data_provider.addAttributes(filtered_fields)
-        data_provider.addAttributes([QgsField("original_fid", QVariant.Int)])
+        data_provider.addAttributes([QgsField("original_fid", QMetaType.Type.Int)])
         reprojected_layer.updateFields()
         log_debug(
             f"The in-memory layer has {len(reprojected_layer.fields())} fields "

@@ -21,6 +21,7 @@
 
 import configparser
 import contextlib
+import traceback
 from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -267,7 +268,7 @@ class Massenermittlung:
                 )
 
                 # Run the analysis
-                found_features: dict[str, int] = finder.find_features(progress_bar)
+                finder.find_features(progress_bar, update_text)
 
                 # Copy features from the temporary layer to the final layer
                 new_layer: QgsVectorLayer = layer_manager.new_layer
@@ -281,27 +282,28 @@ class Massenermittlung:
                 # --- Remove duplicates from the final layer ---
                 layer_manager.remove_duplicates_from_layer(new_layer)
 
-                layer_manager.set_layer_style(new_layer)
-
                 # --- Log and display result summary ---
-
-                lae.log_debug(
-                    f"Found features according to FeatureFinder: {
-                        ' | '.join(
-                            [
-                                f'{name}: {count}'
-                                for name, count in found_features.items()
-                                if count > 0
-                            ]
-                        )
-                    }"
-                )
+                layer_manager.set_layer_style(new_layer)
                 lae.summary_message(new_layer, reprojected_layer.name())
 
         except Exception as e:  # noqa: BLE001
             if e.__class__.__name__ in {"CustomUserError", "CustomRuntimeError"}:
                 return
-            lae.log_debug(f"Unexpected error: {e!s}", level=Qgis.Critical)
+
+            if tb := e.__traceback__:
+                # Get the last frame from the traceback for the origin of the error
+                last_frame: traceback.FrameSummary = traceback.extract_tb(tb)[-1]
+                filename: str = Path(last_frame.filename).name
+                lineno: int | None = last_frame.lineno
+                file_line_info: str = f" [{filename}: {lineno}]"
+            else:
+                file_line_info = " [Unknown location]"
+
+            lae.log_debug(
+                f"Unexpected error: {e!s}",
+                level=Qgis.Critical,
+                file_line_number=file_line_info,
+            )
             lae.show_message(f"Unexpected error: {e!s}", level=Qgis.Critical)
             return
 
