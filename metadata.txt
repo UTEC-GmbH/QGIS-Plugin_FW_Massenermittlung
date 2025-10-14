@@ -3,7 +3,8 @@ name=UTEC Massenermittlung (dev)
 
 version=0.6
 changelog=
-    - 
+    - Überarbeitung der Punktsuche
+    - Anmerkungen für fragwürdige Punkte
 
 description=Massenermittlung für Netze. Es werden Hausanschlüsse, Bögen, T-Stücke und Reduzierungen ausgegeben.
 qgisMinimumVersion=3.0

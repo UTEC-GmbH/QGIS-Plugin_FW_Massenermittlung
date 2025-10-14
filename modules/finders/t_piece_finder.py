@@ -3,10 +3,10 @@
 This module contains the TPieceFinder class.
 """
 
-from .base_finder import BaseFinder
+from ..vector_analysis_tools import VectorAnalysisTools
 
 
-class TPieceFinder(BaseFinder):
+class TPieceFinder(VectorAnalysisTools):
     """A class to find T-pieces."""
 
     # This class is now a placeholder for T-piece and reducer-specific logic.

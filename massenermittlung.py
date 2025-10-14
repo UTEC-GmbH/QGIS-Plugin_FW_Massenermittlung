@@ -35,7 +35,7 @@ from qgis.PyQt.QtWidgets import QAction, QMenu, QProgressBar, QToolButton
 from . import resources
 from .modules import general as ge
 from .modules import logs_and_errors as lae
-from .modules.find_stuff import FeatureFinder
+from .modules.poi_classifier import PointOfInterestClassifier
 
 if TYPE_CHECKING:
     from qgis.gui import QgsMessageBar, QgsMessageBarItem
@@ -262,7 +262,7 @@ class Massenermittlung:
                     layer_manager.project
                 )
 
-                finder = FeatureFinder(
+                finder = PointOfInterestClassifier(
                     selected_layer=reprojected_layer,
                     temp_point_layer=temp_point_layer,
                 )

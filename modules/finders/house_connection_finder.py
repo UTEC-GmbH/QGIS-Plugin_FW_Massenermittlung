@@ -3,10 +3,10 @@
 This module contains the HouseConnectionFinder class.
 """
 
-from .base_finder import BaseFinder
+from ..vector_analysis_tools import VectorAnalysisTools
 
 
-class HouseConnectionFinder(BaseFinder):
+class HouseConnectionFinder(VectorAnalysisTools):
     """A class to find house connections."""
 
     # This class is now a placeholder for house-connection-specific logic.

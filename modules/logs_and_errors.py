@@ -80,8 +80,7 @@ def log_debug(
 
 
 def show_message(
-    message: str,
-    level: Qgis.MessageLevel = Qgis.Critical,
+    message: str, level: Qgis.MessageLevel = Qgis.Critical, duration: int = 0
 ) -> None:
     """Display a message in the QGIS message bar.
 
@@ -90,12 +89,16 @@ def show_message(
 
     :param error_msg: The error message to display and include in the exception.
     :param level: The QGIS message level (Warning, Critical, etc.).
+    :param duration: The duration of the message in seconds (default: 0 = until closed)
+    :return: None
     """
 
     qgis_iface: QgisInterface | None = iface
     if qgis_iface and (msg_bar := qgis_iface.messageBar()):
         msg_bar.clearWidgets()
-        msg_bar.pushMessage(f"{LEVEL_ICON[level]} {message}", level=level)
+        msg_bar.pushMessage(
+            f"{LEVEL_ICON[level]} {message}", level=level, duration=duration
+        )
     else:
         QgsMessageLog.logMessage(
             f"{cont.Icons.Warning} iface not set or message bar not available! "
@@ -171,4 +174,7 @@ def summary_message(new_layer: QgsVectorLayer, selected_layer_name: str) -> None
             ]
             completed_message = f"{base_message} → {' | '.join(found_parts)}"
 
-    show_message(completed_message, level=Qgis.Success)
+    log_debug(
+        completed_message, level=Qgis.Success, file_line_number="✨✨✨", icon="✨✨✨"
+    )
+    show_message(completed_message, level=Qgis.Success, duration=30)

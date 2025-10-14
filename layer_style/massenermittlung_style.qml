@@ -1284,9 +1284,22 @@ def my_form_open(dialog, layer, feature):
   <widgets/>
   <previewExpression>"Typ"</previewExpression>
   <mapTip enabled="1">&lt;p>&lt;b>Typ: [% "Typ" %]&lt;/b>&lt;/p>&#xd;
+&#xd;
 fid: [% "fid" %]&lt;br>&#xd;
+&#xd;
 verbundene Rohrleitungen (fid): [% "verbundene Leitungen" %]&lt;br>&#xd;
+&#xd;
 Dimension: [% "Dimensionen" %]&lt;br>&#xd;
-[% if("Typ" = 'Bogen', 'Winkel: ' || "Bogen-Winkel" || '°', '') %]</mapTip>
+&#xd;
+[%&#xd;
+CASE&#xd;
+	WHEN "Typ" = 'Bogen' THEN 'Winkel: ' || "Bogen-Winkel" || '°'&#xd;
+	WHEN "Typ" = 'Fragwürdiger Punkt' THEN 'Anmerkung: ' || "Anmerkungen"&#xd;
+	ELSE ''&#xd;
+END&#xd;
+%]&#xd;
+&#xd;
+</mapTip>
+
   <layerGeometryType>0</layerGeometryType>
 </qgis>

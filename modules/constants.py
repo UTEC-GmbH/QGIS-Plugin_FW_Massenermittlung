@@ -96,6 +96,7 @@ class Names:
     attr_col_head_bend_angle: str = "Bogen-Winkel"
     attr_col_head_connected: str = "verbundene Leitungen"
     attr_col_head_dimension: str = "Dimensionen"
+    attr_col_head_notes: str = "Anmerkungen"
 
     # Werte der Spalte 'Typ' in der Attributtabelle (Kategorien der Massenermittlung)
     attr_val_type_house: str = "Hausanschluss"
@@ -153,6 +154,7 @@ class NewLayerFields:
     connected = FieldAttributes(Names.attr_col_head_connected, QMeT.Type.QString)
     dimensions = FieldAttributes(Names.attr_col_head_dimension, QMeT.Type.QString)
     angle = FieldAttributes(Names.attr_col_head_bend_angle, QMeT.Type.Double)
+    notes = FieldAttributes(Names.attr_col_head_notes, QMeT.Type.QString)
 
     def __iter__(self) -> Generator[FieldAttributes, None, None]:
         """Make the class iterable."""

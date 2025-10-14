@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from qgis.core import (
     Qgis,
     QgsFeature,
+    QgsFeatureRequest,
     QgsFields,
     QgsGeometry,
     QgsPointXY,
@@ -21,31 +22,63 @@ from modules import constants as cont
 from modules.logs_and_errors import log_debug
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from qgis.core import QgsRectangle
 
 
-class BaseFinder:
+class VectorAnalysisTools:
     """A base class for finding features in a vector layer."""
 
     def __init__(
         self,
         selected_layer: QgsVectorLayer,
-        new_layer: QgsVectorLayer,
-        selected_layer_index: QgsSpatialIndex,
-        dim_field_name: str | None,
+        temp_point_layer: QgsVectorLayer,
     ) -> None:
         """Initialize the BaseFinder class.
 
         Args:
             selected_layer: The QgsVectorLayer to search within.
-            new_layer: The QgsVectorLayer to add new features to.
-            selected_layer_index: The spatial index of the selected layer.
-            dim_field_name: The name of the dimension field, if found.
+            temp_point_layer: The temporary QgsVectorLayer to add new features to.
         """
         self.selected_layer: QgsVectorLayer = selected_layer
-        self.new_layer: QgsVectorLayer = new_layer
-        self.selected_layer_index: QgsSpatialIndex = selected_layer_index
-        self.dim_field_name: str | None = dim_field_name
+        self.new_layer: QgsVectorLayer = temp_point_layer
+        self.selected_layer_index: QgsSpatialIndex = self._create_spatial_index(
+            selected_layer
+        )
+        self.dim_field_name: str | None = self._find_dim_field_name(selected_layer)
+
+    @staticmethod
+    def _create_spatial_index(layer: QgsVectorLayer) -> QgsSpatialIndex:
+        """Create a spatial index for the given layer."""
+        log_debug(f"Creating spatial index for layer '{layer.name()}'.")
+        request: QgsFeatureRequest = QgsFeatureRequest().setNoAttributes()
+        index = QgsSpatialIndex(layer.getFeatures(request))
+        log_debug("Spatial index created.", Qgis.Success)
+        return index
+
+    @staticmethod
+    def _find_dim_field_name(layer: QgsVectorLayer) -> str | None:
+        """Find the first matching dimension field name from the constants.
+
+        Args:
+            layer: The layer to search for the dimension field.
+
+        Returns:
+            The name of the found field, or None if no match is found.
+        """
+        layer_fields: QgsFields = layer.fields()
+        field_names: Iterable[str] = cont.Names.sel_layer_field_dim
+        found_name: str | None = next(
+            (name for name in field_names if layer_fields.lookupField(name) != -1),
+            None,
+        )
+
+        if found_name:
+            log_debug(f"Found dimension field: '{found_name}'", Qgis.Success)
+        else:
+            log_debug("No dimension field found in the selected layer.", Qgis.Warning)
+        return found_name
 
     def _create_feature(self, geometry: QgsGeometry, attributes: dict) -> bool:
         """Create a new feature in the new layer."""
@@ -170,7 +203,7 @@ class BaseFinder:
             A tuple containing the previous and next vertices as QgsPointXY.
             Returns (None, None) if the point is an endpoint or not a vertex.
         """
-        geom = feature.geometry()
+        geom: QgsGeometry = feature.geometry()
         if not geom:
             return None, None
 
@@ -208,3 +241,26 @@ class BaseFinder:
                 for endpoint in start_end_points
             )
         return False
+
+    def _get_other_endpoint(
+        self, feature: QgsFeature, reference_point: QgsPointXY
+    ) -> QgsPointXY | None:
+        """Get the endpoint of a line feature that is furthest from a reference point.
+
+        This is useful for finding the "remote" end of a line when you have an
+        intersection point near one of its ends.
+
+        Args:
+            feature: The line feature.
+            reference_point: The point to measure distance from.
+
+        Returns:
+            The QgsPointXY of the other endpoint, or None if endpoints cannot be
+            determined.
+        """
+        endpoints: list[QgsPointXY] = self._get_start_end_of_line(feature)
+        if len(endpoints) != 2:  # noqa: PLR2004
+            return None
+
+        p1, p2 = endpoints
+        return p2 if p1.distance(reference_point) < p2.distance(reference_point) else p1
