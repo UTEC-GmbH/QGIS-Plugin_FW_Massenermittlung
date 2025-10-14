@@ -1283,23 +1283,8 @@ def my_form_open(dialog, layer, feature):
   <dataDefinedFieldProperties/>
   <widgets/>
   <previewExpression>"Typ"</previewExpression>
-  <mapTip enabled="1">&lt;p>&lt;b>Typ: [% "Typ" %]&lt;/b>&lt;/p>&#xd;
-&#xd;
-fid: [% "fid" %]&lt;br>&#xd;
-&#xd;
-verbundene Rohrleitungen (fid): [% "verbundene Leitungen" %]&lt;br>&#xd;
-&#xd;
-Dimension: [% "Dimensionen" %]&lt;br>&#xd;
-&#xd;
-[%&#xd;
-CASE&#xd;
-	WHEN "Typ" = 'Bogen' THEN 'Winkel: ' || "Bogen-Winkel" || '°'&#xd;
-	WHEN "Typ" = 'Fragwürdiger Punkt' THEN 'Anmerkung: ' || "Anmerkungen"&#xd;
-	ELSE ''&#xd;
-END&#xd;
-%]&#xd;
-&#xd;
-</mapTip>
-
+  <mapTip enabled="1">&lt;p>&lt;b>Typ: [% "Typ" %]&lt;/b>&lt;/p>&#xd;&#xd;
+fid: [% "fid" %]&lt;br>&#xd;verbundene Rohrleitungen (fid): [% "verbundene Leitungen" %]&lt;br>&#xd;Dimension: [% "Dimensionen" %]&lt;br>&#xd;&#xd;
+[%if("Typ" = 'Bogen', 'Winkel: ' || "Bogen-Winkel" || '°','')%]&#xd;[%if("Anmerkungen" IS NOT NULL AND "Anmerkungen" &lt;> '', '&lt;br>Anmerkungen: ' || "Anmerkungen", '')%]</mapTip>
   <layerGeometryType>0</layerGeometryType>
 </qgis>

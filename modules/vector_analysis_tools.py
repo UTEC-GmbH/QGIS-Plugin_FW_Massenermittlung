@@ -1,6 +1,6 @@
-"""Module: base_finder.py
+"""Module: vector_analysis_tools.py
 
-This module contains the BaseFinder class.
+This module contains the VectorAnalysisTools class.
 """
 
 from typing import TYPE_CHECKING
@@ -35,7 +35,7 @@ class VectorAnalysisTools:
         selected_layer: QgsVectorLayer,
         temp_point_layer: QgsVectorLayer,
     ) -> None:
-        """Initialize the BaseFinder class.
+        """Initialize the VectorAnalysisTools class.
 
         Args:
             selected_layer: The QgsVectorLayer to search within.
@@ -43,22 +43,16 @@ class VectorAnalysisTools:
         """
         self.selected_layer: QgsVectorLayer = selected_layer
         self.new_layer: QgsVectorLayer = temp_point_layer
-        self.selected_layer_index: QgsSpatialIndex = self._create_spatial_index(
-            selected_layer
-        )
-        self.dim_field_name: str | None = self._find_dim_field_name(selected_layer)
-
-    @staticmethod
-    def _create_spatial_index(layer: QgsVectorLayer) -> QgsSpatialIndex:
-        """Create a spatial index for the given layer."""
-        log_debug(f"Creating spatial index for layer '{layer.name()}'.")
+        log_debug(f"Creating spatial index for layer '{selected_layer.name()}'.")
         request: QgsFeatureRequest = QgsFeatureRequest().setNoAttributes()
-        index = QgsSpatialIndex(layer.getFeatures(request))
+        self.selected_layer_index: QgsSpatialIndex = QgsSpatialIndex(
+            selected_layer.getFeatures(request)
+        )
         log_debug("Spatial index created.", Qgis.Success)
-        return index
+        self.dim_field_name: str | None = self.find_dim_field_name(selected_layer)
 
     @staticmethod
-    def _find_dim_field_name(layer: QgsVectorLayer) -> str | None:
+    def find_dim_field_name(layer: QgsVectorLayer) -> str | None:
         """Find the first matching dimension field name from the constants.
 
         Args:
@@ -80,7 +74,7 @@ class VectorAnalysisTools:
             log_debug("No dimension field found in the selected layer.", Qgis.Warning)
         return found_name
 
-    def _create_feature(self, geometry: QgsGeometry, attributes: dict) -> bool:
+    def create_feature(self, geometry: QgsGeometry, attributes: dict) -> bool:
         """Create a new feature in the new layer."""
         data_provider: QgsVectorDataProvider | None = self.new_layer.dataProvider()
         if data_provider is None:
@@ -103,7 +97,7 @@ class VectorAnalysisTools:
 
         return self.new_layer.addFeature(new_feature)
 
-    def _get_connected_attributes(self, connected_features: list[QgsFeature]) -> dict:
+    def get_connected_attributes(self, connected_features: list[QgsFeature]) -> dict:
         """Get attributes from connected features."""
         connected_ids: list[int] = sorted(
             {feature.attribute("original_fid") for feature in connected_features}
@@ -120,7 +114,8 @@ class VectorAnalysisTools:
                     f"{cont.Names.dim_prefix}{feat[self.dim_field_name]}"
                     for feat in connected_features
                     if feat.attribute(self.dim_field_name) is not None
-                }
+                },
+                reverse=True,
             )
             attributes[cont.NewLayerFields.dimensions.name] = (
                 cont.Names.dim_separator.join(dims)
@@ -134,7 +129,7 @@ class VectorAnalysisTools:
 
         return attributes
 
-    def _get_intersecting_features(self, search_geom: QgsGeometry) -> list[QgsFeature]:
+    def get_intersecting_features(self, search_geom: QgsGeometry) -> list[QgsFeature]:
         """Get intersecting features for a given geometry."""
         search_rect: QgsRectangle = search_geom.boundingBox()
         candidate_ids: list[int] = self.selected_layer_index.intersects(search_rect)
@@ -147,7 +142,7 @@ class VectorAnalysisTools:
         ]
 
     @staticmethod
-    def _get_start_end_of_line(feature: QgsFeature) -> list[QgsPointXY]:
+    def get_start_end_of_line(feature: QgsFeature) -> list[QgsPointXY]:
         """Get the start and end points of a line feature."""
         points: list = []
         geom: QgsGeometry = feature.geometry()
@@ -167,7 +162,7 @@ class VectorAnalysisTools:
         return points
 
     @staticmethod
-    def _calculate_angle(p1: QgsPointXY, p2: QgsPointXY, p3: QgsPointXY) -> float:
+    def calculate_angle(p1: QgsPointXY, p2: QgsPointXY, p3: QgsPointXY) -> float:
         """Calculate the angle between three points in degrees using azimuths."""
 
         # Check for coincident points which would make angle calculation invalid.
@@ -185,9 +180,9 @@ class VectorAnalysisTools:
         if angle > cont.Numbers.circle_semi:
             angle = cont.Numbers.circle_full - angle
 
-        return cont.Numbers.circle_semi - angle
+        return angle
 
-    def _get_adjacent_vertices(
+    def get_adjacent_vertices(
         self, point: QgsPointXY, feature: QgsFeature
     ) -> tuple[QgsPointXY | None, QgsPointXY | None]:
         """Get vertices adjacent to a point on a feature's geometry.
@@ -215,7 +210,7 @@ class VectorAnalysisTools:
             return None, None
 
         # Check if the vertex is an endpoint of its line part
-        if self._is_endpoint(closest_v, feature):
+        if self.is_endpoint(closest_v, feature):
             return None, None
 
         # Get the vertices before and after the found vertex
@@ -224,7 +219,7 @@ class VectorAnalysisTools:
 
         return p_before, p_after
 
-    def _is_endpoint(self, point: QgsPointXY, feature: QgsFeature) -> bool:
+    def is_endpoint(self, point: QgsPointXY, feature: QgsFeature) -> bool:
         """Check if a point is an endpoint of a feature's line geometry.
 
         Args:
@@ -235,14 +230,14 @@ class VectorAnalysisTools:
             True if the point is a start or end point of the feature's geometry,
             False otherwise.
         """
-        if start_end_points := self._get_start_end_of_line(feature):
+        if start_end_points := self.get_start_end_of_line(feature):
             return any(
                 point.compare(endpoint, cont.Numbers.tiny_number)
                 for endpoint in start_end_points
             )
         return False
 
-    def _get_other_endpoint(
+    def get_other_endpoint(
         self, feature: QgsFeature, reference_point: QgsPointXY
     ) -> QgsPointXY | None:
         """Get the endpoint of a line feature that is furthest from a reference point.
@@ -258,9 +253,86 @@ class VectorAnalysisTools:
             The QgsPointXY of the other endpoint, or None if endpoints cannot be
             determined.
         """
-        endpoints: list[QgsPointXY] = self._get_start_end_of_line(feature)
+        endpoints: list[QgsPointXY] = self.get_start_end_of_line(feature)
         if len(endpoints) != 2:  # noqa: PLR2004
             return None
 
         p1, p2 = endpoints
         return p2 if p1.distance(reference_point) < p2.distance(reference_point) else p1
+
+    def create_house_connection(
+        self, point: QgsPointXY, features: list[QgsFeature]
+    ) -> int:
+        """Create a 'house connection' feature.
+
+        Args:
+            point: The location of the house connection.
+            features: The list of connected features (should be one).
+
+        Returns:
+            1 if the feature was created successfully, 0 otherwise.
+        """
+        attrs: dict = {cont.NewLayerFields.type.name: cont.Names.attr_val_type_house}
+        attrs |= self.get_connected_attributes(features)
+        return 1 if self.create_feature(QgsGeometry.fromPointXY(point), attrs) else 0
+
+    def create_bend(
+        self, point: QgsPointXY, features: list[QgsFeature], angle: float
+    ) -> int:
+        """Create a 'bend' feature if the angle is sufficient.
+
+        Args:
+            point: The location of the bend.
+            features: The list of connected features.
+            angle: The calculated angle of the bend.
+
+        Returns:
+            1 if the feature was created successfully, 0 otherwise.
+        """
+        if angle > (cont.Numbers.circle_semi - cont.Numbers.min_angle_bend):
+            return 0
+
+        attrs: dict = {
+            cont.NewLayerFields.type.name: cont.Names.attr_val_type_bend,
+            cont.NewLayerFields.angle.name: round(cont.Numbers.circle_semi - angle, 2),
+        }
+        attrs |= self.get_connected_attributes(features)
+        return 1 if self.create_feature(QgsGeometry.fromPointXY(point), attrs) else 0
+
+    def create_questionable_point(
+        self,
+        point: QgsPointXY,
+        features: list[QgsFeature] | None = None,
+        note: str | None = None,
+    ) -> int:
+        """Create a 'questionable' point feature.
+
+        Args:
+            point: The location of the point.
+            features: Connected features. If None, they are found by searching.
+            note: An optional note to add to the feature's attributes.
+
+        Returns:
+            1 if the feature was created successfully, 0 otherwise.
+        """
+        if features is None:
+            search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
+                cont.Numbers.search_radius, 5
+            )
+            features = self.get_intersecting_features(search_geom)
+
+        if not features:
+            log_debug(
+                f"Could not create questionable point at {point.asWkt()}: "
+                "No features found.",
+                Qgis.Warning,
+            )
+            return 0
+
+        attrs: dict[str, str | None] = {
+            cont.NewLayerFields.type.name: cont.Names.attr_val_type_question
+        }
+        attrs |= self.get_connected_attributes(features)
+        if note:
+            attrs[cont.NewLayerFields.notes.name] = note
+        return 1 if self.create_feature(QgsGeometry.fromPointXY(point), attrs) else 0

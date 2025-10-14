@@ -40,6 +40,39 @@
     </message>
 </context>
 <context>
+    <name>feature_note</name>
+    <message>
+        <location filename="../modules/poi_classifier.py" line="73"/>
+        <source>Intersection without endpoints</source>
+        <translation>Linien schneiden sich ohne Endpunkt</translation>
+    </message>
+    <message>
+        <location filename="../modules/poi_classifier.py" line="139"/>
+        <source>More than three lines at intersection</source>
+        <translation>Mehr als 3 Linien am Knoten</translation>
+    </message>
+    <message>
+        <location filename="../modules/poi_classifier.py" line="190"/>
+        <source>Unconnected line</source>
+        <translation>Linie nicht mit Netz verbunden</translation>
+    </message>
+    <message>
+        <location filename="../modules/t_intersection_analyzer.py" line="41"/>
+        <source>Could not determine main pipe.</source>
+        <translation>Konnte Hauptleitung nicht definieren.</translation>
+    </message>
+    <message>
+        <location filename="../modules/t_intersection_analyzer.py" line="58"/>
+        <source>Could not determine main pipe endpoints.</source>
+        <translation>Konnte die Endpunkte der Hauptleitung nicht finden.</translation>
+    </message>
+    <message>
+        <location filename="../modules/t_intersection_analyzer.py" line="98"/>
+        <source>Main pipe: {0}</source>
+        <translation>Hauptleitung: {0}</translation>
+    </message>
+</context>
+<context>
     <name>progress_bar</name>
     <message>
         <location filename="../massenermittlung.py" line="250"/>
@@ -52,37 +85,14 @@
         <translation>Schreibe Ergebnisse in neuen Layer...</translation>
     </message>
     <message>
-        <location filename="../modules/poi_classifier.py" line="58"/>
+        <location filename="../modules/poi_classifier.py" line="60"/>
         <source>Collecting points...</source>
         <translation>Zu untersuchende Punkte werden gesammelt...</translation>
     </message>
     <message>
-        <location filename="../modules/poi_classifier.py" line="82"/>
+        <location filename="../modules/poi_classifier.py" line="84"/>
         <source>Analyzing points...</source>
         <translation>Untersuche Punkte...</translation>
-    </message>
-</context>
-<context>
-    <name>questionable_note</name>
-    <message>
-        <location filename="../modules/poi_classifier.py" line="71"/>
-        <source>Intersection without endpoints</source>
-        <translation>Linien schneiden sich ohne Endpunkt</translation>
-    </message>
-    <message>
-        <location filename="../modules/poi_classifier.py" line="132"/>
-        <source>More than three lines at intersection</source>
-        <translation>Mehr als 3 Linien am Knoten - bitte Knoten bearbeiten</translation>
-    </message>
-    <message>
-        <location filename="../modules/poi_classifier.py" line="183"/>
-        <source>Unconnected line</source>
-        <translation>Linie nicht mit Netz verbunden</translation>
-    </message>
-    <message>
-        <location filename="../modules/poi_classifier.py" line="205"/>
-        <source>Endpoint near intersection</source>
-        <translation>Endpunkt sehr nah, aber nicht ganz an Knoten</translation>
     </message>
 </context>
 <context>

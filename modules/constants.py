@@ -126,6 +126,7 @@ class Numbers:
     min_angle_bend: int = 15  # Minimum angle to consider a bent line as 'Bogen'.
 
     distance_t_reducer: float = 0.5  # The distance between T-piece and reducer.
+    distance_t_bend: float = 0.25  # The distance between T-piece and bend.
 
     search_radius: float = 0.05  # Search radius for finding intersections.
 
