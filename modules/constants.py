@@ -122,7 +122,6 @@ class Numbers:
 
     min_intersec: int = 2  # Minimum number of lines to consider an intersection.
     intersec_t: int = 3  # Minimum number of lines to consider a T-intersection.
-    min_dim_reducer: int = 3  # Minimum number of dimensions at T-piece for reducer.
     min_angle_bend: int = 15  # Minimum angle to consider a bent line as 'Bogen'.
 
     distance_t_reducer: float = 0.5  # The distance between T-piece and reducer.

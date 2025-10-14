@@ -103,18 +103,18 @@ class FeatureFinder(BaseFinder):
         collected_points: dict[str, list[QgsPointXY]] = collector.collect_points(
             progress_bar
         )
-        vertices: list[QgsPointXY] = collected_points["vertices"]
-        intersections: list[QgsPointXY] = collected_points["intersections"]
 
         # 2. Directly classify all true intersections as "questionable"
-        created_count = self._create_questionable_points(intersections)
+        created_count: int = self._create_questionable_points(
+            collected_points["intersections"]
+        )
 
         # 3. Process the remaining vertices
         pgb_update_text(
             QCoreApplication.translate("progress_bar", "Analyzing points...")
         )
-        progress_bar.setMaximum(len(vertices))
-        for i, point in enumerate(vertices):
+        progress_bar.setMaximum(len(collected_points["vertices"]))
+        for i, point in enumerate(collected_points["vertices"]):
             created_count += self._process_point(point)
             progress_bar.setValue(i + 1)
 
@@ -170,7 +170,7 @@ class FeatureFinder(BaseFinder):
             return 0  # Should not happen if points are from features
 
         # Case 1: A single line is involved.
-        # This can be a true endpoint or an intermediate vertex (a bend).
+        # This can be an endpoint or an intermediate vertex (a bend in multiline).
         if n_intersections == 1:
             if self._is_endpoint(point, intersecting_features[0]):
                 return self._process_endpoint(point, intersecting_features[0])

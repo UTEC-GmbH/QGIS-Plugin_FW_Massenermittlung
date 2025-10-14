@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from qgis.core import (
     Qgis,
     QgsFeature,
-    QgsFeatureRequest,
     QgsFields,
     QgsGeometry,
     QgsPointXY,
@@ -115,18 +114,6 @@ class BaseFinder:
         ]
 
     @staticmethod
-    def _get_point_from_intersection(intersection: QgsGeometry) -> QgsPointXY | None:
-        """Extract a QgsPointXY from an intersection geometry."""
-        if intersection.wkbType() == QgsWkbTypes.Point:
-            return intersection.asPoint()
-        if (
-            intersection.wkbType() == QgsWkbTypes.MultiPoint
-            and not intersection.isEmpty()
-        ):
-            return intersection.asMultiPoint()[0]
-        return None
-
-    @staticmethod
     def _get_start_end_of_line(feature: QgsFeature) -> list[QgsPointXY]:
         """Get the start and end points of a line feature."""
         points: list = []
@@ -167,57 +154,57 @@ class BaseFinder:
 
         return cont.Numbers.circle_semi - angle
 
-    def _is_t_piece(self, point: QgsPointXY) -> bool:
-        """Check if a point is a T-intersection."""
-        search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
-            cont.Numbers.search_radius, 5
-        )
-        intersecting_features: list[QgsFeature] = self._get_intersecting_features(
-            search_geom
-        )
-        return len(intersecting_features) == cont.Numbers.intersec_t
+    def _get_adjacent_vertices(
+        self, point: QgsPointXY, feature: QgsFeature
+    ) -> tuple[QgsPointXY | None, QgsPointXY | None]:
+        """Get vertices adjacent to a point on a feature's geometry.
 
-    def _find_intersecting_feature_ids(
-        self, point: QgsPointXY, current_feature_id: int
-    ) -> list[int]:
-        """Find intersecting feature IDs for a given point."""
-        search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
-            cont.Numbers.search_radius, 5
-        )
-        search_rect: QgsRectangle = search_geom.boundingBox()
-        request: QgsFeatureRequest = QgsFeatureRequest().setFilterRect(search_rect)
-
-        candidates = iter(self.selected_layer.getFeatures(request))
-        if candidates is not None:
-            return [
-                feat.id()
-                for feat in candidates
-                if feat.id() != current_feature_id
-                and feat.geometry().intersects(search_geom)
-            ]
-        return []
-
-    def _get_dimensions(self, features: list[QgsFeature]) -> dict[int, int]:
-        """Extract dimension values for a list of features.
+        Finds the vertex on the feature that matches the input point and returns
+        the vertices immediately before and after it.
 
         Args:
-            features: A list of features to extract dimensions from.
+            point: The vertex on the feature.
+            feature: The feature containing the geometry.
 
         Returns:
-            A dictionary mapping feature ID to its dimension value (as int).
+            A tuple containing the previous and next vertices as QgsPointXY.
+            Returns (None, None) if the point is an endpoint or not a vertex.
         """
-        dimensions: dict[int, int] = {}
-        if not self.dim_field_name:
-            return dimensions
+        geom = feature.geometry()
+        if not geom:
+            return None, None
 
-        for f in features:
-            dim_val = f.attribute(self.dim_field_name)
-            if dim_val is not None:
-                try:
-                    dimensions[f.id()] = int(dim_val)
-                except (ValueError, TypeError):
-                    log_debug(
-                        f"Could not parse dimension '{dim_val}' for feature {f.id()}",
-                        Qgis.Warning,
-                    )
-        return dimensions
+        # Find the closest vertex on the geometry to the given point
+        closest_v, vertex_idx, _, _, dist_sq = geom.closestVertex(point)
+
+        # Ensure the point is actually a vertex (not an intermediate point on a segment)
+        if dist_sq > cont.Numbers.tiny_number**2:
+            return None, None
+
+        # Check if the vertex is an endpoint of its line part
+        if self._is_endpoint(closest_v, feature):
+            return None, None
+
+        # Get the vertices before and after the found vertex
+        p_before = QgsPointXY(geom.vertexAt(vertex_idx - 1))
+        p_after = QgsPointXY(geom.vertexAt(vertex_idx + 1))
+
+        return p_before, p_after
+
+    def _is_endpoint(self, point: QgsPointXY, feature: QgsFeature) -> bool:
+        """Check if a point is an endpoint of a feature's line geometry.
+
+        Args:
+            point: The point to check.
+            feature: The feature to check against.
+
+        Returns:
+            True if the point is a start or end point of the feature's geometry,
+            False otherwise.
+        """
+        if start_end_points := self._get_start_end_of_line(feature):
+            return any(
+                point.compare(endpoint, cont.Numbers.tiny_number)
+                for endpoint in start_end_points
+            )
+        return False

@@ -36,6 +36,32 @@ class PointCollector:
         )
         self.checked_points: set[tuple[float, float]] = set()
 
+    def _collect_vertices(self, features: list[QgsFeature]) -> list[QgsPointXY]:
+        """Collect all unique vertices from a list of features.
+
+        Args:
+            features: A list of features to process.
+
+        Returns:
+            A list of unique QgsPointXY points representing the vertices.
+        """
+        vertices: list[QgsPointXY] = []
+        for feature in features:
+            geom: QgsGeometry = feature.geometry()
+            if not geom or geom.isNull():
+                continue
+
+            for vertex in geom.vertices():
+                point = QgsPointXY(vertex)
+                point_key: tuple[float, float] = (
+                    round(point.x(), 4),
+                    round(point.y(), 4),
+                )
+                if point_key not in self.checked_points:
+                    vertices.append(point)
+                    self.checked_points.add(point_key)
+        return vertices
+
     def collect_points(self, progress_bar: QProgressBar) -> dict[str, list[QgsPointXY]]:
         """Collect all unique vertices and intersection points from the layer.
 
@@ -47,43 +73,31 @@ class PointCollector:
             'vertices' for all feature vertices and 'intersections' for
             true mid-segment intersections.
         """
-        features = list(self.layer.getFeatures())
+        features: list[QgsFeature] = list(self.layer.getFeatures())
         progress_bar.setMaximum(len(features))
-        vertices: list[QgsPointXY] = []
         intersections: list[QgsPointXY] = []
 
         # 1. Collect all vertices first
-        for feature in features:
-            geom = feature.geometry()
-            if not geom or geom.isNull():
-                continue
-
-            for vertex in geom.vertices():
-                point = QgsPointXY(vertex)
-                point_key = (round(point.x(), 4), round(point.y(), 4))
-                if point_key not in self.checked_points:
-                    vertices.append(point)
-                    self.checked_points.add(point_key)
+        vertices: list[QgsPointXY] = self._collect_vertices(features)
 
         # 2. Find and add true intersection points
         for i, feature in enumerate(features):
-            geom = feature.geometry()
+            geom: QgsGeometry = feature.geometry()
             if not geom or geom.isNull():
                 continue
 
-            # 2. Find and add intersection points with other features
-            candidate_ids = self.spatial_index.intersects(geom.boundingBox())
+            candidate_ids: list[int] = self.spatial_index.intersects(geom.boundingBox())
             for candidate_id in candidate_ids:
                 if candidate_id <= feature.id():
                     continue
 
-                candidate_feat = self.layer.getFeature(candidate_id)
-                candidate_geom = candidate_feat.geometry()
+                candidate_feat: QgsFeature = self.layer.getFeature(candidate_id)
+                candidate_geom: QgsGeometry = candidate_feat.geometry()
 
                 if not candidate_geom or not geom.intersects(candidate_geom):
                     continue
 
-                intersection = geom.intersection(candidate_geom)
+                intersection: QgsGeometry = geom.intersection(candidate_geom)
                 if not intersection or intersection.isEmpty():
                     continue
 
@@ -111,7 +125,7 @@ class PointCollector:
         Only adds points that are not vertices of the intersecting features.
         """
         points_to_add: list[QgsPointXY] = []
-        wkb_type = intersection_geom.wkbType()
+        wkb_type: Qgis.WkbType = intersection_geom.wkbType()
 
         if wkb_type == QgsWkbTypes.Point:
             points_to_add.append(intersection_geom.asPoint())
@@ -123,7 +137,7 @@ class PointCollector:
                 points_to_add.extend([part.startPoint(), part.endPoint()])
 
         for point in points_to_add:
-            point_key = (round(point.x(), 4), round(point.y(), 4))
+            point_key: tuple[float, float] = (round(point.x(), 4), round(point.y(), 4))
             if point_key not in self.checked_points and not self._is_vertex_of_any(
                 point, intersecting_features
             ):
@@ -139,8 +153,8 @@ class PointCollector:
             geom = feature.geometry()
             if not geom:
                 continue
-            # closestVertex gives the point and vertex index. We just need to check
-            # if the distance to that closest vertex is within tolerance.
+
+            # check if the distance to that closest vertex is within tolerance.
             closest_vertex, *_ = geom.closestVertex(point)
             if point.distance(closest_vertex) < tolerance:
                 return True
