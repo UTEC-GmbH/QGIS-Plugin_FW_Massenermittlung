@@ -88,13 +88,15 @@ class Names:
     line_separator: str = " / "
 
     # Namen für Saplten der Attributtabelle des alten (gewälten) Layers
-    sel_layer_field_dim: str = "diameter"
+    sel_layer_field_dim: tuple[str, ...] = ("diameter", "dim", "DN")
+    no_dim_field_found: str = "DN field not found"
 
     # Namen für Spalten der Attributtabelle des neuen Layers
     attr_col_head_type: str = "Typ"
     attr_col_head_bend_angle: str = "Bogen-Winkel"
     attr_col_head_connected: str = "verbundene Leitungen"
     attr_col_head_dimension: str = "Dimensionen"
+    attr_col_head_notes: str = "Anmerkungen"
 
     # Werte der Spalte 'Typ' in der Attributtabelle (Kategorien der Massenermittlung)
     attr_val_type_house: str = "Hausanschluss"
@@ -120,11 +122,11 @@ class Numbers:
     min_points_multiline: int = 3  # Minimum number of points for a multiline.
 
     min_intersec: int = 2  # Minimum number of lines to consider an intersection.
-    min_intersec_t: int = 3  # Minimum number of lines to consider a T-intersection.
-    min_dim_reducer: int = 3  # Minimum number of dimensions at T-piece for reducer.
-    min_angle_bogen: int = 15  # Minimum angle to consider a bent line as 'Bogen'.
+    intersec_t: int = 3  # Minimum number of lines to consider a T-intersection.
+    min_angle_bend: int = 15  # Minimum angle to consider a bent line as 'Bogen'.
 
     distance_t_reducer: float = 0.5  # The distance between T-piece and reducer.
+    distance_t_bend: float = 0.25  # The distance between T-piece and bend.
 
     search_radius: float = 0.05  # Search radius for finding intersections.
 
@@ -153,6 +155,7 @@ class NewLayerFields:
     connected = FieldAttributes(Names.attr_col_head_connected, QMeT.Type.QString)
     dimensions = FieldAttributes(Names.attr_col_head_dimension, QMeT.Type.QString)
     angle = FieldAttributes(Names.attr_col_head_bend_angle, QMeT.Type.Double)
+    notes = FieldAttributes(Names.attr_col_head_notes, QMeT.Type.QString)
 
     def __iter__(self) -> Generator[FieldAttributes, None, None]:
         """Make the class iterable."""

@@ -5,8 +5,9 @@ This module contains general functions.
 
 import contextlib
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from osgeo import ogr
 from qgis.core import (
@@ -27,7 +28,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtCore import (
     QCoreApplication,
-    QVariant,
+    QMetaType,
 )
 from qgis.PyQt.QtWidgets import QProgressBar
 from qgis.utils import iface
@@ -36,7 +37,7 @@ from modules import constants as cont
 from modules.logs_and_errors import log_debug, raise_runtime_error, raise_user_error
 
 if TYPE_CHECKING:
-    from qgis._core import QgsGeometry
+    from qgis.core import QgsGeometry
     from qgis.gui import QgisInterface, QgsLayerTreeView
 
 
@@ -53,11 +54,9 @@ def get_current_project() -> QgsProject:
     """
     project: QgsProject | None = QgsProject.instance()
     if project is None:
-        raise_user_error(
-            QCoreApplication.translate(
-                "UserError", "No QGIS project is currently open."
-            )
-        )
+        # fmt: off
+        raise_user_error(QCoreApplication.translate("UserError", "No QGIS project is currently open."))  # noqa: E501
+        # fmt: on
 
     return project
 
@@ -98,11 +97,9 @@ def project_gpkg() -> Path:
     project: QgsProject = get_current_project()
     project_path_str: str = project.fileName()
     if not project_path_str:
-        raise_user_error(
-            QCoreApplication.translate(
-                "UserError", "Project is not saved. Please save the project first."
-            )
-        )
+        # fmt: off
+        raise_user_error(QCoreApplication.translate("UserError", "Project is not saved. Please save the project first."))  # noqa: E501
+        # fmt: on
 
     project_path: Path = Path(project_path_str)
     gpkg_path: Path = project_path.with_suffix(".gpkg")
@@ -255,7 +252,7 @@ class LayerManager:
                 )
 
         data_provider.addAttributes(filtered_fields)
-        data_provider.addAttributes([QgsField("original_fid", QVariant.Int)])
+        data_provider.addAttributes([QgsField("original_fid", QMetaType.Type.Int)])
         reprojected_layer.updateFields()
         log_debug(
             f"The in-memory layer has {len(reprojected_layer.fields())} fields "
@@ -353,41 +350,42 @@ class LayerManager:
 
         selected_nodes: list[QgsLayerTreeNode] = layer_tree.selectedNodes()
         if len(selected_nodes) > 1:
-            raise_user_error(
-                QCoreApplication.translate("UserError", "Multiple layers selected.")
-            )
+            # fmt: off
+            raise_user_error(QCoreApplication.translate("UserError", "Multiple layers selected."))  # noqa: E501
+            # fmt: on
         if not selected_nodes:
-            raise_user_error(
-                QCoreApplication.translate("UserError", "No layer selected.")
-            )
+            # fmt: off
+            raise_user_error(QCoreApplication.translate("UserError", "No layer selected."))  # noqa: E501
+            # fmt: on
 
         selected_node: QgsLayerTreeNode = next(iter(selected_nodes))
         if not selected_node.layer():
-            raise_user_error(
-                QCoreApplication.translate("UserError", "Selected node is not a layer.")
-            )
+            # fmt: off
+            raise_user_error(QCoreApplication.translate("UserError", "Selected node is not a layer."))  # noqa: E501
+            # fmt: on
 
         selected_layer = selected_node.layer()
         if not isinstance(selected_layer, QgsVectorLayer):
-            raise_user_error(
-                QCoreApplication.translate(
-                    "UserError", "Selected layer is not a vector layer."
-                )
-            )
+            # fmt: off
+            raise_user_error(QCoreApplication.translate("UserError", "Selected layer is not a vector layer."))  # noqa: E501
+            # fmt: on
 
         if selected_layer.geometryType() != QgsWkbTypes.LineGeometry:
-            raise_user_error(
-                QCoreApplication.translate(
-                    "UserError", "The selected layer is not a line layer."
-                )
-            )
+            # fmt: off
+            raise_user_error(QCoreApplication.translate("UserError", "The selected layer is not a line layer."))  # noqa: E501
+            # fmt: on
 
-        # Check for the required 'diameter' field
-        if selected_layer.fields().lookupField(cont.Names.sel_layer_field_dim) == -1:
-            raise_user_error(
-                QCoreApplication.translate(
-                    "UserError", "The selected layer is not a line layer."
-                )
+        # Check for one of the required 'diameter' fields
+        if all(
+            selected_layer.fields().lookupField(name) == -1
+            for name in cont.Names.sel_layer_field_dim
+        ):
+            log_debug(
+                f"None of the specified dimension fields "
+                f"({', '.join(cont.Names.sel_layer_field_dim)}) "
+                f"were found in the selected layer. Dimension-related "
+                f"attributes will be skipped.",
+                Qgis.Warning,
             )
 
         # Reproject the layer to the project's CRS
@@ -495,11 +493,9 @@ class LayerManager:
         feature_count = source_layer.featureCount()
         progress_bar.setMaximum(feature_count)
         progress_bar.setValue(0)
-        pgb_update_text(
-            QCoreApplication.translate(
-                "progress_bar", "Writing results to new layer..."
-            )
-        )
+        # fmt: off
+        pgb_update_text(QCoreApplication.translate("progress_bar", "Writing results to new layer..."))  # noqa: E501
+        # fmt: on
 
         log_debug(
             f"Trying to add {feature_count} features "
@@ -544,11 +540,10 @@ class LayerManager:
         removed_by_type: dict[str, int] = {}
         seen: dict[tuple, int] = {}
 
-        request = QgsFeatureRequest()  # geometry + all attributes
+        request = QgsFeatureRequest()
         for feature in layer.getFeatures(request):  # pyright: ignore[reportGeneralTypeIssues]
             feature_geometry = feature.geometry()
             if feature_geometry is None or feature_geometry.isEmpty():
-                # Skip invalid/empty geometries
                 continue
 
             key: tuple = (
@@ -583,7 +578,7 @@ class LayerManager:
                 else:
                     for fid in to_delete:
                         layer.deleteFeature(fid)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 # Fallback to per-feature deletion
                 for fid in to_delete:
                     layer.deleteFeature(fid)

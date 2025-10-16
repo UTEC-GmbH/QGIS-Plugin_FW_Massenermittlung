@@ -80,8 +80,7 @@ def log_debug(
 
 
 def show_message(
-    message: str,
-    level: Qgis.MessageLevel = Qgis.Critical,
+    message: str, level: Qgis.MessageLevel = Qgis.Critical, duration: int = 0
 ) -> None:
     """Display a message in the QGIS message bar.
 
@@ -90,12 +89,16 @@ def show_message(
 
     :param error_msg: The error message to display and include in the exception.
     :param level: The QGIS message level (Warning, Critical, etc.).
+    :param duration: The duration of the message in seconds (default: 0 = until closed)
+    :return: None
     """
 
     qgis_iface: QgisInterface | None = iface
     if qgis_iface and (msg_bar := qgis_iface.messageBar()):
         msg_bar.clearWidgets()
-        msg_bar.pushMessage(f"{LEVEL_ICON[level]} {message}", level=level)
+        msg_bar.pushMessage(
+            f"{LEVEL_ICON[level]} {message}", level=level, duration=duration
+        )
     else:
         QgsMessageLog.logMessage(
             f"{cont.Icons.Warning} iface not set or message bar not available! "
@@ -131,25 +134,32 @@ def raise_runtime_error(error_msg: str) -> NoReturn:
     raise CustomRuntimeError(error_msg)
 
 
-def summary_message(new_layer: QgsVectorLayer, selected_layer_name: str) -> None:
+def create_summary_message(
+    new_layer: QgsVectorLayer,
+    selected_layer_name: str,
+    *,
+    multiline: bool = False,
+) -> str:
     """Create a summary message of the features found in the new layer.
 
     Args:
         new_layer: The layer containing the new features.
         selected_layer_name: The name of the selected layer.
+        multiline: If True, format the summary as a multi-line string.
+            Defaults to False.
 
-    Returns: None
+    Returns:
+        A formatted string summarizing the features in the new layer.
     """
-
-    base_message: str = QCoreApplication.translate(
-        "summary", "Bulk assessment for layer '{0}' completed "
-    ).format(selected_layer_name)
+    # fmt: off
+    base_message: str = QCoreApplication.translate("summary", "Layer '{0}' analyzed:").format(selected_layer_name)  # noqa: E501
+    # fmt: on
 
     if new_layer.fields().indexFromName(cont.NewLayerFields.type.name) == -1:
         log_debug("Type field not found in new layer.", Qgis.Warning)
-        fail_field: str = QCoreApplication.translate(
-            "summary", "Type field not found in new layer."
-        )
+        # fmt: off
+        fail_field: str = QCoreApplication.translate("summary", "Type field not found in new layer.")  # noqa: E501
+        # fmt: on
         completed_message: str = f"{base_message} ({cont.Icons.Warning} {fail_field})"
     else:
         type_counts: dict[str, int] = {}
@@ -160,15 +170,19 @@ def summary_message(new_layer: QgsVectorLayer, selected_layer_name: str) -> None
 
         if not type_counts:
             log_debug("Failed to get type counts from new layer.", Qgis.Warning)
-            fail_counts: str = QCoreApplication.translate(
-                "summary", "Failed to get type counts from new layer."
-            )
+            # fmt: off
+            fail_counts: str = QCoreApplication.translate("summary", "Failed to get type counts from new layer.")  # noqa: E501
+            # fmt: on
             completed_message = f"{base_message} ({cont.Icons.Warning} {fail_counts})"
 
         else:
             found_parts: list[str] = [
                 f"{name}: {count}" for name, count in type_counts.items()
             ]
-            completed_message = f"{base_message} → {' | '.join(found_parts)}"
+            if multiline:
+                details: str = "\n- " + "\n- ".join(found_parts)
+                completed_message = f"{base_message}{details}"
+            else:
+                completed_message = f"{base_message} {' | '.join(found_parts)}"
 
-    show_message(completed_message, level=Qgis.Success)
+    return completed_message

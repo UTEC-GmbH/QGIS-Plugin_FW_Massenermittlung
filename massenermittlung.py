@@ -21,9 +21,10 @@
 
 import configparser
 import contextlib
-from collections.abc import Generator
+import traceback
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from qgis.core import Qgis, QgsProject, QgsVectorLayer
 from qgis.gui import QgisInterface
@@ -34,7 +35,7 @@ from qgis.PyQt.QtWidgets import QAction, QMenu, QProgressBar, QToolButton
 from . import resources
 from .modules import general as ge
 from .modules import logs_and_errors as lae
-from .modules.find_stuff import FeatureFinder, FeatureType
+from .modules.poi_classifier import PointOfInterestClassifier
 
 if TYPE_CHECKING:
     from qgis.gui import QgsMessageBar, QgsMessageBarItem
@@ -246,9 +247,9 @@ class Massenermittlung:
         temp_point_layer: QgsVectorLayer | None = None
         reprojected_layer: QgsVectorLayer | None = None
         try:
-            initial_message: str = QCoreApplication.translate(
-                "progress_bar", "Performing bulk assessment..."
-            )
+            # fmt: off
+            initial_message: str = QCoreApplication.translate("progress_bar", "Performing bulk assessment...")  # noqa: E501
+            # fmt: on
             with self._managed_progress_bar(initial_message) as (
                 progress_bar,
                 update_text,
@@ -261,19 +262,13 @@ class Massenermittlung:
                     layer_manager.project
                 )
 
-                finder = FeatureFinder(
+                finder = PointOfInterestClassifier(
                     selected_layer=reprojected_layer,
                     temp_point_layer=temp_point_layer,
                 )
 
                 # Run the analysis
-                found_features: dict[str, int] = finder.find_features(
-                    FeatureType.T_PIECES
-                    | FeatureType.HOUSES
-                    | FeatureType.BENDS
-                    | FeatureType.REDUCERS,
-                    progress_bar,
-                )
+                finder.find_features(progress_bar, update_text)
 
                 # Copy features from the temporary layer to the final layer
                 new_layer: QgsVectorLayer = layer_manager.new_layer
@@ -287,27 +282,45 @@ class Massenermittlung:
                 # --- Remove duplicates from the final layer ---
                 layer_manager.remove_duplicates_from_layer(new_layer)
 
-                layer_manager.set_layer_style(new_layer)
-
                 # --- Log and display result summary ---
+                layer_manager.set_layer_style(new_layer)
+                summary_single_line: str = lae.create_summary_message(
+                    new_layer, reprojected_layer.name(), multiline=False
+                )
+                summary_multi_line: str = lae.create_summary_message(
+                    new_layer, reprojected_layer.name(), multiline=True
+                )
 
                 lae.log_debug(
-                    f"Found features according to FeatureFinder: {
-                        ' | '.join(
-                            [
-                                f'{name}: {count}'
-                                for name, count in found_features.items()
-                                if count > 0
-                            ]
-                        )
-                    }"
+                    summary_single_line,
+                    level=Qgis.Success,
+                    file_line_number="✨✨✨",
+                    icon="✨✨✨",
                 )
-                lae.summary_message(new_layer, reprojected_layer.name())
+                lae.show_message(summary_single_line, level=Qgis.Success, duration=30)
+                new_layer.setAbstract(summary_multi_line)
+
+                # --- Set the new layer as active ---
+                self.iface.setActiveLayer(new_layer)
 
         except Exception as e:  # noqa: BLE001
             if e.__class__.__name__ in {"CustomUserError", "CustomRuntimeError"}:
                 return
-            lae.log_debug(f"Unexpected error: {e!s}", level=Qgis.Critical)
+
+            if tb := e.__traceback__:
+                # Get the last frame from the traceback for the origin of the error
+                last_frame: traceback.FrameSummary = traceback.extract_tb(tb)[-1]
+                filename: str = Path(last_frame.filename).name
+                lineno: int | None = last_frame.lineno
+                file_line_info: str = f" [{filename}: {lineno}]"
+            else:
+                file_line_info = " [Unknown location]"
+
+            lae.log_debug(
+                f"Unexpected error: {e!s}",
+                level=Qgis.Critical,
+                file_line_number=file_line_info,
+            )
             lae.show_message(f"Unexpected error: {e!s}", level=Qgis.Critical)
             return
 

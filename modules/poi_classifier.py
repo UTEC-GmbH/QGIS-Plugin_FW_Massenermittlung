@@ -1,0 +1,203 @@
+"""Module: find_stuff.py
+
+This module contains the FeatureFinder class that finds things in the selected layer.
+"""
+
+from collections.abc import Callable
+
+from qgis.core import (
+    Qgis,
+    QgsFeature,
+    QgsGeometry,
+    QgsPointXY,
+    QgsVectorLayer,
+)
+from qgis.PyQt.QtCore import QCoreApplication
+from qgis.PyQt.QtWidgets import QProgressBar
+
+from . import constants as cont
+from .logs_and_errors import log_debug, raise_runtime_error
+from .point_collector import PointCollector
+from .t_intersection_analyzer import TIntersectionAnalyzer
+from .vector_analysis_tools import VectorAnalysisTools
+
+
+class PointOfInterestClassifier(VectorAnalysisTools):
+    """A class to find different types of features in a vector layer."""
+
+    def __init__(
+        self, selected_layer: QgsVectorLayer, temp_point_layer: QgsVectorLayer
+    ) -> None:
+        """Initialize the FeatureFinder class.
+
+        Args:
+            selected_layer: The QgsVectorLayer to search within.
+            temp_point_layer: The QgsVectorLayer to add new features to.
+        """
+        super().__init__(selected_layer, temp_point_layer)
+        self.t_piece_finder = TIntersectionAnalyzer(selected_layer, temp_point_layer)
+        self._questionable_points_coords: set[tuple[float, float]] = set()
+
+    def find_features(
+        self,
+        progress_bar: QProgressBar,
+        pgb_update_text: Callable[[str], None],
+    ) -> int:
+        """Find and classify points of interest.
+
+        Args:
+            progress_bar: A QProgressBar to report progress.
+            pgb_update_text: A function to update the progress bar's text.
+
+        Returns:
+            The total number of features created.
+        """
+        log_debug("Starting point-centric feature search.")
+
+        if not self.new_layer.startEditing():
+            raise_runtime_error("Failed to start editing the new layer.")
+
+        # 1. Collect all points of interest
+        # fmt: off
+        pgb_update_text(QCoreApplication.translate("progress_bar", "Collecting points..."))  # noqa: E501
+        # fmt: on
+        collector = PointCollector(self.selected_layer, self.selected_layer_index)
+        collected_points: dict[str, list[QgsPointXY]] = collector.collect_points(
+            progress_bar
+        )
+
+        # 2. Directly classify all true intersections as "questionable"
+        log_debug(
+            f"Creating {len(collected_points['intersections'])} "
+            "questionable points for intersections without endpoints."
+        )
+        # fmt: off
+        note_text:str = QCoreApplication.translate("feature_note", "Intersection without endpoints - lines must be devided.")  # noqa: E501
+        # fmt: on
+        created_count: int = 0
+        for point in collected_points["intersections"]:
+            if self.create_questionable_point(point, note=note_text):
+                created_count += 1
+                point_key = (round(point.x(), 4), round(point.y(), 4))
+                self._questionable_points_coords.add(point_key)
+
+        # 3. Process the remaining vertices
+        # fmt: off
+        pgb_update_text(QCoreApplication.translate("progress_bar", "Analyzing points..."))  # noqa: E501
+        # fmt: on
+        progress_bar.setMaximum(len(collected_points["vertices"]))
+        for i, point in enumerate(collected_points["vertices"]):
+            created_count += self._process_point(point)
+            progress_bar.setValue(i + 1)
+
+        if not self.new_layer.commitChanges():
+            raise_runtime_error("Failed to commit changes to the new layer.")
+
+        log_debug("Feature search completed.", Qgis.Success)
+        return created_count
+
+    def _process_point(self, point: QgsPointXY) -> int:
+        """Analyze a single point and create the appropriate feature(s).
+
+        Args:
+            point: The point of interest to process.
+
+        Returns:
+            The number of features created for this point.
+        """
+        point_key = (round(point.x(), 4), round(point.y(), 4))
+        if point_key in self._questionable_points_coords:
+            log_debug(f"Skipping point {point_key} as a questionable point exists.")
+            return 0
+
+        search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
+            cont.Numbers.search_radius, 5
+        )
+        intersecting_features: list[QgsFeature] = self.get_intersecting_features(
+            search_geom
+        )
+        n_intersections: int = len(intersecting_features)
+
+        if n_intersections == 0:
+            return 0  # Should not happen if points are from features
+
+        # Case 1: A single line is involved.
+        # This can be an endpoint or an intermediate vertex (a bend in a multiline).
+        if n_intersections == 1:
+            if self.is_endpoint(point, intersecting_features[0]):
+                return self._possible_house_connection(point, intersecting_features[0])
+            return self._possible_bend(point, intersecting_features)
+
+        # Case 2: Two lines intersect.
+        # This is always a bend candidate.
+        if n_intersections < cont.Numbers.intersec_t:
+            return self._possible_bend(point, intersecting_features)
+
+        # Case 3: Three lines intersect.
+        # This is always a T-piece candidate.
+        if n_intersections == cont.Numbers.intersec_t:
+            return self.t_piece_finder.process_t_intersection(
+                point, intersecting_features
+            )
+
+        # Case 4: More than three lines intersect.
+        # This is always a questionable point.
+
+        # fmt: off
+        note_text: str = QCoreApplication.translate("feature_note", "More than three lines at intersection - split up intersection in multiple points.")  # noqa: E501
+        # fmt: on
+        return self.create_questionable_point(point, note=note_text)
+
+    def _possible_bend(self, point: QgsPointXY, features: list[QgsFeature]) -> int:
+        """Process a point where one or two lines meet, potentially forming a bend.
+
+        This method handles bends within a single feature (an intermediate vertex)
+        and bends formed by the intersection of two features.
+
+        Args:
+            point: The point of interest (intersection or vertex).
+            features: A list containing one or two features.
+
+        Returns:
+            The number of features created (0 or 1).
+        """
+        p1: QgsPointXY | None = None
+        p3: QgsPointXY | None = None
+        if len(features) == 1:
+            p1, p3 = self.get_adjacent_vertices(point, features[0])
+        elif len(features) == 2:  # noqa: PLR2004
+            p1 = self.get_other_endpoint(features[0], point)
+            p3 = self.get_other_endpoint(features[1], point)
+
+        if not p1 or not p3:
+            return 0  # Could not determine segments to calculate an angle
+
+        angle: float = self.calculate_angle(p1, point, p3)
+        return self.create_bend(point, features, angle)
+
+    def _possible_house_connection(self, point: QgsPointXY, feature: QgsFeature) -> int:
+        """Process a point that is the endpoint of a single line."""
+        # Check if it's a lone line segment or a true house connection
+        is_other_end_connected = False
+        for s_e_point in self.get_start_end_of_line(feature):
+            if s_e_point.compare(point, cont.Numbers.tiny_number):
+                continue  # This is the endpoint we are currently processing
+            # Check if the *other* endpoint is connected to something
+            other_end_search: QgsGeometry = QgsGeometry.fromPointXY(s_e_point).buffer(
+                cont.Numbers.search_radius, 5
+            )
+            if len(self.get_intersecting_features(other_end_search)) > 1:
+                is_other_end_connected = True
+                break
+
+        # If the other end is not connected, it's a floating line. Mark both ends.
+        if not is_other_end_connected:
+            # fmt: off
+            note_text: str = QCoreApplication.translate("feature_note", "Unconnected line - make sure the line is connected to the network.")  # noqa: E501
+            # fmt: on
+            return sum(
+                self.create_questionable_point(p_end, [feature], note=note_text)
+                for p_end in self.get_start_end_of_line(feature)
+            )
+
+        return self.create_house_connection(point, [feature])
