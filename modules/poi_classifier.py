@@ -36,6 +36,7 @@ class PointOfInterestClassifier(VectorAnalysisTools):
         """
         super().__init__(selected_layer, temp_point_layer)
         self.t_piece_finder = TIntersectionAnalyzer(selected_layer, temp_point_layer)
+        self._questionable_points_coords: set[tuple[float, float]] = set()
 
     def find_features(
         self,
@@ -57,9 +58,9 @@ class PointOfInterestClassifier(VectorAnalysisTools):
             raise_runtime_error("Failed to start editing the new layer.")
 
         # 1. Collect all points of interest
-        pgb_update_text(
-            QCoreApplication.translate("progress_bar", "Collecting points...")
-        )
+        # fmt: off
+        pgb_update_text(QCoreApplication.translate("progress_bar", "Collecting points..."))  # noqa: E501
+        # fmt: on
         collector = PointCollector(self.selected_layer, self.selected_layer_index)
         collected_points: dict[str, list[QgsPointXY]] = collector.collect_points(
             progress_bar
@@ -70,20 +71,20 @@ class PointOfInterestClassifier(VectorAnalysisTools):
             f"Creating {len(collected_points['intersections'])} "
             "questionable points for intersections without endpoints."
         )
-        created_count: int = sum(
-            self.create_questionable_point(
-                point,
-                note=QCoreApplication.translate(
-                    "feature_note", "Intersection without endpoints"
-                ),
-            )
-            for point in collected_points["intersections"]
-        )
+        # fmt: off
+        note_text:str = QCoreApplication.translate("feature_note", "Intersection without endpoints - lines must be devided.")  # noqa: E501
+        # fmt: on
+        created_count: int = 0
+        for point in collected_points["intersections"]:
+            if self.create_questionable_point(point, note=note_text):
+                created_count += 1
+                point_key = (round(point.x(), 4), round(point.y(), 4))
+                self._questionable_points_coords.add(point_key)
 
         # 3. Process the remaining vertices
-        pgb_update_text(
-            QCoreApplication.translate("progress_bar", "Analyzing points...")
-        )
+        # fmt: off
+        pgb_update_text(QCoreApplication.translate("progress_bar", "Analyzing points..."))  # noqa: E501
+        # fmt: on
         progress_bar.setMaximum(len(collected_points["vertices"]))
         for i, point in enumerate(collected_points["vertices"]):
             created_count += self._process_point(point)
@@ -104,6 +105,11 @@ class PointOfInterestClassifier(VectorAnalysisTools):
         Returns:
             The number of features created for this point.
         """
+        point_key = (round(point.x(), 4), round(point.y(), 4))
+        if point_key in self._questionable_points_coords:
+            log_debug(f"Skipping point {point_key} as a questionable point exists.")
+            return 0
+
         search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
             cont.Numbers.search_radius, 5
         )
@@ -136,12 +142,11 @@ class PointOfInterestClassifier(VectorAnalysisTools):
 
         # Case 4: More than three lines intersect.
         # This is always a questionable point.
-        return self.create_questionable_point(
-            point,
-            note=QCoreApplication.translate(
-                "feature_note", "More than three lines at intersection"
-            ),
-        )
+
+        # fmt: off
+        note_text: str = QCoreApplication.translate("feature_note", "More than three lines at intersection - split up intersection in multiple points.")  # noqa: E501
+        # fmt: on
+        return self.create_questionable_point(point, note=note_text)
 
     def _possible_bend(self, point: QgsPointXY, features: list[QgsFeature]) -> int:
         """Process a point where one or two lines meet, potentially forming a bend.
@@ -187,12 +192,11 @@ class PointOfInterestClassifier(VectorAnalysisTools):
 
         # If the other end is not connected, it's a floating line. Mark both ends.
         if not is_other_end_connected:
+            # fmt: off
+            note_text: str = QCoreApplication.translate("feature_note", "Unconnected line - make sure the line is connected to the network.")  # noqa: E501
+            # fmt: on
             return sum(
-                self.create_questionable_point(
-                    p_end,
-                    [feature],
-                    note=QCoreApplication.translate("feature_note", "Unconnected line"),
-                )
+                self.create_questionable_point(p_end, [feature], note=note_text)
                 for p_end in self.get_start_end_of_line(feature)
             )
 

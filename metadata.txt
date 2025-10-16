@@ -3,10 +3,12 @@ name=UTEC Massenermittlung (dev)
 
 version=0.6
 changelog=
-    - Überarbeitung der Punktsuche
-    - Anmerkungen für fragwürdige Punkte
+    - Überarbeitung der Punktsuche und Darstellung
+    - Neue Spalte für Anmerkungen in Attributtabelle und Kartenhinweisen
+    - Sortierung der Attributtabelle verbessert (fragwürdige Punkte als erstes)
+    - Zusammenfassung der Ergebnisse bei hover-over Ergebnislayer
 
-description=Massenermittlung für Netze. Es werden Hausanschlüsse, Bögen, T-Stücke und Reduzierungen ausgegeben.
+description=Massenermittlung für Ferwärmenetze. Es werden Hausanschlüsse, Bögen, T-Stücke und Reduzierungen ausgegeben.
 qgisMinimumVersion=3.0
 author=Florian Ludwig
 email=devalue-scope-drum@duck.com

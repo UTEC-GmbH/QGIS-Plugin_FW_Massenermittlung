@@ -247,9 +247,9 @@ class Massenermittlung:
         temp_point_layer: QgsVectorLayer | None = None
         reprojected_layer: QgsVectorLayer | None = None
         try:
-            initial_message: str = QCoreApplication.translate(
-                "progress_bar", "Performing bulk assessment..."
-            )
+            # fmt: off
+            initial_message: str = QCoreApplication.translate("progress_bar", "Performing bulk assessment...")  # noqa: E501
+            # fmt: on
             with self._managed_progress_bar(initial_message) as (
                 progress_bar,
                 update_text,
@@ -284,7 +284,24 @@ class Massenermittlung:
 
                 # --- Log and display result summary ---
                 layer_manager.set_layer_style(new_layer)
-                lae.summary_message(new_layer, reprojected_layer.name())
+                summary_single_line: str = lae.create_summary_message(
+                    new_layer, reprojected_layer.name(), multiline=False
+                )
+                summary_multi_line: str = lae.create_summary_message(
+                    new_layer, reprojected_layer.name(), multiline=True
+                )
+
+                lae.log_debug(
+                    summary_single_line,
+                    level=Qgis.Success,
+                    file_line_number="✨✨✨",
+                    icon="✨✨✨",
+                )
+                lae.show_message(summary_single_line, level=Qgis.Success, duration=30)
+                new_layer.setAbstract(summary_multi_line)
+
+                # --- Set the new layer as active ---
+                self.iface.setActiveLayer(new_layer)
 
         except Exception as e:  # noqa: BLE001
             if e.__class__.__name__ in {"CustomUserError", "CustomRuntimeError"}:

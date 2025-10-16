@@ -12,7 +12,7 @@ echo Creating/updating translation source file (i18n/de.ts)...
 if not exist i18n mkdir i18n
 setlocal enabledelayedexpansion
 set "PY_FILES="
-for /f "delims=" %%i in ('dir /b /s *.py ^| findstr /v /i "__pycache__" ^| findstr /v /i "plugin_upload.py"') do (
+for /f "delims=" %%i in ('dir /b /s *.py ^| findstr /v /i "__pycache__"') do (
     set "PY_FILES=!PY_FILES! %%i"
 )
 pylupdate5 -noobsolete -verbose !PY_FILES! -ts i18n/de.ts
@@ -20,7 +20,6 @@ endlocal
 
 echo.
 echo Compiling translation file (i18n/de.qm)...
-echo NOTE: This will only work if you have already translated i18n/de.ts using Qt Linguist.
 lrelease i18n/de.ts
 
 echo.
