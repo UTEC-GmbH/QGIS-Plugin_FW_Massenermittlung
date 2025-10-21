@@ -210,7 +210,7 @@ class FeatureCreator(VectorAnalysisTools):
         created_count = 0
 
         for i in range(num_reducers):
-            distance = distance + cont.Numbers.distance_t_reducer * i
+            distance += cont.Numbers.distance_t_reducer * i
             reducer_point: QgsPointXY | None = self.get_point_along_line(
                 point, smaller_dim_feature, distance
             )
@@ -227,13 +227,11 @@ class FeatureCreator(VectorAnalysisTools):
             dim_from: str = f"{pref}{cont.PipeDimensions.diameters[current_large_idx]}"
             dim_to: str = f"{pref}{cont.PipeDimensions.diameters[current_small_idx]}"
             dims_str: str = cont.Names.dim_separator.join([dim_from, dim_to])
-            reducer_attrs = self.get_connected_attributes([smaller_dim_feature])
-            reducer_attrs.update(
-                {
-                    cont.NewLayerFields.type.name: cont.Names.attr_val_type_reducer,
-                    cont.NewLayerFields.dimensions.name: dims_str,
-                }
-            )
+            reducer_attrs: dict = self.get_connected_attributes([smaller_dim_feature])
+            reducer_attrs |= {
+                cont.NewLayerFields.type.name: cont.Names.attr_val_type_reducer,
+                cont.NewLayerFields.dimensions.name: dims_str,
+            }
             created_count += self.create_feature(
                 QgsGeometry.fromPointXY(reducer_point), reducer_attrs
             )
