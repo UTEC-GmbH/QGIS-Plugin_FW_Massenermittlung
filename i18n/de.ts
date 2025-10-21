@@ -62,22 +62,22 @@
         <translation>Schnittpunkt ohne Verbindung - die Linien müssen mit Endpunkten verbunden werden.</translation>
     </message>
     <message>
-        <location filename="../modules/poi_classifier.py" line="147"/>
+        <location filename="../modules/poi_classifier.py" line="148"/>
         <source>More than three lines at intersection - split up intersection in multiple points.</source>
         <translation>Mehr als 3 Lininen an Knoten - bitte Knoten auflösen.</translation>
     </message>
     <message>
-        <location filename="../modules/poi_classifier.py" line="196"/>
+        <location filename="../modules/poi_classifier.py" line="221"/>
         <source>Unconnected line - make sure the line is connected to the network.</source>
         <translation>Linie nicht an Netz angeschlossen - bitte Verbinddungsstelle prüfen.</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="322"/>
+        <location filename="../modules/feature_creator.py" line="199"/>
         <source>Non-standard pipe dimension detected for reducer.</source>
         <translation>Falsche Rohrdimension gefunden.</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="282"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="231"/>
         <source>Connecting pipe has a larger diameter than the main pipe.</source>
         <translation>Anschlussleitung hat größere Dimension als Hauptleitung.</translation>
     </message>
@@ -100,7 +100,7 @@
         <translation>Zu untersuchende Punkte werden gesammelt...</translation>
     </message>
     <message>
-        <location filename="../modules/poi_classifier.py" line="86"/>
+        <location filename="../modules/poi_classifier.py" line="89"/>
         <source>Analyzing points...</source>
         <translation>Untersuche Punkte...</translation>
     </message>
@@ -108,17 +108,17 @@
 <context>
     <name>summary</name>
     <message>
-        <location filename="../modules/logs_and_errors.py" line="161"/>
+        <location filename="../modules/logs_and_errors.py" line="167"/>
         <source>Type field not found in new layer.</source>
         <translation>Konnte die Spalte für den Formteiltyp nicht finden.</translation>
     </message>
     <message>
-        <location filename="../modules/logs_and_errors.py" line="174"/>
+        <location filename="../modules/logs_and_errors.py" line="180"/>
         <source>Failed to get type counts from new layer.</source>
         <translation>Konnte die Anlagenteile nicht auszählen.</translation>
     </message>
     <message>
-        <location filename="../modules/logs_and_errors.py" line="155"/>
+        <location filename="../modules/logs_and_errors.py" line="161"/>
         <source>Layer &apos;{0}&apos; analyzed:</source>
         <translation>Layer '{0}' untersucht:</translation>
     </message>

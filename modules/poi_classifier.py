@@ -16,13 +16,13 @@ from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtWidgets import QProgressBar
 
 from . import constants as cont
+from .feature_creator import FeatureCreator
 from .logs_and_errors import log_debug, raise_runtime_error
 from .point_collector import PointCollector
 from .t_intersection_analyzer import TIntersectionAnalyzer
-from .vector_analysis_tools import VectorAnalysisTools
 
 
-class PointOfInterestClassifier(VectorAnalysisTools):
+class PointOfInterestClassifier(FeatureCreator):
     """A class to find different types of features in a vector layer."""
 
     def __init__(
@@ -66,7 +66,7 @@ class PointOfInterestClassifier(VectorAnalysisTools):
             progress_bar
         )
 
-        # 2. Directly classify all true intersections as "questionable"
+        # 2. Directly classify all intersections without endpoints as "questionable"
         log_debug(
             f"Creating {len(collected_points['intersections'])} "
             "questionable points for intersections without endpoints."
@@ -78,7 +78,10 @@ class PointOfInterestClassifier(VectorAnalysisTools):
         for point in collected_points["intersections"]:
             if self.create_questionable_point(point, note=note_text):
                 created_count += 1
-                point_key = (round(point.x(), 4), round(point.y(), 4))
+                point_key: tuple[float, float] = (
+                    round(point.x(), 4),
+                    round(point.y(), 4),
+                )
                 self._questionable_points_coords.add(point_key)
 
         # 3. Process the remaining vertices
@@ -105,7 +108,7 @@ class PointOfInterestClassifier(VectorAnalysisTools):
         Returns:
             The number of features created for this point.
         """
-        point_key = (round(point.x(), 4), round(point.y(), 4))
+        point_key: tuple[float, float] = (round(point.x(), 4), round(point.y(), 4))
         if point_key in self._questionable_points_coords:
             log_debug(f"Skipping point {point_key} as a questionable point exists.")
             return 0
@@ -118,20 +121,18 @@ class PointOfInterestClassifier(VectorAnalysisTools):
         )
         n_intersections: int = len(intersecting_features)
 
-        if n_intersections == 0:
-            return 0  # Should not happen if points are from features
-
         # Case 1: A single line is involved.
-        # This can be an endpoint or an intermediate vertex (a bend in a multiline).
+        # This can be an endpoint --> possible house connection or
+        # an intermediate vertex --> possible bend in multiline.
         if n_intersections == 1:
             if self.is_endpoint(point, intersecting_features[0]):
                 return self._possible_house_connection(point, intersecting_features[0])
-            return self._possible_bend(point, intersecting_features)
+            return self._process_2_way_intersection(point, intersecting_features)
 
         # Case 2: Two lines intersect.
         # This is always a bend candidate.
         if n_intersections < cont.Numbers.intersec_t:
-            return self._possible_bend(point, intersecting_features)
+            return self._process_2_way_intersection(point, intersecting_features)
 
         # Case 3: Three lines intersect.
         # This is always a T-piece candidate.
@@ -148,7 +149,9 @@ class PointOfInterestClassifier(VectorAnalysisTools):
         # fmt: on
         return self.create_questionable_point(point, note=note_text)
 
-    def _possible_bend(self, point: QgsPointXY, features: list[QgsFeature]) -> int:
+    def _process_2_way_intersection(
+        self, point: QgsPointXY, features: list[QgsFeature]
+    ) -> int:
         """Process a point where one or two lines meet, potentially forming a bend.
 
         This method handles bends within a single feature (an intermediate vertex)
@@ -159,21 +162,43 @@ class PointOfInterestClassifier(VectorAnalysisTools):
             features: A list containing one or two features.
 
         Returns:
-            The number of features created (0 or 1).
+            The number of features created.
         """
+        created_count: int = 0
         p1: QgsPointXY | None = None
         p3: QgsPointXY | None = None
         if len(features) == 1:
+            # This is an intermediate vertex on a single line feature.
+            # It can only be a bend, not a reducer.
             p1, p3 = self.get_adjacent_vertices(point, features[0])
         elif len(features) == 2:  # noqa: PLR2004
+            # This is an intersection of two features.
+            # It can be a bend, a reducer, or both.
             p1 = self.get_other_endpoint(features[0], point)
             p3 = self.get_other_endpoint(features[1], point)
 
+            # Check for a dimension change and create reducers if needed.
+            if self.dim_field_name:
+                dim1: int | None = features[0].attribute(self.dim_field_name)
+                dim2: int | None = features[1].attribute(self.dim_field_name)
+
+                if (
+                    isinstance(dim1, int)
+                    and isinstance(dim2, int)
+                    and abs(dim1 - dim2) > 0
+                ):
+                    created_count += self.create_reducers(
+                        point, dim1, dim2, features, 0.0
+                    )
+
         if not p1 or not p3:
-            return 0  # Could not determine segments to calculate an angle
+            # Could not determine segments to calculate an angle for a bend.
+            # Reducers might have been created already.
+            return created_count
 
         angle: float = self.calculate_angle(p1, point, p3)
-        return self.create_bend(point, features, angle)
+        created_count += self.create_bend(point, features, angle)
+        return created_count
 
     def _possible_house_connection(self, point: QgsPointXY, feature: QgsFeature) -> int:
         """Process a point that is the endpoint of a single line."""

@@ -260,79 +260,15 @@ class VectorAnalysisTools:
         p1, p2 = endpoints
         return p2 if p1.distance(reference_point) < p2.distance(reference_point) else p1
 
-    def create_house_connection(
-        self, point: QgsPointXY, features: list[QgsFeature]
-    ) -> int:
-        """Create a 'house connection' feature.
+    def get_point_along_line(
+        self, start_point: QgsPointXY, feature: QgsFeature, distance: float
+    ) -> QgsPointXY | None:
+        """Get a point at a specific distance from the start point along a feature."""
+        other_endpoint: QgsPointXY | None = self.get_other_endpoint(
+            feature, start_point
+        )
+        if not other_endpoint:
+            return None
 
-        Args:
-            point: The location of the house connection.
-            features: The list of connected features (should be one).
-
-        Returns:
-            1 if the feature was created successfully, 0 otherwise.
-        """
-        attrs: dict = {cont.NewLayerFields.type.name: cont.Names.attr_val_type_house}
-        attrs |= self.get_connected_attributes(features)
-        return 1 if self.create_feature(QgsGeometry.fromPointXY(point), attrs) else 0
-
-    def create_bend(
-        self, point: QgsPointXY, features: list[QgsFeature], angle: float
-    ) -> int:
-        """Create a 'bend' feature if the angle is sufficient.
-
-        Args:
-            point: The location of the bend.
-            features: The list of connected features.
-            angle: The calculated angle of the bend.
-
-        Returns:
-            1 if the feature was created successfully, 0 otherwise.
-        """
-        if angle > (cont.Numbers.circle_semi - cont.Numbers.min_angle_bend):
-            return 0
-
-        attrs: dict = {
-            cont.NewLayerFields.type.name: cont.Names.attr_val_type_bend,
-            cont.NewLayerFields.angle.name: round(cont.Numbers.circle_semi - angle, 2),
-        }
-        attrs |= self.get_connected_attributes(features)
-        return 1 if self.create_feature(QgsGeometry.fromPointXY(point), attrs) else 0
-
-    def create_questionable_point(
-        self,
-        point: QgsPointXY,
-        features: list[QgsFeature] | None = None,
-        note: str | None = None,
-    ) -> int:
-        """Create a 'questionable' point feature.
-
-        Args:
-            point: The location of the point.
-            features: Connected features. If None, they are found by searching.
-            note: An optional note to add to the feature's attributes.
-
-        Returns:
-            1 if the feature was created successfully, 0 otherwise.
-        """
-        if features is None:
-            search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
-                cont.Numbers.search_radius, 5
-            )
-            features = self.get_intersecting_features(search_geom)
-
-        if not features:
-            log_debug(
-                f"Could not create questionable point at {point.asWkt()}: "
-                "No features found.",
-                Qgis.Warning,
-            )
-            return 0
-
-        attrs: dict[str, str | None] = {
-            cont.NewLayerFields.type.name: cont.Names.attr_val_type_question
-        }
-        attrs |= self.get_connected_attributes(features)
-        if note:
-            attrs[cont.NewLayerFields.notes.name] = note
-        return 1 if self.create_feature(QgsGeometry.fromPointXY(point), attrs) else 0
+        azimuth: float = start_point.azimuth(other_endpoint)
+        return start_point.project(distance, azimuth)
