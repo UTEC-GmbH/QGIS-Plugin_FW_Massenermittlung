@@ -118,7 +118,10 @@ def raise_user_error(error_msg: str) -> NoReturn:
     """Log a user-facing warning, display it, and raise a CustomUserError."""
 
     file_line_number: str = file_line(inspect.currentframe())
-    log_debug(error_msg, level=Qgis.Warning, file_line_number=file_line_number)
+    log_msg: str = f"{LEVEL_ICON[Qgis.Warning]} {error_msg}{file_line_number}"
+    QgsMessageLog.logMessage(
+        f"{log_msg}", "Plugin: Massenermittlung", level=Qgis.Warning
+    )
 
     show_message(error_msg, level=Qgis.Warning)
     raise CustomUserError(error_msg)
@@ -128,7 +131,10 @@ def raise_runtime_error(error_msg: str) -> NoReturn:
     """Log a critical error, display it, and raise a CustomRuntimeError."""
 
     file_line_number: str = file_line(inspect.currentframe())
-    log_debug(error_msg, file_line_number=file_line_number)
+    log_msg: str = f"{LEVEL_ICON[Qgis.Critical]} {error_msg}{file_line_number}"
+    QgsMessageLog.logMessage(
+        f"{log_msg}", "Plugin: Massenermittlung", level=Qgis.Critical
+    )
 
     show_message(error_msg)
     raise CustomRuntimeError(error_msg)
