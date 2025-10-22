@@ -122,7 +122,7 @@ class PointOfInterestClassifier(FeatureCreator):
         n_intersections: int = len(intersecting_features)
 
         # Case 1: A single line is involved.
-        # This can be an endpoint --> possible house connection or
+        # This can be an endpoint --> possible house connection, or
         # an intermediate vertex --> possible bend in multiline.
         if n_intersections == 1:
             if self.is_endpoint(point, intersecting_features[0]):
@@ -130,9 +130,26 @@ class PointOfInterestClassifier(FeatureCreator):
             return self._process_2_way_intersection(point, intersecting_features)
 
         # Case 2: Two lines intersect.
-        # This is always a bend candidate.
-        if n_intersections < cont.Numbers.intersec_t:
-            return self._process_2_way_intersection(point, intersecting_features)
+        if n_intersections == 2:  # noqa: PLR2004
+            feat1, feat2 = intersecting_features
+            is_endpoint1: bool = self.is_endpoint(point, feat1)
+            is_endpoint2: bool = self.is_endpoint(point, feat2)
+
+            if is_endpoint1 and is_endpoint2:
+                # Both features end here. Treat as a 2-way intersection (bend/reducer).
+                return self._process_2_way_intersection(point, intersecting_features)
+
+            if is_endpoint1 ^ is_endpoint2:
+                # Exactly one feature ends here. This is a T-intersection.
+                return self._process_pseudo_t_intersection(point, feat1, feat2)
+
+            # Neither feature ends here; they just cross. This is a data error.
+            # fmt: off
+            note_text:str = QCoreApplication.translate("feature_note", "Intersection without endpoints - lines must be devided.")  # noqa: E501
+            # fmt: on
+            return self.create_questionable_point(
+                point, intersecting_features, note=note_text
+            )
 
         # Case 3: Three lines intersect.
         # This is always a T-piece candidate.
@@ -148,6 +165,52 @@ class PointOfInterestClassifier(FeatureCreator):
         note_text: str = QCoreApplication.translate("feature_note", "More than three lines at intersection - split up intersection in multiple points.")  # noqa: E501
         # fmt: on
         return self.create_questionable_point(point, note=note_text)
+
+    def _process_pseudo_t_intersection(
+        self, point: QgsPointXY, feat1: QgsFeature, feat2: QgsFeature
+    ) -> int:
+        """Process an intersection of two features as a T-piece.
+
+        This occurs when one feature passes through the intersection point (which is
+        an intermediate vertex for it) and the other feature terminates at that point.
+
+        Args:
+            point: The intersection point.
+            feat1: The first feature.
+            feat2: The second feature.
+
+        Returns:
+            The number of features created.
+        """
+        is_endpoint1: bool = self.is_endpoint(point, feat1)
+
+        # The feature that passes through is the main pipe.
+        # The feature that terminates is the connecting pipe.
+        main_pipe_feature: QgsFeature = feat2 if is_endpoint1 else feat1
+        connecting_pipe: QgsFeature = feat1 if is_endpoint1 else feat2
+
+        log_debug(
+            f"Processing pseudo T-intersection between "
+            f"main pipe '{main_pipe_feature.attribute('original_fid')}' and "
+            f"connecting pipe '{connecting_pipe.attribute('original_fid')}'"
+        )
+
+        # To use the TIntersectionAnalyzer, we need to simulate three features.
+        # We do this by creating two temporary "dummy" features from the main pipe.
+        # These dummies represent the two segments of the main pipe.
+        p_before, p_after = self.get_adjacent_points_on_segment(
+            point, main_pipe_feature
+        )
+        if not p_before or not p_after:
+            # This happens if the intersection point is not on any segment of the
+            # "passing through" line, which would be a data error.
+            return self.create_questionable_point(
+                point, [feat1, feat2], note="Lines cross without a shared vertex."
+            )
+
+        return self.t_piece_finder.process_t_intersection_from_split_line(
+            point, main_pipe_feature, connecting_pipe, p_before, p_after
+        )
 
     def _process_2_way_intersection(
         self, point: QgsPointXY, features: list[QgsFeature]

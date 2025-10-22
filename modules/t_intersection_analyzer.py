@@ -12,6 +12,7 @@ from qgis.PyQt.QtCore import QCoreApplication
 
 from . import constants as cont
 from .feature_creator import FeatureCreator
+from .logs_and_errors import log_debug
 
 
 class TIntersectionAnalyzer(FeatureCreator):
@@ -82,6 +83,73 @@ class TIntersectionAnalyzer(FeatureCreator):
         )
 
         # 4. Check if a reducer on the main pipe is needed
+        if self.dim_field_name:
+            created_count += self._check_and_create_reducer(
+                point, main_pipe_features, connecting_pipe
+            )
+
+        return created_count
+
+    def process_t_intersection_from_split_line(
+        self,
+        point: QgsPointXY,
+        main_pipe_feature: QgsFeature,
+        connecting_pipe: QgsFeature,
+        p_before: QgsPointXY,
+        p_after: QgsPointXY,
+    ) -> int:
+        """Analyzes a T-intersection derived from splitting a single main pipe.
+
+        This is used for "pseudo" T-intersections where one line terminates on
+        the segment of another.
+
+        Args:
+            point: The intersection point.
+            main_pipe_feature: The single feature representing the main pipe.
+            connecting_pipe: The feature that terminates on the main pipe.
+            p_before: The vertex on the main pipe segment before the intersection.
+            p_after: The vertex on the main pipe segment after the intersection.
+
+        Returns:
+            The number of features created.
+        """
+
+        log_debug(
+            f"Processing intersection between "
+            f"connecting pipe '{connecting_pipe.attribute('original_fid')}' "
+            f"and main pipe '{main_pipe_feature.attribute('original_fid')}'"
+        )
+
+        created_count: int = 0
+
+        # 1. Check for a bend in the main pipe.
+        bend_angle: float = self.calculate_angle(p_before, point, p_after)
+
+        # To reuse the main logic, we create two dummy features that represent
+        # the two sides of the main pipe. This is simpler than rewriting the
+        # downstream logic.
+        main_pipe_dummy1 = QgsFeature(main_pipe_feature)
+        main_pipe_dummy2 = QgsFeature(main_pipe_feature)
+        main_pipe_features: list[QgsFeature] = [main_pipe_dummy1, main_pipe_dummy2]
+
+        if bend_angle < (cont.Numbers.circle_semi - cont.Numbers.min_angle_bend):
+            created_count += self.create_bend(point, main_pipe_features, bend_angle)
+
+        # 2. Build the note and create the T-piece
+        part: str = str(main_pipe_feature.attribute("original_fid"))
+        if self.dim_field_name and (
+            dim := main_pipe_feature.attribute(self.dim_field_name)
+        ):
+            part += f" ({cont.Names.dim_prefix}{dim})"
+        # fmt: off
+        note_text: str = QCoreApplication.translate("feature_note", "Main pipe: {0}").format(part)  # noqa: E501
+        # fmt: on
+        created_count += self.create_t_piece(
+            point, main_pipe_features, connecting_pipe, note_text
+        )
+
+        # 3. Check for a reducer. This is not possible when the main pipe is a
+        # single feature, so we only check the connecting pipe.
         if self.dim_field_name:
             created_count += self._check_and_create_reducer(
                 point, main_pipe_features, connecting_pipe
