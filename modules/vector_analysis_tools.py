@@ -219,6 +219,53 @@ class VectorAnalysisTools:
 
         return p_before, p_after
 
+    def get_adjacent_points_on_segment(
+        self, point: QgsPointXY, feature: QgsFeature
+    ) -> tuple[QgsPointXY | None, QgsPointXY | None]:
+        """Get vertices of the segment a point lies on.
+
+        Finds the segment of the feature's geometry that is closest to the
+        input point and returns the start and end vertices of that segment.
+
+        Args:
+            point: The point on or near the feature.
+            feature: The feature containing the geometry.
+
+        Returns:
+            A tuple containing the start and end vertices of the segment.
+            Returns (None, None) if the point is not on a segment or on error.
+        """
+        geom: QgsGeometry = feature.geometry()
+        if not geom:
+            return None, None
+
+        # Find the segment of the line closest to the point
+        dist_sq, _, after_vertex_idx, _ = geom.closestSegmentWithContext(point)
+
+        # Ensure the point is actually on the line
+        if dist_sq < 0 or dist_sq > cont.Numbers.tiny_number**2:
+            log_debug(
+                f"Point {point.asWkt()} is not on the line geometry of "
+                f"feature {feature.attribute('original_fid')}.",
+                Qgis.Warning,
+            )
+            return None, None
+
+        try:
+            # after_vertex_idx is the index of the vertex at the END of the segment
+            # Get the vertices that define the segment
+            p_before = QgsPointXY(geom.vertexAt(after_vertex_idx - 1))
+            p_after = QgsPointXY(geom.vertexAt(after_vertex_idx))
+        except ValueError:
+            log_debug(
+                f"Invalid vertex index for feature "
+                f"'{feature.attribute('original_fid')}'.",
+                Qgis.Warning,
+            )
+            return None, None
+
+        return p_before, p_after
+
     def is_endpoint(self, point: QgsPointXY, feature: QgsFeature) -> bool:
         """Check if a point is an endpoint of a feature's line geometry.
 
