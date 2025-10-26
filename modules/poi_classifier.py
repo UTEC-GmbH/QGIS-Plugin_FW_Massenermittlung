@@ -125,12 +125,13 @@ class PointOfInterestClassifier(FeatureCreator):
         # This can be an endpoint --> possible house connection, or
         # an intermediate vertex --> possible bend in multiline.
         if n_intersections == 1:
-            if self.is_endpoint(point, intersecting_features[0]):
-                return self._possible_house_connection(point, intersecting_features[0])
-            return self._process_2_way_intersection(point, intersecting_features)
-
+            return (
+                self._possible_house_connection(point, intersecting_features[0])
+                if self.is_endpoint(point, intersecting_features[0])
+                else self._process_2_way_intersection(point, intersecting_features)
+            )
         # Case 2: Two lines intersect.
-        if n_intersections == 2:  # noqa: PLR2004
+        if n_intersections == 2:
             feat1, feat2 = intersecting_features
             is_endpoint1: bool = self.is_endpoint(point, feat1)
             is_endpoint2: bool = self.is_endpoint(point, feat2)

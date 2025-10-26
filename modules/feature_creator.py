@@ -105,9 +105,10 @@ class FeatureCreator(VectorAnalysisTools):
 
         attrs: dict = {
             cont.NewLayerFields.type.name: cont.Names.attr_val_type_bend,
-            cont.NewLayerFields.angle.name: round(cont.Numbers.circle_semi - angle, 2),
+            cont.NewLayerFields.angle.name: round(cont.Numbers.circle_semi - angle),
         }
         attrs |= self.get_connected_attributes(features)
+        attrs.pop(cont.NewLayerFields.dim_2.name, None)
         return 1 if self.create_feature(QgsGeometry.fromPointXY(point), attrs) else 0
 
     def create_t_piece(
@@ -149,15 +150,8 @@ class FeatureCreator(VectorAnalysisTools):
             conn_dim: int | None = connecting_pipe.attribute(self.dim_field_name)
 
             if main_dims and conn_dim is not None:
-                # T-piece uses the largest main pipe dim and the connecting pipe dim
-                t_dims_str: list[str] = [
-                    f"{cont.Names.dim_prefix}{main_dims[-1]}",
-                    f"{cont.Names.dim_prefix}{conn_dim}",
-                ]
-                dims_str: str = cont.Names.dim_separator.join(
-                    sorted(t_dims_str, reverse=True)
-                )
-                attrs[cont.NewLayerFields.dimensions.name] = dims_str
+                attrs[cont.NewLayerFields.dim_1.name] = main_dims[-1]
+                attrs[cont.NewLayerFields.dim_2.name] = conn_dim
 
         return 1 if self.create_feature(QgsGeometry.fromPointXY(point), attrs) else 0
 
@@ -189,7 +183,6 @@ class FeatureCreator(VectorAnalysisTools):
         smaller_dim_feature: QgsFeature = (
             main_pipe[0] if dim_main_1 < dim_main_2 else main_pipe[1]
         )
-        pref: str = cont.Names.dim_prefix
 
         try:
             large_idx: int = cont.PipeDimensions.diameters.index(large_dim)
@@ -224,14 +217,20 @@ class FeatureCreator(VectorAnalysisTools):
                 small_idx,
                 large_idx - (i + 1) * cont.PipeDimensions.max_dim_jump_reducer,
             )
-            dim_from: str = f"{pref}{cont.PipeDimensions.diameters[current_large_idx]}"
-            dim_to: str = f"{pref}{cont.PipeDimensions.diameters[current_small_idx]}"
-            dims_str: str = cont.Names.dim_separator.join([dim_from, dim_to])
+            dim_from: int = cont.PipeDimensions.diameters[current_large_idx]
+            dim_to: int = cont.PipeDimensions.diameters[current_small_idx]
+            # fmt: off
+            note_text: str = QCoreApplication.translate("feature_note", "Reducer from DN{0} to DN{1}").format(dim_from, dim_to)  # noqa: E501
+            # fmt: on
+
             reducer_attrs: dict = self.get_connected_attributes([smaller_dim_feature])
             reducer_attrs |= {
                 cont.NewLayerFields.type.name: cont.Names.attr_val_type_reducer,
-                cont.NewLayerFields.dimensions.name: dims_str,
+                cont.NewLayerFields.dim_1.name: dim_from,
+                cont.NewLayerFields.dim_2.name: dim_to,
+                cont.NewLayerFields.notes.name: note_text,
             }
+
             created_count += self.create_feature(
                 QgsGeometry.fromPointXY(reducer_point), reducer_attrs
             )
