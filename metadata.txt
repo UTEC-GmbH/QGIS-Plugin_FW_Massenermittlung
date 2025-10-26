@@ -3,8 +3,8 @@ name=UTEC Massenermittlung (dev)
 
 version=0.8
 changelog=
-    - T-Stücke wenn die Hauptleitung am Anschlusspunkt nicht unterbrochen ist
-    - Knopf jetzt "ME" (für "Massenermittlung") statt "FW"
+    - Aufteilung der Dimensionen in Hauptleitung / Anschlussleitung (Dimension 1 / Dimension 2) für einfacheres Sortieren
+    - Bogenwinkel gerundet
 
 description=Massenermittlung für Ferwärmenetze. Es werden Hausanschlüsse, Bögen, T-Stücke und Reduzierungen ausgegeben.
 qgisMinimumVersion=3.0

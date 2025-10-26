@@ -550,7 +550,7 @@ class LayerManager:
                 round(feature_geometry.asPoint().x(), 4),
                 round(feature_geometry.asPoint().y(), 4),
                 feature.attribute(cont.NewLayerFields.type.name),
-                feature.attribute(cont.NewLayerFields.dimensions.name) or "",
+                feature.attribute(cont.NewLayerFields.dim_1.name) or "",
                 feature.attribute(cont.NewLayerFields.angle.name) or None,
                 feature.attribute(cont.NewLayerFields.connected.name) or "",
             )

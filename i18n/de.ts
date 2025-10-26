@@ -42,44 +42,49 @@
 <context>
     <name>feature_note</name>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="42"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="43"/>
         <source>Could not determine main pipe.</source>
         <translation>Konnte Hauptleitung nicht definieren.</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="56"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="57"/>
         <source>Could not determine main pipe endpoints.</source>
         <translation>Konnte die Endpunkte der Hauptleitung nicht finden.</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="78"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="145"/>
         <source>Main pipe: {0}</source>
         <translation>Hauptleitung: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/poi_classifier.py" line="75"/>
+        <location filename="../modules/poi_classifier.py" line="149"/>
         <source>Intersection without endpoints - lines must be devided.</source>
         <translation>Schnittpunkt ohne Verbindung - die Linien müssen mit Endpunkten verbunden werden.</translation>
     </message>
     <message>
-        <location filename="../modules/poi_classifier.py" line="148"/>
+        <location filename="../modules/poi_classifier.py" line="166"/>
         <source>More than three lines at intersection - split up intersection in multiple points.</source>
         <translation>Mehr als 3 Lininen an Knoten - bitte Knoten auflösen.</translation>
     </message>
     <message>
-        <location filename="../modules/poi_classifier.py" line="221"/>
+        <location filename="../modules/poi_classifier.py" line="285"/>
         <source>Unconnected line - make sure the line is connected to the network.</source>
         <translation>Linie nicht an Netz angeschlossen - bitte Verbinddungsstelle prüfen.</translation>
     </message>
     <message>
-        <location filename="../modules/feature_creator.py" line="199"/>
+        <location filename="../modules/feature_creator.py" line="192"/>
         <source>Non-standard pipe dimension detected for reducer.</source>
         <translation>Falsche Rohrdimension gefunden.</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="231"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="299"/>
         <source>Connecting pipe has a larger diameter than the main pipe.</source>
         <translation>Anschlussleitung hat größere Dimension als Hauptleitung.</translation>
+    </message>
+    <message>
+        <location filename="../modules/feature_creator.py" line="223"/>
+        <source>Reducer from DN{0} to DN{1}</source>
+        <translation>Reduzierung von DN{0} auf DN{1}</translation>
     </message>
 </context>
 <context>

@@ -109,23 +109,17 @@ class VectorAnalysisTools:
         }
         # Get dimension values if the dimension field was found
         if self.dim_field_name:
-            dims: list[str] = sorted(
+            dims: list[int] = sorted(
                 {
-                    f"{cont.Names.dim_prefix}{feat[self.dim_field_name]}"
+                    int(feat[self.dim_field_name])
                     for feat in connected_features
                     if feat.attribute(self.dim_field_name) is not None
                 },
                 reverse=True,
             )
-            attributes[cont.NewLayerFields.dimensions.name] = (
-                cont.Names.dim_separator.join(dims)
-                if len(dims) < cont.Numbers.intersec_t
-                else cont.Names.dim_separator.join([dims[0], dims[-1]])
-            )
-        else:
-            attributes[cont.NewLayerFields.dimensions.name] = (
-                cont.Names.no_dim_field_found
-            )
+            attributes[cont.NewLayerFields.dim_1.name] = dims[0]
+            if len(dims) > 1:
+                attributes[cont.NewLayerFields.dim_2.name] = dims[-1]
 
         return attributes
 

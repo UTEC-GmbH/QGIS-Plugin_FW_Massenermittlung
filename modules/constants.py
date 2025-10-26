@@ -6,7 +6,6 @@ This module contains constant values.
 from collections.abc import Generator
 from dataclasses import dataclass
 
-from qgis.PyQt.QtCore import QMetaType as QMeT
 from qgis.PyQt.QtCore import QVariant as QVar
 
 PROBLEMATIC_FIELD_TYPES: list = [QVar.Map, QVar.List, QVar.StringList]
@@ -84,18 +83,17 @@ class Names:
 
     new_layer_suffix: str = " - Massenermittlung"
     dim_prefix: str = "DN"
-    dim_separator: str = "/"
     line_separator: str = " / "
 
     # Namen für Saplten der Attributtabelle des alten (gewälten) Layers
     sel_layer_field_dim: tuple[str, ...] = ("diameter", "dim", "DN")
-    no_dim_field_found: str = "DN field not found"
 
     # Namen für Spalten der Attributtabelle des neuen Layers
     attr_col_head_type: str = "Typ"
     attr_col_head_bend_angle: str = "Bogen-Winkel"
     attr_col_head_connected: str = "verbundene Leitungen"
-    attr_col_head_dimension: str = "Dimensionen"
+    attr_col_head_dim_1: str = "Dimension 1"
+    attr_col_head_dim_2: str = "Dimension 2"
     attr_col_head_notes: str = "Anmerkungen"
 
     # Werte der Spalte 'Typ' in der Attributtabelle (Kategorien der Massenermittlung)
@@ -145,17 +143,18 @@ class FieldAttributes:
     """
 
     name: str
-    data_type: QMeT.Type
+    data_type: QVar.Type
 
 
 class NewLayerFields:
     """Constants for layer field attributes, accessible via dot notation."""
 
-    type = FieldAttributes(Names.attr_col_head_type, QMeT.Type.QString)
-    connected = FieldAttributes(Names.attr_col_head_connected, QMeT.Type.QString)
-    dimensions = FieldAttributes(Names.attr_col_head_dimension, QMeT.Type.QString)
-    angle = FieldAttributes(Names.attr_col_head_bend_angle, QMeT.Type.Double)
-    notes = FieldAttributes(Names.attr_col_head_notes, QMeT.Type.QString)
+    type = FieldAttributes(Names.attr_col_head_type, QVar.String)
+    connected = FieldAttributes(Names.attr_col_head_connected, QVar.String)
+    dim_1 = FieldAttributes(Names.attr_col_head_dim_1, QVar.Int)
+    dim_2 = FieldAttributes(Names.attr_col_head_dim_2, QVar.Int)
+    angle = FieldAttributes(Names.attr_col_head_bend_angle, QVar.Int)
+    notes = FieldAttributes(Names.attr_col_head_notes, QVar.String)
 
     def __iter__(self) -> Generator[FieldAttributes, None, None]:
         """Make the class iterable."""
