@@ -88,14 +88,6 @@ class Names:
     # Namen für Saplten der Attributtabelle des alten (gewälten) Layers
     sel_layer_field_dim: tuple[str, ...] = ("diameter", "dim", "DN")
 
-    # Namen für Spalten der Attributtabelle des neuen Layers
-    attr_col_head_type: str = "Typ"
-    attr_col_head_bend_angle: str = "Bogen-Winkel"
-    attr_col_head_connected: str = "verbundene Leitungen"
-    attr_col_head_dim_1: str = "Dimension 1"
-    attr_col_head_dim_2: str = "Dimension 2"
-    attr_col_head_notes: str = "Anmerkungen"
-
     # Werte der Spalte 'Typ' in der Attributtabelle (Kategorien der Massenermittlung)
     attr_val_type_house: str = "Hausanschluss"
     attr_val_type_bend: str = "Bogen"
@@ -149,12 +141,12 @@ class FieldAttributes:
 class NewLayerFields:
     """Constants for layer field attributes, accessible via dot notation."""
 
-    type = FieldAttributes(Names.attr_col_head_type, QVar.String)
-    connected = FieldAttributes(Names.attr_col_head_connected, QVar.String)
-    dim_1 = FieldAttributes(Names.attr_col_head_dim_1, QVar.Int)
-    dim_2 = FieldAttributes(Names.attr_col_head_dim_2, QVar.Int)
-    angle = FieldAttributes(Names.attr_col_head_bend_angle, QVar.Int)
-    notes = FieldAttributes(Names.attr_col_head_notes, QVar.String)
+    type = FieldAttributes("Typ", QVar.String)
+    dim_1 = FieldAttributes("Dimension 1", QVar.Int)
+    dim_2 = FieldAttributes("Dimension 2", QVar.Int)
+    angle = FieldAttributes("Bogen-Winkel", QVar.Int)
+    connected = FieldAttributes("Verbundene Leitungen", QVar.String)
+    notes = FieldAttributes("Anmerkungen", QVar.String)
 
     def __iter__(self) -> Generator[FieldAttributes, None, None]:
         """Make the class iterable."""
