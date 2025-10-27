@@ -321,7 +321,9 @@ class Massenermittlung:
                 level=Qgis.Critical,
                 file_line_number=file_line_info,
             )
-            lae.show_message(f"Unexpected error: {e!s}", level=Qgis.Critical)
+            lae.show_message(
+                f"Unexpected error: {e!s}{file_line_info}", level=Qgis.Critical
+            )
             return
 
         finally:

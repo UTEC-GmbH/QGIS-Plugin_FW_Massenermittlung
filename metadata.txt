@@ -1,10 +1,9 @@
 [general]
 name=UTEC Massenermittlung (dev)
 
-version=0.9
+version=0.91
 changelog=
-    - Aufteilung der Dimensionen in Hauptleitung / Anschlussleitung (Dimension 1 / Dimension 2) für einfacheres Sortieren
-    - Bogenwinkel gerundet
+    - bugfix NewLayerFields
 
 description=Massenermittlung für Ferwärmenetze. Es werden Hausanschlüsse, Bögen, T-Stücke und Reduzierungen ausgegeben.
 qgisMinimumVersion=3.0

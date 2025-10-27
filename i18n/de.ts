@@ -113,17 +113,17 @@
 <context>
     <name>summary</name>
     <message>
-        <location filename="../modules/logs_and_errors.py" line="167"/>
+        <location filename="../modules/logs_and_errors.py" line="168"/>
         <source>Type field not found in new layer.</source>
         <translation>Konnte die Spalte für den Formteiltyp nicht finden.</translation>
     </message>
     <message>
-        <location filename="../modules/logs_and_errors.py" line="180"/>
+        <location filename="../modules/logs_and_errors.py" line="181"/>
         <source>Failed to get type counts from new layer.</source>
         <translation>Konnte die Anlagenteile nicht auszählen.</translation>
     </message>
     <message>
-        <location filename="../modules/logs_and_errors.py" line="161"/>
+        <location filename="../modules/logs_and_errors.py" line="162"/>
         <source>Layer &apos;{0}&apos; analyzed:</source>
         <translation>Layer '{0}' untersucht:</translation>
     </message>

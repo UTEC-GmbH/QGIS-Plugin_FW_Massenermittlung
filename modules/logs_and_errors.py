@@ -131,7 +131,8 @@ def raise_runtime_error(error_msg: str) -> NoReturn:
     """Log a critical error, display it, and raise a CustomRuntimeError."""
 
     file_line_number: str = file_line(inspect.currentframe())
-    log_msg: str = f"{LEVEL_ICON[Qgis.Critical]} {error_msg}{file_line_number}"
+    error_msg = f"{error_msg}{file_line_number}"
+    log_msg: str = f"{LEVEL_ICON[Qgis.Critical]} {error_msg}"
     QgsMessageLog.logMessage(
         f"{log_msg}", "Plugin: Massenermittlung", level=Qgis.Critical
     )

@@ -3,15 +3,15 @@
 This module contains constant values.
 """
 
-from collections.abc import Generator
 from dataclasses import dataclass
+from enum import Enum
 
 from qgis.PyQt.QtCore import QVariant as QVar
 
 PROBLEMATIC_FIELD_TYPES: list = [QVar.Map, QVar.List, QVar.StringList]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Icons:
     """Class: Icons
 
@@ -24,7 +24,7 @@ class Icons:
     Critical: str = "☠️"
 
 
-@dataclass
+@dataclass(frozen=True)
 class PipeDimensions:
     """Class: PipeDimensions
 
@@ -59,7 +59,7 @@ class PipeDimensions:
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class Colours:
     """Class: Colours
 
@@ -74,7 +74,7 @@ class Colours:
     questionable: str = "#ff1d1d"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Names:
     """Class: Names
 
@@ -97,7 +97,7 @@ class Names:
     attr_val_type_question: str = "Fragwürdiger Punkt"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Numbers:
     """Class: Numbers
 
@@ -127,29 +127,31 @@ class Numbers:
     new_layer_label_distance: float = 2.5
 
 
-@dataclass
-class FieldAttributes:
-    """Class: FieldAttributes
+class NewLayerFields(Enum):
+    """Constants for layer field attributes, accessible via dot notation.
 
-    This class contains the new fields for the new layer.
+    This Enum is directly iterable.
     """
 
-    name: str
-    data_type: QVar.Type
+    # Enum members are defined as tuples: (display_name, qgis_data_type)
+    type: tuple[str, QVar.Type] = ("Typ", QVar.String)
+    dim_1: tuple[str, QVar.Type] = ("Dimension 1", QVar.Int)
+    dim_2: tuple[str, QVar.Type] = ("Dimension 2", QVar.Int)
+    angle: tuple[str, QVar.Type] = ("Bogen-Winkel", QVar.Int)
+    connected: tuple[str, QVar.Type] = ("Verbundene Leitungen", QVar.String)
+    notes: tuple[str, QVar.Type] = ("Anmerkungen", QVar.String)
 
+    def __init__(self, display_name: str, q_type: QVar.Type) -> None:
+        """Initialize the enum member with its attributes."""
+        self._display_name: str = display_name
+        self._q_type: QVar.Type = q_type
 
-class NewLayerFields:
-    """Constants for layer field attributes, accessible via dot notation."""
+    @property
+    def name(self) -> str:
+        """The display name of the field."""
+        return self._display_name
 
-    type = FieldAttributes("Typ", QVar.String)
-    dim_1 = FieldAttributes("Dimension 1", QVar.Int)
-    dim_2 = FieldAttributes("Dimension 2", QVar.Int)
-    angle = FieldAttributes("Bogen-Winkel", QVar.Int)
-    connected = FieldAttributes("Verbundene Leitungen", QVar.String)
-    notes = FieldAttributes("Anmerkungen", QVar.String)
-
-    def __iter__(self) -> Generator[FieldAttributes, None, None]:
-        """Make the class iterable."""
-        for attr_value in self.__class__.__dict__.values():
-            if isinstance(attr_value, FieldAttributes):
-                yield attr_value
+    @property
+    def data_type(self) -> QVar.Type:
+        """The QVariant type of the field."""
+        return self._q_type

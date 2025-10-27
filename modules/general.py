@@ -70,7 +70,7 @@ def create_temporary_point_layer(project: QgsProject) -> QgsVectorLayer:
     if data_provider is None:
         raise_runtime_error("Could not create data provider for temporary layer.")
     data_provider.addAttributes(
-        [QgsField(field.name, field.data_type) for field in cont.NewLayerFields()]
+        [QgsField(field.name, field.data_type) for field in cont.NewLayerFields]
     )
     temp_layer.updateFields()
 
@@ -415,7 +415,7 @@ class LayerManager:
                 f"Could not get data provider for layer: {empty_layer.name()}"
             )
         data_provider.addAttributes(
-            [QgsField(field.name, field.data_type) for field in cont.NewLayerFields()]
+            [QgsField(field.name, field.data_type) for field in cont.NewLayerFields]
         )
         empty_layer.updateFields()
 
