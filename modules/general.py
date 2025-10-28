@@ -5,6 +5,7 @@ This module contains general functions.
 
 import contextlib
 import re
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -13,6 +14,7 @@ from osgeo import ogr
 from qgis.core import (
     Qgis,
     QgsCoordinateTransform,
+    QgsCoordinateTransformContext,
     QgsExpressionContextUtils,
     QgsFeature,
     QgsFeatureRequest,
@@ -618,3 +620,66 @@ class LayerManager:
 
         layer.triggerRepaint()
         log_debug("Layer style set.", Qgis.Success)
+
+    def export_results(self, new_layer: QgsVectorLayer) -> None:
+        """Export the analysis results to an XLSX file.
+
+        This function writes the attributes of the result layer to an .xlsx
+        file in a sub-directory of the project's GeoPackage. This file can
+        be opened in Excel or linked from a template spreadsheet.
+
+        Args:
+            new_layer: The layer containing the features to be exported.
+        """
+
+        try:
+            # --- 1. Define Paths and ensure directory exists ---
+            output_dir: Path = project_gpkg().parent / cont.Names.excel_dir
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            # --- 2. Copy summary template if it doesn't exist ---
+            plugin_dir: Path = Path(__file__).parent.parent
+            template_name: str = cont.Names.excel_file_summary
+            template_src: Path = plugin_dir / "templates" / template_name
+            template_dest: Path = output_dir / template_name
+
+            if not template_src.exists():
+                log_debug(f"Template file not found at: {template_src}", Qgis.Warning)
+            elif not template_dest.exists():
+                shutil.copy(template_src, template_dest)
+                log_debug(f"Copied summary template to: {template_dest}", Qgis.Info)
+            else:
+                log_debug(
+                    f"Summary template already exists at: {template_dest}", Qgis.Info
+                )
+
+        except OSError as e:
+            # fmt: off
+            error_msg: str = QCoreApplication.translate("XlsxExport", "Could not create output directory or copy template: {0}").format(e)  # noqa: E501
+            # fmt: on
+            raise_runtime_error(error_msg)
+
+        output_path: Path = output_dir / cont.Names.excel_file_output
+
+        # --- 2. Set up writer options ---
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.driverName = "XLSX"
+        # To prevent geometry columns from being written to the spreadsheet
+        options.datasourceOptions = ["GEOMETRY=NO"]
+        options.layerName = "Data"  # This will be the worksheet name
+
+        # --- 3. Write the file ---
+        error_tuple: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
+            new_layer,
+            str(output_path),
+            QgsCoordinateTransformContext(),
+            options,
+        )
+
+        if error_tuple[0] == QgsVectorFileWriter.WriterError.NoError:
+            # fmt: off
+            success_msg: str = QCoreApplication.translate("XlsxExport", "Excel summary saved to: {0}").format(str(output_path))  # noqa: E501
+            # fmt: on
+            log_debug(success_msg, Qgis.Success)
+        else:
+            raise_runtime_error(error_tuple[1])

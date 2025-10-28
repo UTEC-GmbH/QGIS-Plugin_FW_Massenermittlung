@@ -85,6 +85,10 @@ class Names:
     dim_prefix: str = "DN"
     line_separator: str = " / "
 
+    excel_dir: str = "UTEC_Massenermittlung"
+    excel_file_summary: str = "UTEC_Massenermittlung_Zusammenfassung.xlsx"
+    excel_file_output: str = "plugin_output.xlsx"
+
     # Namen für Saplten der Attributtabelle des alten (gewälten) Layers
     sel_layer_field_dim: tuple[str, ...] = ("diameter", "dim", "DN")
 
