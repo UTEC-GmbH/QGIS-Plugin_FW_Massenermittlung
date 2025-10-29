@@ -5,6 +5,7 @@ This module contains general functions.
 
 import contextlib
 import re
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -13,6 +14,7 @@ from osgeo import ogr
 from qgis.core import (
     Qgis,
     QgsCoordinateTransform,
+    QgsCoordinateTransformContext,
     QgsExpressionContextUtils,
     QgsFeature,
     QgsFeatureRequest,
@@ -490,7 +492,7 @@ class LayerManager:
         if not target_layer.startEditing():
             raise_runtime_error("Failed to start editing the new layer.")
 
-        feature_count = source_layer.featureCount()
+        feature_count: int = source_layer.featureCount()
         progress_bar.setMaximum(feature_count)
         progress_bar.setValue(0)
         # fmt: off
@@ -618,3 +620,161 @@ class LayerManager:
 
         layer.triggerRepaint()
         log_debug("Layer style set.", Qgis.Success)
+
+    def export_results(self, new_layer: QgsVectorLayer) -> None:
+        """Export the analysis results to an XLSX file.
+
+        This function writes the attributes of the result layer to an .xlsx
+        file in a sub-directory of the project's GeoPackage. This file can
+        be opened in Excel or linked from a template spreadsheet.
+
+        Args:
+            new_layer: The layer containing the features to be exported.
+        """
+
+        try:
+            # --- 1. Define Paths and ensure directory exists ---
+            output_dir: Path = project_gpkg().parent / cont.Names.excel_dir
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            # --- 2. Copy summary template if it doesn't exist ---
+            plugin_dir: Path = Path(__file__).parent.parent
+            template_name: str = cont.Names.excel_file_summary
+            template_src: Path = plugin_dir / "templates" / template_name
+            template_dest: Path = output_dir / template_name
+
+            if not template_src.exists():
+                log_debug(f"Template file not found at: {template_src}", Qgis.Warning)
+            elif not template_dest.exists():
+                shutil.copy(template_src, template_dest)
+                log_debug(f"Copied summary template to: {template_dest}", Qgis.Info)
+            else:
+                log_debug(
+                    f"Summary template already exists at: {template_dest}", Qgis.Info
+                )
+
+        except OSError as e:
+            # fmt: off
+            error_msg: str = QCoreApplication.translate("XlsxExport", "Could not create output directory or copy template: {0}").format(e)  # noqa: E501
+            # fmt: on
+            raise_runtime_error(error_msg)
+
+        output_path: Path = output_dir / cont.Names.excel_file_output
+
+        # --- 2. Set up writer options ---
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.driverName = "XLSX"
+        # To prevent geometry columns from being written to the spreadsheet
+        options.datasourceOptions = ["GEOMETRY=NO"]
+        options.layerName = "Formteile"  # This will be the worksheet name
+
+        # --- 3. Write the file ---
+        error_tuple: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
+            new_layer,
+            str(output_path),
+            QgsCoordinateTransformContext(),
+            options,
+        )
+
+        if error_tuple[0] == QgsVectorFileWriter.WriterError.NoError:
+            # fmt: off
+            success_msg: str = QCoreApplication.translate("XlsxExport", "Excel summary saved to: {0}").format(str(output_path))  # noqa: E501
+            # fmt: on
+            log_debug(success_msg, Qgis.Success)
+        else:
+            raise_runtime_error(error_tuple[1])
+
+        # --- Export line features to a separate sheet ---
+        log_debug("Exporting line features to a separate Excel sheet.")
+
+        # Create a temporary in-memory layer for line features data
+        # Use "None" geometry type as we only need attributes for the Excel sheet
+        temporary_table = QgsVectorLayer("None?crs=", "line_features_data", "memory")
+        layer_fields: QgsFields = self.selected_layer.fields()
+        field_names = cont.Names.sel_layer_field_dim
+        dim_field_name: str | None = next(
+            (name for name in field_names if layer_fields.lookupField(name) != -1),
+            None,
+        )
+
+        # Define fields for the new sheet
+        line_fields: list[QgsField] = [
+            QgsField("ID", QMetaType.Type.Int),
+            QgsField(cont.Names.excel_dim, QMetaType.Type.Int),
+            QgsField(cont.Names.excel_line_length, QMetaType.Type.Double),
+        ]
+
+        line_data_provider: QgsVectorDataProvider | None = (
+            temporary_table.dataProvider()
+        )
+        if line_data_provider is None:
+            raise_runtime_error(
+                "Could not create data provider for line features layer."
+            )
+        line_data_provider.addAttributes(line_fields)
+        temporary_table.updateFields()
+
+        # Populate the temporary layer with data from self.selected_layer
+        features_for_excel: list[QgsFeature] = []
+        for original_feature in self.selected_layer.getFeatures():
+            new_excel_feature = QgsFeature(temporary_table.fields())
+            new_excel_feature.setAttribute(
+                "ID", original_feature.attribute("original_fid")
+            )
+
+            geom: QgsGeometry = original_feature.geometry()
+            if geom and not geom.isEmpty():
+                new_excel_feature.setAttribute(
+                    cont.Names.excel_line_length, geom.length()
+                )
+            else:
+                new_excel_feature.setAttribute(cont.Names.excel_line_length, 0.0)
+
+            if dim_field_name:
+                dim_value = original_feature.attribute(dim_field_name)
+                if isinstance(dim_value, int):
+                    new_excel_feature.setAttribute(cont.Names.excel_dim, dim_value)
+            else:
+                new_excel_feature.setAttribute(cont.Names.excel_dim, None)
+
+            features_for_excel.append(new_excel_feature)
+
+        if features_for_excel:
+            temporary_table.startEditing()
+            temporary_table.addFeatures(features_for_excel)
+            if not temporary_table.commitChanges():
+                raise_runtime_error(
+                    "Failed to commit line features to temporary layer."
+                )
+            log_debug(
+                f"Prepared {len(features_for_excel)} line features for Excel export."
+            )
+        else:
+            log_debug("No line features to export to Excel.", Qgis.Info)
+            return
+
+        # Set up writer options for the new sheet
+        line_options = QgsVectorFileWriter.SaveVectorOptions()
+        line_options.driverName = "XLSX"
+        line_options.datasourceOptions = ["GEOMETRY=NO"]
+        line_options.layerName = "Leitungstrassen"
+        line_options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+
+        line_error_tuple: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
+            temporary_table,
+            str(output_path),
+            QgsCoordinateTransformContext(),
+            line_options,
+        )
+
+        if temporary_table is not None and self.project is not None:
+            self.project.removeMapLayer(temporary_table.id())
+            log_debug("Temporary table for excel export of line features removed.")
+
+        if line_error_tuple[0] == QgsVectorFileWriter.WriterError.NoError:
+            # fmt: off
+            success_msg_lines: str = QCoreApplication.translate("XlsxExport", "Line features exported to sheet 'Line Features' in: {0}").format(str(output_path))  # noqa: E501
+            # fmt: on
+            log_debug(success_msg_lines, Qgis.Success)
+        else:
+            raise_runtime_error(line_error_tuple[1])

@@ -1,9 +1,9 @@
 [general]
 name=UTEC Massenermittlung (dev)
 
-version=0.91
+version=1.0
 changelog=
-    - bugfix NewLayerFields
+    - Automatische Auswertung mit Excel 
 
 description=Massenermittlung für Ferwärmenetze. Es werden Hausanschlüsse, Bögen, T-Stücke und Reduzierungen ausgegeben.
 qgisMinimumVersion=3.0
