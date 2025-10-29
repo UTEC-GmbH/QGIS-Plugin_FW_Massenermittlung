@@ -492,7 +492,7 @@ class LayerManager:
         if not target_layer.startEditing():
             raise_runtime_error("Failed to start editing the new layer.")
 
-        feature_count = source_layer.featureCount()
+        feature_count: int = source_layer.featureCount()
         progress_bar.setMaximum(feature_count)
         progress_bar.setValue(0)
         # fmt: off
@@ -666,7 +666,7 @@ class LayerManager:
         options.driverName = "XLSX"
         # To prevent geometry columns from being written to the spreadsheet
         options.datasourceOptions = ["GEOMETRY=NO"]
-        options.layerName = "Data"  # This will be the worksheet name
+        options.layerName = "Formteile"  # This will be the worksheet name
 
         # --- 3. Write the file ---
         error_tuple: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
@@ -683,3 +683,98 @@ class LayerManager:
             log_debug(success_msg, Qgis.Success)
         else:
             raise_runtime_error(error_tuple[1])
+
+        # --- Export line features to a separate sheet ---
+        log_debug("Exporting line features to a separate Excel sheet.")
+
+        # Create a temporary in-memory layer for line features data
+        # Use "None" geometry type as we only need attributes for the Excel sheet
+        temporary_table = QgsVectorLayer("None?crs=", "line_features_data", "memory")
+        layer_fields: QgsFields = self.selected_layer.fields()
+        field_names = cont.Names.sel_layer_field_dim
+        dim_field_name: str | None = next(
+            (name for name in field_names if layer_fields.lookupField(name) != -1),
+            None,
+        )
+
+        # Define fields for the new sheet
+        line_fields: list[QgsField] = [
+            QgsField("ID", QMetaType.Type.Int),
+            QgsField(cont.Names.excel_dim, QMetaType.Type.Int),
+            QgsField(cont.Names.excel_line_length, QMetaType.Type.Double),
+        ]
+
+        line_data_provider: QgsVectorDataProvider | None = (
+            temporary_table.dataProvider()
+        )
+        if line_data_provider is None:
+            raise_runtime_error(
+                "Could not create data provider for line features layer."
+            )
+        line_data_provider.addAttributes(line_fields)
+        temporary_table.updateFields()
+
+        # Populate the temporary layer with data from self.selected_layer
+        features_for_excel: list[QgsFeature] = []
+        for original_feature in self.selected_layer.getFeatures():
+            new_excel_feature = QgsFeature(temporary_table.fields())
+            new_excel_feature.setAttribute(
+                "ID", original_feature.attribute("original_fid")
+            )
+
+            geom: QgsGeometry = original_feature.geometry()
+            if geom and not geom.isEmpty():
+                new_excel_feature.setAttribute(
+                    cont.Names.excel_line_length, geom.length()
+                )
+            else:
+                new_excel_feature.setAttribute(cont.Names.excel_line_length, 0.0)
+
+            if dim_field_name:
+                dim_value = original_feature.attribute(dim_field_name)
+                if isinstance(dim_value, int):
+                    new_excel_feature.setAttribute(cont.Names.excel_dim, dim_value)
+            else:
+                new_excel_feature.setAttribute(cont.Names.excel_dim, None)
+
+            features_for_excel.append(new_excel_feature)
+
+        if features_for_excel:
+            temporary_table.startEditing()
+            temporary_table.addFeatures(features_for_excel)
+            if not temporary_table.commitChanges():
+                raise_runtime_error(
+                    "Failed to commit line features to temporary layer."
+                )
+            log_debug(
+                f"Prepared {len(features_for_excel)} line features for Excel export."
+            )
+        else:
+            log_debug("No line features to export to Excel.", Qgis.Info)
+            return
+
+        # Set up writer options for the new sheet
+        line_options = QgsVectorFileWriter.SaveVectorOptions()
+        line_options.driverName = "XLSX"
+        line_options.datasourceOptions = ["GEOMETRY=NO"]
+        line_options.layerName = "Leitungstrassen"
+        line_options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+
+        line_error_tuple: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
+            temporary_table,
+            str(output_path),
+            QgsCoordinateTransformContext(),
+            line_options,
+        )
+
+        if temporary_table is not None and self.project is not None:
+            self.project.removeMapLayer(temporary_table.id())
+            log_debug("Temporary table for excel export of line features removed.")
+
+        if line_error_tuple[0] == QgsVectorFileWriter.WriterError.NoError:
+            # fmt: off
+            success_msg_lines: str = QCoreApplication.translate("XlsxExport", "Line features exported to sheet 'Line Features' in: {0}").format(str(output_path))  # noqa: E501
+            # fmt: on
+            log_debug(success_msg_lines, Qgis.Success)
+        else:
+            raise_runtime_error(line_error_tuple[1])

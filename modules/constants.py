@@ -88,9 +88,17 @@ class Names:
     excel_dir: str = "UTEC_Massenermittlung"
     excel_file_summary: str = "UTEC_Massenermittlung_Zusammenfassung.xlsx"
     excel_file_output: str = "plugin_output.xlsx"
+    excel_line_length: str = "Trassenlänge"
+    excel_dim: str = "Dimension"
 
     # Namen für Saplten der Attributtabelle des alten (gewälten) Layers
-    sel_layer_field_dim: tuple[str, ...] = ("diameter", "dim", "DN")
+    sel_layer_field_dim: tuple[str, ...] = (
+        "diameter",
+        "dim",
+        "DN",
+        "Dimension",
+        "Durchmesser",
+    )
 
     # Werte der Spalte 'Typ' in der Attributtabelle (Kategorien der Massenermittlung)
     attr_val_type_house: str = "Hausanschluss"

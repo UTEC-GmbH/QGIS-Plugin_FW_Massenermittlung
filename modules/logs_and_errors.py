@@ -160,7 +160,7 @@ def create_summary_message(
     """
     # fmt: off
     base_message: str = QCoreApplication.translate("summary", "Layer '{0}' analyzed:").format(selected_layer_name)  # noqa: E501
-    excel_summary: str = QCoreApplication.translate("summary", "(Summary saved to '{0}')").format(cont.Names.excel_dir)  # noqa: E501
+    excel_summary: str = QCoreApplication.translate("summary", "(Summary saved to folder '{0}')").format(cont.Names.excel_dir)  # noqa: E501
     # fmt: on
 
     if new_layer.fields().indexFromName(cont.NewLayerFields.type.name) == -1:
