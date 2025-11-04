@@ -634,14 +634,22 @@ class LayerManager:
 
         try:
             # --- 1. Define Paths and ensure directory exists ---
-            output_dir: Path = project_gpkg().parent / cont.Names.excel_dir
+            layer_name: str = new_layer.name().removesuffix(cont.Names.new_layer_suffix)
+            output_dir: Path = (
+                project_gpkg().parent / f"{cont.Names.excel_dir} - {layer_name}"
+            )
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # --- 2. Copy summary template if it doesn't exist ---
             plugin_dir: Path = Path(__file__).parent.parent
             template_name: str = cont.Names.excel_file_summary
+            template_path = Path(template_name)
+            dest_file_name: str = (
+                f"{template_path.stem} - {layer_name}{template_path.suffix}"
+            )
+
             template_src: Path = plugin_dir / "templates" / template_name
-            template_dest: Path = output_dir / template_name
+            template_dest: Path = output_dir / dest_file_name
 
             if not template_src.exists():
                 log_debug(f"Template file not found at: {template_src}", Qgis.Warning)
