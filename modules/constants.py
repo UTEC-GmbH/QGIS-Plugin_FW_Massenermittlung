@@ -86,8 +86,8 @@ class Names:
     line_separator: str = " / "
 
     excel_dir: str = "UTEC_Massenermittlung"
-    excel_file_summary: str = "UTEC_Massenermittlung.xlsx"
-    excel_file_output: str = "plugin_output.xlsx"
+    excel_file_summary: str = "UTEC_Massenermittlung"
+    excel_file_output: str = "plugin_output"
     excel_line_length: str = "Trassenlänge"
     excel_dim: str = "Dimension"
 

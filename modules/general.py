@@ -632,17 +632,14 @@ class LayerManager:
             new_layer: The layer containing the features to be exported.
         """
 
-        try:
-            # --- 1. Define Paths and ensure directory exists ---
-            layer_name: str = new_layer.name().removesuffix(cont.Names.new_layer_suffix)
-            output_dir: Path = (
-                project_gpkg().parent / f"{cont.Names.excel_dir} - {layer_name}"
-            )
-            output_dir.mkdir(parents=True, exist_ok=True)
+        layer_name: str = new_layer.name().removesuffix(cont.Names.new_layer_suffix)
+        output_dir: Path = project_gpkg().parent / cont.Names.excel_dir
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-            # --- 2. Copy summary template if it doesn't exist ---
+        try:
+            # Copy summary template if it doesn't exist
             plugin_dir: Path = Path(__file__).parent.parent
-            template_name: str = cont.Names.excel_file_summary
+            template_name: str = f"{cont.Names.excel_file_summary}.xlsx"
             template_path = Path(template_name)
             dest_file_name: str = (
                 f"{template_path.stem} - {layer_name}{template_path.suffix}"
@@ -667,7 +664,8 @@ class LayerManager:
             # fmt: on
             raise_runtime_error(error_msg)
 
-        output_path: Path = output_dir / cont.Names.excel_file_output
+        output_file_name: str = f"{cont.Names.excel_file_output} - {layer_name}.xlsx"
+        output_path: Path = output_dir / output_file_name
 
         # --- 2. Set up writer options ---
         options = QgsVectorFileWriter.SaveVectorOptions()
@@ -699,7 +697,7 @@ class LayerManager:
         # Use "None" geometry type as we only need attributes for the Excel sheet
         temporary_table = QgsVectorLayer("None?crs=", "line_features_data", "memory")
         layer_fields: QgsFields = self.selected_layer.fields()
-        field_names = cont.Names.sel_layer_field_dim
+        field_names: tuple = cont.Names.sel_layer_field_dim
         dim_field_name: str | None = next(
             (name for name in field_names if layer_fields.lookupField(name) != -1),
             None,

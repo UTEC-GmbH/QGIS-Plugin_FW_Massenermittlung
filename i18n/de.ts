@@ -42,17 +42,17 @@
 <context>
     <name>XlsxExport</name>
     <message>
-        <location filename="../modules/general.py" line="666"/>
+        <location filename="../modules/general.py" line="663"/>
         <source>Could not create output directory or copy template: {0}</source>
         <translation>Konnte den Output-Ordner nicht erstellen, oder die Vorlage-Datei nicht kopieren: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="689"/>
+        <location filename="../modules/general.py" line="687"/>
         <source>Excel summary saved to: {0}</source>
         <translation>Excel-Zusammenfassung gespeichert in: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="784"/>
+        <location filename="../modules/general.py" line="782"/>
         <source>Line features exported to sheet &apos;Line Features&apos; in: {0}</source>
         <translation>Linien in Arbeitsblatt exportiert: {0}</translation>
     </message>
