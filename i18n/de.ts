@@ -4,27 +4,27 @@
 <context>
     <name>UserError</name>
     <message>
-        <location filename="../modules/general.py" line="356"/>
+        <location filename="../modules/general.py" line="361"/>
         <source>Multiple layers selected.</source>
         <translation>Mehrere Layer ausgewählt. Bitte nur einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="360"/>
+        <location filename="../modules/general.py" line="365"/>
         <source>No layer selected.</source>
         <translation>Kein Layer ausgewählt. Bitte einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="366"/>
+        <location filename="../modules/general.py" line="371"/>
         <source>Selected node is not a layer.</source>
         <translation>Das ausgewählte Objekt ist kein Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="372"/>
+        <location filename="../modules/general.py" line="377"/>
         <source>Selected layer is not a vector layer.</source>
         <translation>Der gewählte Layer ist kein Vektorlayer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="377"/>
+        <location filename="../modules/general.py" line="382"/>
         <source>The selected layer is not a line layer.</source>
         <translation>Der gewählte Layer ist kein Linien-Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
@@ -34,7 +34,7 @@
         <translation>Kein QGSI-Projekt geöffnet.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="103"/>
+        <location filename="../modules/general.py" line="108"/>
         <source>Project is not saved. Please save the project first.</source>
         <translation>Das Projekt ist noch nicht gespeichert. Bitte das Projekt abspeichern, damit ein Projektordner erstellt wird.</translation>
     </message>
@@ -42,17 +42,17 @@
 <context>
     <name>XlsxExport</name>
     <message>
-        <location filename="../modules/general.py" line="663"/>
+        <location filename="../modules/general.py" line="668"/>
         <source>Could not create output directory or copy template: {0}</source>
         <translation>Konnte den Output-Ordner nicht erstellen, oder die Vorlage-Datei nicht kopieren: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="687"/>
+        <location filename="../modules/general.py" line="693"/>
         <source>Excel summary saved to: {0}</source>
         <translation>Excel-Zusammenfassung gespeichert in: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="782"/>
+        <location filename="../modules/general.py" line="777"/>
         <source>Line features exported to sheet &apos;Line Features&apos; in: {0}</source>
         <translation>Linien in Arbeitsblatt exportiert: {0}</translation>
     </message>
@@ -113,7 +113,7 @@
         <translation>Verarbeite Leitungsnetz...</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="499"/>
+        <location filename="../modules/general.py" line="506"/>
         <source>Writing results to new layer...</source>
         <translation>Schreibe Ergebnisse in neuen Layer...</translation>
     </message>
