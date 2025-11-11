@@ -1,9 +1,11 @@
 [general]
 name=UTEC Massenermittlung (dev)
 
-version=1.0
+version=1.2
 changelog=
-    - Excel-Auswertungsdateien enthalten jetzt den Layer im Dateinamen → so können mehrere Layer ausgewertet werden
+    - bugfix eingestellte Funktionen: 
+        .setAbstract → .metadata().setTitle() 
+        QVariant → QMetaType
 
 description=Massenermittlung für Ferwärmenetze. Es werden Hausanschlüsse, Bögen, T-Stücke und Reduzierungen ausgegeben.
 qgisMinimumVersion=3.0

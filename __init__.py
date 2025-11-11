@@ -23,6 +23,6 @@
 
 # noinspection PyPep8Naming
 def classFactory(iface):
-    from .massenermittlung import Massenermittlung
+    from .UTEC_Massenermittlung import Massenermittlung
 
     return Massenermittlung(iface)

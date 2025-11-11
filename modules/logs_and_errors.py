@@ -159,14 +159,15 @@ def create_summary_message(
         A formatted string summarizing the features in the new layer.
     """
     # fmt: off
-    base_message: str = QCoreApplication.translate("summary", "Layer '{0}' analyzed:").format(selected_layer_name)  # noqa: E501
-    excel_summary: str = QCoreApplication.translate("summary", "(Summary saved to folder '{0}')").format(cont.Names.excel_dir)  # noqa: E501
+    # ruff: noqa: E501
+    base_message: str = QCoreApplication.translate("summary", "Layer '{0}' analyzed:").format(selected_layer_name)  
+    excel_summary: str = QCoreApplication.translate("summary", "(Summary saved to folder '{0}')").format(cont.Names.excel_dir)  
     # fmt: on
 
     if new_layer.fields().indexFromName(cont.NewLayerFields.type.name) == -1:
         log_debug("Type field not found in new layer.", Qgis.Warning)
         # fmt: off
-        fail_field: str = QCoreApplication.translate("summary", "Type field not found in new layer.")  # noqa: E501
+        fail_field: str = QCoreApplication.translate("summary", "Type field not found in new layer.") 
         # fmt: on
         completed_message: str = f"{base_message} ({cont.Icons.Warning} {fail_field})"
     else:
@@ -179,7 +180,7 @@ def create_summary_message(
         if not type_counts:
             log_debug("Failed to get type counts from new layer.", Qgis.Warning)
             # fmt: off
-            fail_counts: str = QCoreApplication.translate("summary", "Failed to get type counts from new layer.")  # noqa: E501
+            fail_counts: str = QCoreApplication.translate("summary", "Failed to get type counts from new layer.")  
             # fmt: on
             completed_message = f"{base_message} ({cont.Icons.Warning} {fail_counts})"
 

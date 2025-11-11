@@ -28,10 +28,7 @@ from qgis.core import (
     QgsVectorLayer,
     QgsWkbTypes,
 )
-from qgis.PyQt.QtCore import (
-    QCoreApplication,
-    QMetaType,
-)
+from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtWidgets import QProgressBar
 from qgis.utils import iface
 
@@ -422,9 +419,10 @@ class LayerManager:
                 f"Could not get data provider for layer: {empty_layer.name()}"
             )
 
-        fields_to_add: list[QgsField] = []
-        for field_enum in cont.NewLayerFields:
-            fields_to_add.append(QgsField(field_enum.name, field_enum.data_type))
+        fields_to_add: list[QgsField] = [
+            QgsField(field_enum.name, field_enum.data_type)
+            for field_enum in cont.NewLayerFields
+        ]
         data_provider.addAttributes(fields_to_add)
         empty_layer.updateFields()
 
@@ -707,9 +705,9 @@ class LayerManager:
             )
 
         line_fields = [
-            QgsField("ID", QMetaType.Type.Int),
-            QgsField(cont.Names.excel_dim, QMetaType.Type.Int),
-            QgsField(cont.Names.excel_line_length, QMetaType.Type.Double),
+            QgsField("ID", QMetaType.Int),
+            QgsField(cont.Names.excel_dim, QMetaType.Int),
+            QgsField(cont.Names.excel_line_length, QMetaType.Double),
         ]
         line_data_provider.addAttributes(line_fields)
         temporary_table.updateFields()
