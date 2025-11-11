@@ -290,7 +290,7 @@ class Massenermittlung:
                     icon="✨✨✨",
                 )
                 lae.show_message(summary_single_line, level=Qgis.Success, duration=30)
-                new_layer.setAbstract(summary_multi_line)
+                new_layer.metadata().setTitle(summary_multi_line)
 
                 # --- Set the new layer as active ---
                 self.iface.setActiveLayer(new_layer)

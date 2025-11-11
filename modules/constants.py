@@ -6,9 +6,9 @@ This module contains constant values.
 from dataclasses import dataclass
 from enum import Enum
 
-from qgis.PyQt.QtCore import QVariant as QVar
+from qgis.PyQt.QtCore import QMetaType as Qmt
 
-PROBLEMATIC_FIELD_TYPES: list = [QVar.Map, QVar.List, QVar.StringList]
+PROBLEMATIC_FIELD_TYPES: list = [Qmt.QVariantMap, Qmt.QVariantList, Qmt.QStringList]
 
 
 @dataclass(frozen=True)
@@ -146,17 +146,17 @@ class NewLayerFields(Enum):
     """
 
     # Enum members are defined as tuples: (display_name, qgis_data_type)
-    type: tuple[str, QVar.Type] = ("Typ", QVar.String)
-    dim_1: tuple[str, QVar.Type] = ("Dimension 1", QVar.Int)
-    dim_2: tuple[str, QVar.Type] = ("Dimension 2", QVar.Int)
-    angle: tuple[str, QVar.Type] = ("Bogen-Winkel", QVar.Int)
-    connected: tuple[str, QVar.Type] = ("Verbundene Leitungen", QVar.String)
-    notes: tuple[str, QVar.Type] = ("Anmerkungen", QVar.String)
+    type: tuple[str, Qmt] = ("Typ", Qmt.QString)
+    dim_1: tuple[str, Qmt] = ("Dimension 1", Qmt.Int)
+    dim_2: tuple[str, Qmt] = ("Dimension 2", Qmt.Int)
+    angle: tuple[str, Qmt] = ("Bogen-Winkel", Qmt.Int)
+    connected: tuple[str, Qmt] = ("Verbundene Leitungen", Qmt.QString)
+    notes: tuple[str, Qmt] = ("Anmerkungen", Qmt.QString)
 
-    def __init__(self, display_name: str, q_type: QVar.Type) -> None:
+    def __init__(self, display_name: str, q_type: Qmt) -> None:
         """Initialize the enum member with its attributes."""
         self._display_name: str = display_name
-        self._q_type: QVar.Type = q_type
+        self._q_type: Qmt = q_type
 
     @property
     def name(self) -> str:
@@ -164,6 +164,6 @@ class NewLayerFields(Enum):
         return self._display_name
 
     @property
-    def data_type(self) -> QVar.Type:
+    def data_type(self) -> Qmt:
         """The QVariant type of the field."""
         return self._q_type
