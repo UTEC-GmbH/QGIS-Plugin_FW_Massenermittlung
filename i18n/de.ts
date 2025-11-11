@@ -4,37 +4,37 @@
 <context>
     <name>UserError</name>
     <message>
-        <location filename="../modules/general.py" line="361"/>
+        <location filename="../modules/general.py" line="358"/>
         <source>Multiple layers selected.</source>
         <translation>Mehrere Layer ausgewählt. Bitte nur einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="365"/>
+        <location filename="../modules/general.py" line="362"/>
         <source>No layer selected.</source>
         <translation>Kein Layer ausgewählt. Bitte einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="371"/>
+        <location filename="../modules/general.py" line="368"/>
         <source>Selected node is not a layer.</source>
         <translation>Das ausgewählte Objekt ist kein Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="377"/>
+        <location filename="../modules/general.py" line="374"/>
         <source>Selected layer is not a vector layer.</source>
         <translation>Der gewählte Layer ist kein Vektorlayer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="382"/>
+        <location filename="../modules/general.py" line="379"/>
         <source>The selected layer is not a line layer.</source>
         <translation>Der gewählte Layer ist kein Linien-Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="60"/>
+        <location filename="../modules/general.py" line="57"/>
         <source>No QGIS project is currently open.</source>
         <translation>Kein QGSI-Projekt geöffnet.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="108"/>
+        <location filename="../modules/general.py" line="105"/>
         <source>Project is not saved. Please save the project first.</source>
         <translation>Das Projekt ist noch nicht gespeichert. Bitte das Projekt abspeichern, damit ein Projektordner erstellt wird.</translation>
     </message>
@@ -42,17 +42,17 @@
 <context>
     <name>XlsxExport</name>
     <message>
-        <location filename="../modules/general.py" line="668"/>
+        <location filename="../modules/general.py" line="666"/>
         <source>Could not create output directory or copy template: {0}</source>
         <translation>Konnte den Output-Ordner nicht erstellen, oder die Vorlage-Datei nicht kopieren: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="693"/>
+        <location filename="../modules/general.py" line="691"/>
         <source>Excel summary saved to: {0}</source>
         <translation>Excel-Zusammenfassung gespeichert in: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="777"/>
+        <location filename="../modules/general.py" line="775"/>
         <source>Line features exported to sheet &apos;Line Features&apos; in: {0}</source>
         <translation>Linien in Arbeitsblatt exportiert: {0}</translation>
     </message>
@@ -108,12 +108,12 @@
 <context>
     <name>progress_bar</name>
     <message>
-        <location filename="../massenermittlung.py" line="240"/>
+        <location filename="../UTEC_Massenermittlung.py" line="240"/>
         <source>Performing bulk assessment...</source>
         <translation>Verarbeite Leitungsnetz...</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="506"/>
+        <location filename="../modules/general.py" line="504"/>
         <source>Writing results to new layer...</source>
         <translation>Schreibe Ergebnisse in neuen Layer...</translation>
     </message>
@@ -131,22 +131,22 @@
 <context>
     <name>summary</name>
     <message>
-        <location filename="../modules/logs_and_errors.py" line="169"/>
+        <location filename="../modules/logs_and_errors.py" line="170"/>
         <source>Type field not found in new layer.</source>
         <translation>Konnte die Spalte für den Formteiltyp nicht finden.</translation>
     </message>
     <message>
-        <location filename="../modules/logs_and_errors.py" line="182"/>
+        <location filename="../modules/logs_and_errors.py" line="183"/>
         <source>Failed to get type counts from new layer.</source>
         <translation>Konnte die Anlagenteile nicht auszählen.</translation>
     </message>
     <message>
-        <location filename="../modules/logs_and_errors.py" line="162"/>
+        <location filename="../modules/logs_and_errors.py" line="163"/>
         <source>Layer &apos;{0}&apos; analyzed:</source>
         <translation>Layer '{0}' untersucht:</translation>
     </message>
     <message>
-        <location filename="../modules/logs_and_errors.py" line="163"/>
+        <location filename="../modules/logs_and_errors.py" line="164"/>
         <source>(Summary saved to folder &apos;{0}&apos;)</source>
         <translation>(Zusammenfassung in Unterordner '{0}' gespeichert)</translation>
     </message>
