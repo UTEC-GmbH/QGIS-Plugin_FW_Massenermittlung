@@ -11,11 +11,7 @@ from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from qgis.core import (
-    Qgis,
-    QgsProject,
-    QgsVectorLayer,
-)
+from qgis.core import Qgis, QgsProject, QgsVectorLayer
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import QCoreApplication, QSettings, Qt, QTranslator
 from qgis.PyQt.QtGui import QIcon
@@ -27,6 +23,7 @@ from .modules import logs_and_errors as lae
 from .modules.poi_classifier import PointOfInterestClassifier
 
 if TYPE_CHECKING:
+    from qgis.core import QgsLayerMetadata
     from qgis.gui import QgsMessageBar, QgsMessageBarItem
 
 
@@ -290,7 +287,10 @@ class Massenermittlung:
                     icon="✨✨✨",
                 )
                 lae.show_message(summary_single_line, level=Qgis.Success, duration=30)
-                new_layer.metadata().setTitle(summary_multi_line)
+
+                metadata: QgsLayerMetadata = new_layer.metadata()
+                metadata.setAbstract(summary_multi_line)
+                new_layer.setMetadata(metadata)
 
                 # --- Set the new layer as active ---
                 self.iface.setActiveLayer(new_layer)

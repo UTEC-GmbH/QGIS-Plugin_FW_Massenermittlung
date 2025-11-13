@@ -21,7 +21,7 @@ class Icons:
     Success: str = "🎉"
     Info: str = "💡"
     Warning: str = "💥"
-    Critical: str = "☠️"
+    Critical: str = "💀"
 
 
 @dataclass(frozen=True)
