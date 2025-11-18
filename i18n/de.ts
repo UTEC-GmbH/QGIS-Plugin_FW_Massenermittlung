@@ -108,7 +108,7 @@
 <context>
     <name>progress_bar</name>
     <message>
-        <location filename="../UTEC_Massenermittlung.py" line="241"/>
+        <location filename="../UTEC_Massenermittlung.py" line="237"/>
         <source>Performing bulk assessment...</source>
         <translation>Verarbeite Leitungsnetz...</translation>
     </message>
