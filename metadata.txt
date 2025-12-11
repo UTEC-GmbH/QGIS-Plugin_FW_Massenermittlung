@@ -1,11 +1,15 @@
 [general]
 name=UTEC Massenermittlung (dev)
 
-version=1.4
+version=1.5
 changelog=
+    Version 1.5:
+    - Überarbeitung der Berechnung von Winkeln
+    - bugfix bei Bezeichnung on Bögen
+
+
     Version 1.4:
     - Minimaler Knick in Leitungen für Bögen jetzt 3° (war vorher 15°)
-
 
     Version 1.3:
     - bugfix Zusammenfassung in Layer Metadaten

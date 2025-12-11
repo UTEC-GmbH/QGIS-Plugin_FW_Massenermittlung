@@ -157,20 +157,42 @@ class VectorAnalysisTools:
 
     @staticmethod
     def calculate_angle(p1: QgsPointXY, p2: QgsPointXY, p3: QgsPointXY) -> float:
-        """Calculate the angle between three points in degrees using azimuths."""
+        """Calculate the deflection angle between two connected line segments.
 
+        This function calculates the angle of deflection at point `p2`, which
+        connects segments `p1-p2` and `p2-p3`.
+
+        - A straight line (p1-p2-p3 are collinear) will return 0°.
+        - A 90-degree turn will return 90°.
+        - A U-turn (p1 and p3 are at the same location) will return 180°.
+
+        Args:
+            p1: The start point of the first segment.
+            p2: The common point (vertex) where the segments meet.
+            p3: The end point of the second segment.
+
+        Returns:
+            The deflection angle in degrees, from 0 to 180.
+        """
         # Check for coincident points which would make angle calculation invalid.
         if p2.compare(p1, cont.Numbers.tiny_number) or p2.compare(
             p3, cont.Numbers.tiny_number
         ):
             log_debug("Coinciding points found.", Qgis.Warning)
-            return 0.0
+            # Coincident points mean the lines are on top of each other (a U-turn).
+            return cont.Numbers.circle_semi
 
         azimuth1: float = p2.azimuth(p1)
         azimuth2: float = p2.azimuth(p3)
 
-        angle: float = abs(azimuth1 - azimuth2)
+        # To find the "bend", we compare the direction of one line with the
+        # reverse of the other. Reversing a line is equivalent to adding 180°.
+        azimuth2_reversed: float = (
+            azimuth2 + cont.Numbers.circle_semi
+        ) % cont.Numbers.circle_full
 
+        # The angle is the shortest difference between the two directions.
+        angle: float = abs(azimuth1 - azimuth2_reversed)
         if angle > cont.Numbers.circle_semi:
             angle = cont.Numbers.circle_full - angle
 

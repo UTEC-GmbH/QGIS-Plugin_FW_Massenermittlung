@@ -19,14 +19,15 @@ Notes:
   * Translation Workflow
     
     1. Compile the Translation by using compile.bat found in the root directory in the OSGeo4W Shell. 
-    The pylupdate5 command inside the script will find all your new strings and add them to i18n/de.ts. 
+    The pylupdate6 command inside the script will find all your new strings and add them to i18n/de.ts. 
 
     2. Open the Qt Linguist application by usint the command "linguist" in a OSGeo4W Shell. 
     In Linguist, open the de.ts file in the i18n directory. 
-    For each English string, you can enter the corresponding German translation. Save your changes in Linguist.
+    For each English string, you can enter the corresponding translation. Save your changes in Linguist.
     
     3. Run the compile.bat file again
     The lrelease command in the script will take your updated de.ts file and create the final i18n/de.qm file.
+    If lrelease is not installed, go to OSGeo4W setup and install "qt6-devel" (in the "Libs" section)
 
 
   * Publishing New Versions (Automated)

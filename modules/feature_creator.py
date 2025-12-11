@@ -100,12 +100,12 @@ class FeatureCreator(VectorAnalysisTools):
         Returns:
             1 if the feature was created successfully, 0 otherwise.
         """
-        if angle > (cont.Numbers.circle_semi - cont.Numbers.min_angle_bend):
+        if angle < cont.Numbers.min_angle_bend:
             return 0
 
         attrs: dict = {
             cont.NewLayerFields.type.name: cont.Names.attr_val_type_bend,
-            cont.NewLayerFields.angle.name: round(cont.Numbers.circle_semi - angle),
+            cont.NewLayerFields.angle.name: round(angle),
         }
         attrs |= self.get_connected_attributes(features)
         attrs.pop(cont.NewLayerFields.dim_2.name, None)

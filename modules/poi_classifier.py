@@ -196,15 +196,13 @@ class PointOfInterestClassifier(FeatureCreator):
             f"connecting pipe '{connecting_pipe.attribute('original_fid')}'"
         )
 
-        # To use the TIntersectionAnalyzer, we need to simulate three features.
-        # We do this by creating two temporary "dummy" features from the main pipe.
-        # These dummies represent the two segments of the main pipe.
+        # To determine the geometry of the main pipe, we need the vertices of
+        # the segment that the connecting pipe intersects with.
         p_before, p_after = self.get_adjacent_points_on_segment(
             point, main_pipe_feature
         )
+
         if not p_before or not p_after:
-            # This happens if the intersection point is not on any segment of the
-            # "passing through" line, which would be a data error.
             return self.create_questionable_point(
                 point, [feat1, feat2], note="Lines cross without a shared vertex."
             )
