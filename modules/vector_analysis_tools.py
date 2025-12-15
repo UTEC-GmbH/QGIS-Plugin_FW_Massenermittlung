@@ -178,19 +178,24 @@ class VectorAnalysisTools:
         if p2.compare(p1, cont.Numbers.tiny_number) or p2.compare(
             p3, cont.Numbers.tiny_number
         ):
-            log_debug("Coinciding points found.", Qgis.Warning)
+            log_debug("Coincident points found for angle calculation.", Qgis.Warning)
             # Coincident points mean the lines are on top of each other (a U-turn).
             return cont.Numbers.circle_semi
 
-        azimuth1: float = p2.azimuth(p1)
-        azimuth2: float = p2.azimuth(p3)
+        # Azimuth of the incoming segment (p1 -> p2)
+        azimuth_in: float = p1.azimuth(p2)
+        # Azimuth of the outgoing segment (p2 -> p3)
+        azimuth_out: float = p2.azimuth(p3)
 
-        angle: float = abs(azimuth1 - azimuth2)
+        # The angle between the two vectors
+        angle_diff: float = abs(azimuth_in - azimuth_out)
 
-        if angle > cont.Numbers.circle_semi:
-            angle = cont.Numbers.circle_full - angle
+        # The deflection angle is 180 degrees minus the smaller angle between the
+        # two vectors.
+        if angle_diff > cont.Numbers.circle_semi:
+            angle_diff = cont.Numbers.circle_full - angle_diff
 
-        return angle
+        return angle_diff
 
     def get_adjacent_vertices(
         self, point: QgsPointXY, feature: QgsFeature

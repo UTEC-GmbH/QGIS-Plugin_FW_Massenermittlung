@@ -62,7 +62,7 @@ class TIntersectionAnalyzer(FeatureCreator):
         bend_angle: float = self.calculate_angle(p_main_1, point, p_main_2)
         t_point: QgsPointXY = point
 
-        if bend_angle < (cont.Numbers.circle_semi - cont.Numbers.min_angle_bend):
+        if bend_angle > cont.Numbers.min_angle_bend:
             # If there's a significant bend in the main pipe, create a bend feature
             # at the intersection point. The T-piece will also be at this point.
             created_count += self.create_bend(point, main_pipe_features, bend_angle)
@@ -132,7 +132,7 @@ class TIntersectionAnalyzer(FeatureCreator):
         main_pipe_dummy2 = QgsFeature(main_pipe_feature)
         main_pipe_features: list[QgsFeature] = [main_pipe_dummy1, main_pipe_dummy2]
 
-        if bend_angle < (cont.Numbers.circle_semi - cont.Numbers.min_angle_bend):
+        if bend_angle > cont.Numbers.min_angle_bend:
             created_count += self.create_bend(point, main_pipe_features, bend_angle)
 
         # 2. Build the note and create the T-piece
@@ -245,7 +245,7 @@ class TIntersectionAnalyzer(FeatureCreator):
             f.id(): self.get_other_endpoint(f, point) for f in features
         }
 
-        max_angle: float = -1.0
+        min_angle: float = cont.Numbers.circle_full
         main_pipe: list[QgsFeature] = []
 
         for i in range(len(features)):
@@ -255,8 +255,8 @@ class TIntersectionAnalyzer(FeatureCreator):
 
                 if p1 and p2:
                     angle: float = self.calculate_angle(p1, point, p2)
-                    if angle > max_angle:
-                        max_angle = angle
+                    if angle < min_angle:
+                        min_angle = angle
                         main_pipe = [f1, f2]
                         log_debug(
                             "Find Main Pipe → "
