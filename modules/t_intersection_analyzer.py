@@ -181,6 +181,12 @@ class TIntersectionAnalyzer(FeatureCreator):
         # Strategy 1: Check for a single, unconnected endpoint (house connection)
         main_pipe, conn_pipe = self._find_pipe_by_endpoint_connectivity(point, features)
         if main_pipe and conn_pipe:
+            log_debug(
+                "Find Main Pipe → Connecting pipe identified through house connection\n"
+                f"Connecting pipe: {conn_pipe.attribute('original_fid')} | "
+                f"Main pipe: {[pip.attribute('original_fid') for pip in main_pipe]}",
+                icon="🐞",
+            )
             return main_pipe, conn_pipe
 
         # Strategy 2: Fallback to finding the most collinear pair by angle
@@ -239,7 +245,7 @@ class TIntersectionAnalyzer(FeatureCreator):
             f.id(): self.get_other_endpoint(f, point) for f in features
         }
 
-        max_angle = -1.0
+        max_angle: float = -1.0
         main_pipe: list[QgsFeature] = []
 
         for i in range(len(features)):
@@ -248,10 +254,17 @@ class TIntersectionAnalyzer(FeatureCreator):
                 p1, p2 = feature_endpoints.get(f1.id()), feature_endpoints.get(f2.id())
 
                 if p1 and p2:
-                    angle = self.calculate_angle(p1, point, p2)
+                    angle: float = self.calculate_angle(p1, point, p2)
                     if angle > max_angle:
                         max_angle = angle
                         main_pipe = [f1, f2]
+                        log_debug(
+                            "Find Main Pipe → "
+                            f"features: [{f1.attribute('original_fid')}, "
+                            f"{f2.attribute('original_fid')}] → "
+                            f"angle: {round(angle, 1)}°",
+                            icon="🐞",
+                        )
 
         if not main_pipe:
             return [], None
@@ -259,6 +272,13 @@ class TIntersectionAnalyzer(FeatureCreator):
         connecting_pipe: QgsFeature | None = next(
             (f for f in features if f not in main_pipe), None
         )
+        if connecting_pipe:
+            log_debug(
+                "Find Main Pipe → Connecting pipe identified through angle\n"
+                f"Connecting pipe: {connecting_pipe.attribute('original_fid')} | "
+                f"Main pipe: {[pip.attribute('original_fid') for pip in main_pipe]}",
+                icon="🐞",
+            )
         return main_pipe, connecting_pipe
 
     def _check_and_create_reducer(

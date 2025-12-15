@@ -185,14 +185,8 @@ class VectorAnalysisTools:
         azimuth1: float = p2.azimuth(p1)
         azimuth2: float = p2.azimuth(p3)
 
-        # To find the "bend", we compare the direction of one line with the
-        # reverse of the other. Reversing a line is equivalent to adding 180°.
-        azimuth2_reversed: float = (
-            azimuth2 + cont.Numbers.circle_semi
-        ) % cont.Numbers.circle_full
+        angle: float = abs(azimuth1 - azimuth2)
 
-        # The angle is the shortest difference between the two directions.
-        angle: float = abs(azimuth1 - azimuth2_reversed)
         if angle > cont.Numbers.circle_semi:
             angle = cont.Numbers.circle_full - angle
 

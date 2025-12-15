@@ -618,10 +618,9 @@ class LayerManager:
         for name, value in variables.items():
             QgsExpressionContextUtils.setLayerVariable(layer, name, value)
 
-        qml_resource_path = (
-            ":/compiled_resources/layer_style/massenermittlung_style.qml"
-        )
-        layer.loadNamedStyle(qml_resource_path)
+        qml_path: Path = cont.PLUGIN_DIR / "layer_style" / "massenermittlung_style.qml"
+
+        layer.loadNamedStyle(str(qml_path))
 
         layer.triggerRepaint()
         log_debug("Layer style set.", Qgis.Success)
@@ -641,14 +640,13 @@ class LayerManager:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            plugin_dir: Path = Path(__file__).parent.parent
             template_name: str = f"{cont.Names.excel_file_summary}.xlsx"
             template_path = Path(template_name)
             dest_file_name: str = (
                 f"{template_path.stem} - {layer_name}{template_path.suffix}"
             )
 
-            template_src: Path = plugin_dir / "templates" / template_name
+            template_src: Path = cont.PLUGIN_DIR / "templates" / template_name
             template_dest: Path = output_dir / dest_file_name
 
             if not template_src.exists():

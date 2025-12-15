@@ -5,10 +5,11 @@ This module contains constant values.
 
 from dataclasses import dataclass
 from enum import Enum
-
+from pathlib import Path
 from qgis.PyQt.QtCore import QMetaType as Qmt
 
 PROBLEMATIC_FIELD_TYPES: list = [Qmt.QVariantMap, Qmt.QVariantList, Qmt.QStringList]
+PLUGIN_DIR: Path = Path(__file__).parent.parent
 
 
 @dataclass(frozen=True)
