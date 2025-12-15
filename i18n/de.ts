@@ -42,17 +42,17 @@
 <context>
     <name>XlsxExport</name>
     <message>
-        <location filename="../modules/general.py" line="666"/>
+        <location filename="../modules/general.py" line="664"/>
         <source>Could not create output directory or copy template: {0}</source>
         <translation>Konnte den Output-Ordner nicht erstellen, oder die Vorlage-Datei nicht kopieren: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="691"/>
+        <location filename="../modules/general.py" line="689"/>
         <source>Excel summary saved to: {0}</source>
         <translation>Excel-Zusammenfassung gespeichert in: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="775"/>
+        <location filename="../modules/general.py" line="773"/>
         <source>Line features exported to sheet &apos;Line Features&apos; in: {0}</source>
         <translation>Linien in Arbeitsblatt exportiert: {0}</translation>
     </message>
@@ -70,7 +70,7 @@
         <translation>Konnte die Endpunkte der Hauptleitung nicht finden.</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="145"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="160"/>
         <source>Main pipe: {0}</source>
         <translation>Hauptleitung: {0}</translation>
     </message>
@@ -85,24 +85,34 @@
         <translation>Mehr als 3 Lininen an Knoten - bitte Knoten auflösen.</translation>
     </message>
     <message>
-        <location filename="../modules/poi_classifier.py" line="285"/>
+        <location filename="../modules/poi_classifier.py" line="283"/>
         <source>Unconnected line - make sure the line is connected to the network.</source>
         <translation>Linie nicht an Netz angeschlossen - bitte Verbinddungsstelle prüfen.</translation>
     </message>
     <message>
-        <location filename="../modules/feature_creator.py" line="192"/>
+        <location filename="../modules/feature_creator.py" line="200"/>
         <source>Non-standard pipe dimension detected for reducer.</source>
         <translation>Falsche Rohrdimension gefunden.</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="299"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="334"/>
         <source>Connecting pipe has a larger diameter than the main pipe.</source>
         <translation>Anschlussleitung hat größere Dimension als Hauptleitung.</translation>
     </message>
     <message>
-        <location filename="../modules/feature_creator.py" line="223"/>
+        <location filename="../modules/feature_creator.py" line="233"/>
         <source>Reducer from DN{0} to DN{1}</source>
         <translation>Reduzierung von DN{0} auf DN{1}</translation>
+    </message>
+    <message>
+        <location filename="../modules/t_intersection_analyzer.py" line="142"/>
+        <source>Bend in main pipe (behind T-piece)</source>
+        <translation>Bogen in Hauptleitung (nach T-Stück)</translation>
+    </message>
+    <message>
+        <location filename="../modules/t_intersection_analyzer.py" line="381"/>
+        <source>Bend in connecting pipe (doesn't join the T-intersection at 90° angle.)</source>
+        <translation>Bogen in Anschlussleitung (Anschluss nicht im 90° Winkel)</translation>
     </message>
 </context>
 <context>

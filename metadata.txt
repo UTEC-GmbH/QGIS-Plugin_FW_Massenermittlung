@@ -4,8 +4,10 @@ name=UTEC Massenermittlung (dev)
 version=1.5
 changelog=
     Version 1.5:
-    - Überarbeitung der Berechnung von Winkeln
+    - Überarbeitung der Berechnung von Winkeln für Bögen
+    - Bögen an T-Stücken, wenn die Anschlussleitung nicht mit 90° am T-Stück anschließt
     - bugfix bei Bezeichnung on Bögen
+    - bugfix bei mehr als 2 Reduzierungen hintereinander
 
 
     Version 1.4:
