@@ -70,7 +70,7 @@
         <translation>Konnte die Endpunkte der Hauptleitung nicht finden.</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="160"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="165"/>
         <source>Main pipe: {0}</source>
         <translation>Hauptleitung: {0}</translation>
     </message>
@@ -95,7 +95,7 @@
         <translation>Falsche Rohrdimension gefunden.</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="334"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="339"/>
         <source>Connecting pipe has a larger diameter than the main pipe.</source>
         <translation>Anschlussleitung hat größere Dimension als Hauptleitung.</translation>
     </message>
@@ -105,12 +105,12 @@
         <translation>Reduzierung von DN{0} auf DN{1}</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="142"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="147"/>
         <source>Bend in main pipe (behind T-piece)</source>
         <translation>Bogen in Hauptleitung (nach T-Stück)</translation>
     </message>
     <message>
-        <location filename="../modules/t_intersection_analyzer.py" line="381"/>
+        <location filename="../modules/t_intersection_analyzer.py" line="391"/>
         <source>Bend in connecting pipe (doesn't join the T-intersection at 90° angle.)</source>
         <translation>Bogen in Anschlussleitung (Anschluss nicht im 90° Winkel)</translation>
     </message>
