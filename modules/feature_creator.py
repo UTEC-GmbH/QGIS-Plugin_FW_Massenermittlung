@@ -88,7 +88,11 @@ class FeatureCreator(VectorAnalysisTools):
         return 1 if self.create_feature(QgsGeometry.fromPointXY(point), attrs) else 0
 
     def create_bend(
-        self, point: QgsPointXY, features: list[QgsFeature], angle: float
+        self,
+        point: QgsPointXY,
+        features: list[QgsFeature],
+        angle: float,
+        note: str | None = None,
     ) -> int:
         """Create a 'bend' feature if the angle is sufficient.
 
@@ -96,18 +100,22 @@ class FeatureCreator(VectorAnalysisTools):
             point: The location of the bend.
             features: The list of connected features.
             angle: The calculated angle of the bend.
+            note: An optional note to add to the feature's attributes.
 
         Returns:
             1 if the feature was created successfully, 0 otherwise.
         """
-        if angle > (cont.Numbers.circle_semi - cont.Numbers.min_angle_bend):
+        if angle < cont.Numbers.min_angle_bend:
             return 0
 
         attrs: dict = {
             cont.NewLayerFields.type.name: cont.Names.attr_val_type_bend,
-            cont.NewLayerFields.angle.name: round(cont.Numbers.circle_semi - angle),
+            cont.NewLayerFields.angle.name: round(angle),
         }
         attrs |= self.get_connected_attributes(features)
+        if note:
+            attrs[cont.NewLayerFields.notes.name] = note
+
         attrs.pop(cont.NewLayerFields.dim_2.name, None)
         return 1 if self.create_feature(QgsGeometry.fromPointXY(point), attrs) else 0
 
@@ -203,9 +211,11 @@ class FeatureCreator(VectorAnalysisTools):
         created_count = 0
 
         for i in range(num_reducers):
-            distance += cont.Numbers.distance_t_reducer * i
+            # The first reducer is at 'distance',
+            # subsequent ones have a constant distance between them.
+            current_distance: float = distance + (cont.Numbers.distance_t_reducer * i)
             reducer_point: QgsPointXY | None = self.get_point_along_line(
-                point, smaller_dim_feature, distance
+                point, smaller_dim_feature, current_distance
             )
             if not reducer_point:
                 continue

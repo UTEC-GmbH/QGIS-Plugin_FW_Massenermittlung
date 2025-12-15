@@ -157,24 +157,45 @@ class VectorAnalysisTools:
 
     @staticmethod
     def calculate_angle(p1: QgsPointXY, p2: QgsPointXY, p3: QgsPointXY) -> float:
-        """Calculate the angle between three points in degrees using azimuths."""
+        """Calculate the deflection angle between two connected line segments.
 
+        This function calculates the angle of deflection at point `p2`, which
+        connects segments `p1-p2` and `p2-p3`.
+
+        - A straight line (p1-p2-p3 are collinear) will return 0°.
+        - A 90-degree turn will return 90°.
+        - A U-turn (p1 and p3 are at the same location) will return 180°.
+
+        Args:
+            p1: The start point of the first segment.
+            p2: The common point (vertex) where the segments meet.
+            p3: The end point of the second segment.
+
+        Returns:
+            The deflection angle in degrees, from 0 to 180.
+        """
         # Check for coincident points which would make angle calculation invalid.
         if p2.compare(p1, cont.Numbers.tiny_number) or p2.compare(
             p3, cont.Numbers.tiny_number
         ):
-            log_debug("Coinciding points found.", Qgis.Warning)
-            return 0.0
+            log_debug("Coincident points found for angle calculation.", Qgis.Warning)
+            # Coincident points mean the lines are on top of each other (a U-turn).
+            return cont.Numbers.circle_semi
 
-        azimuth1: float = p2.azimuth(p1)
-        azimuth2: float = p2.azimuth(p3)
+        # Azimuth of the incoming segment (p1 -> p2)
+        azimuth_in: float = p1.azimuth(p2)
+        # Azimuth of the outgoing segment (p2 -> p3)
+        azimuth_out: float = p2.azimuth(p3)
 
-        angle: float = abs(azimuth1 - azimuth2)
+        # The angle between the two vectors
+        angle_diff: float = abs(azimuth_in - azimuth_out)
 
-        if angle > cont.Numbers.circle_semi:
-            angle = cont.Numbers.circle_full - angle
+        # The deflection angle is 180 degrees minus the smaller angle between the
+        # two vectors.
+        if angle_diff > cont.Numbers.circle_semi:
+            angle_diff = cont.Numbers.circle_full - angle_diff
 
-        return angle
+        return angle_diff
 
     def get_adjacent_vertices(
         self, point: QgsPointXY, feature: QgsFeature

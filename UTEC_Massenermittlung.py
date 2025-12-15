@@ -18,6 +18,7 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QMenu, QProgressBar, QToolButton
 
 from . import resources
+from .modules import constants as cont
 from .modules import general as ge
 from .modules import logs_and_errors as lae
 from .modules.poi_classifier import PointOfInterestClassifier
@@ -40,16 +41,15 @@ class Massenermittlung:
 
         self.iface: QgisInterface = iface
         self.msg_bar: QgsMessageBar | None = iface.messageBar()
-        self.plugin_dir: Path = Path(__file__).parent
         self.actions: list = []
         self.plugin_menu: QMenu | None = None
         self.dlg = None
-        self.icon_path: str = ":/compiled_resources/icon.svg"
+        self.icon_path: str = str(cont.PLUGIN_DIR / "icon.svg")
         self.translator: QTranslator | None = None
 
         # Read metadata to get the plugin name for UI elements
         self.plugin_name: str = "UTEC Massenermittlung (dev)"  # Default
-        metadata_path: Path = self.plugin_dir / "metadata.txt"
+        metadata_path: Path = cont.PLUGIN_DIR / "metadata.txt"
         if metadata_path.exists():
             config = configparser.ConfigParser()
             config.read(metadata_path)
@@ -62,7 +62,7 @@ class Massenermittlung:
 
         # initialize translation
         locale = QSettings().value("locale/userLocale", "en")[:2]
-        translator_path: Path = self.plugin_dir / "i18n" / f"{locale}.qm"
+        translator_path: Path = cont.PLUGIN_DIR / "i18n" / f"{locale}.qm"
 
         if not translator_path.exists():
             lae.log_debug(f"Translator not found in: {translator_path}", Qgis.Warning)

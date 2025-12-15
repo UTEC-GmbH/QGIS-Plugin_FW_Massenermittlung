@@ -58,14 +58,24 @@ class TIntersectionAnalyzer(FeatureCreator):
             # fmt: on
             return self.create_questionable_point(point, features, note=note_text)
 
+        # 2.1 Check for a bend in the connecting pipe (deviation from 90°)
+        created_count += self._check_and_create_connecting_bend(
+            point, p_main_1, p_main_2, connecting_pipe
+        )
+
         # 3. Check for a bend in the main pipe. The logic depends on this.
         bend_angle: float = self.calculate_angle(p_main_1, point, p_main_2)
         t_point: QgsPointXY = point
 
-        if bend_angle < (cont.Numbers.circle_semi - cont.Numbers.min_angle_bend):
+        if bend_angle > cont.Numbers.min_angle_bend:
             # If there's a significant bend in the main pipe, create a bend feature
             # at the intersection point. The T-piece will also be at this point.
-            created_count += self.create_bend(point, main_pipe_features, bend_angle)
+            # fmt: off
+            note: str = QCoreApplication.translate("feature_note", "Bend in main pipe (behind T-piece)")  # noqa: E501
+            # fmt: on
+            created_count += self.create_bend(
+                point, main_pipe_features, bend_angle, note
+            )
 
         # Build the note with main pipe IDs and dimensions
         note_parts: list[str] = []
@@ -132,8 +142,18 @@ class TIntersectionAnalyzer(FeatureCreator):
         main_pipe_dummy2 = QgsFeature(main_pipe_feature)
         main_pipe_features: list[QgsFeature] = [main_pipe_dummy1, main_pipe_dummy2]
 
-        if bend_angle < (cont.Numbers.circle_semi - cont.Numbers.min_angle_bend):
-            created_count += self.create_bend(point, main_pipe_features, bend_angle)
+        if bend_angle > cont.Numbers.min_angle_bend:
+            # fmt: off
+            note: str = QCoreApplication.translate("feature_note", "Bend in main pipe (behind T-piece)")  # noqa: E501
+            # fmt: on
+            created_count += self.create_bend(
+                point, main_pipe_features, bend_angle, note
+            )
+
+        # 1.1 Check for a bend in the connecting pipe
+        created_count += self._check_and_create_connecting_bend(
+            point, p_before, p_after, connecting_pipe
+        )
 
         # 2. Build the note and create the T-piece
         part: str = str(main_pipe_feature.attribute("original_fid"))
@@ -181,6 +201,12 @@ class TIntersectionAnalyzer(FeatureCreator):
         # Strategy 1: Check for a single, unconnected endpoint (house connection)
         main_pipe, conn_pipe = self._find_pipe_by_endpoint_connectivity(point, features)
         if main_pipe and conn_pipe:
+            log_debug(
+                "Find Main Pipe → Connecting pipe identified through house connection\n"
+                f"Connecting pipe: {conn_pipe.attribute('original_fid')} | "
+                f"Main pipe: {[pip.attribute('original_fid') for pip in main_pipe]}",
+                icon="🐞",
+            )
             return main_pipe, conn_pipe
 
         # Strategy 2: Fallback to finding the most collinear pair by angle
@@ -239,7 +265,7 @@ class TIntersectionAnalyzer(FeatureCreator):
             f.id(): self.get_other_endpoint(f, point) for f in features
         }
 
-        max_angle = -1.0
+        min_angle: float = cont.Numbers.circle_full
         main_pipe: list[QgsFeature] = []
 
         for i in range(len(features)):
@@ -248,10 +274,17 @@ class TIntersectionAnalyzer(FeatureCreator):
                 p1, p2 = feature_endpoints.get(f1.id()), feature_endpoints.get(f2.id())
 
                 if p1 and p2:
-                    angle = self.calculate_angle(p1, point, p2)
-                    if angle > max_angle:
-                        max_angle = angle
+                    angle: float = self.calculate_angle(p1, point, p2)
+                    if angle < min_angle:
+                        min_angle = angle
                         main_pipe = [f1, f2]
+                        log_debug(
+                            "Find Main Pipe → "
+                            f"features: [{f1.attribute('original_fid')}, "
+                            f"{f2.attribute('original_fid')}] → "
+                            f"angle: {round(angle, 1)}°",
+                            icon="🐞",
+                        )
 
         if not main_pipe:
             return [], None
@@ -259,6 +292,13 @@ class TIntersectionAnalyzer(FeatureCreator):
         connecting_pipe: QgsFeature | None = next(
             (f for f in features if f not in main_pipe), None
         )
+        if connecting_pipe:
+            log_debug(
+                "Find Main Pipe → Connecting pipe identified through angle\n"
+                f"Connecting pipe: {connecting_pipe.attribute('original_fid')} | "
+                f"Main pipe: {[pip.attribute('original_fid') for pip in main_pipe]}",
+                icon="🐞",
+            )
         return main_pipe, connecting_pipe
 
     def _check_and_create_reducer(
@@ -301,4 +341,56 @@ class TIntersectionAnalyzer(FeatureCreator):
             return self.create_questionable_point(
                 point, [*main_pipe, connecting_pipe], note=note_text
             )
+        return 0
+
+    def _check_and_create_connecting_bend(
+        self,
+        point: QgsPointXY,
+        p_main_1: QgsPointXY,
+        p_main_2: QgsPointXY,
+        connecting_pipe: QgsFeature,
+    ) -> int:
+        """Check if the connecting pipe requires a bend feature.
+
+        This method calculates the angle between the connecting pipe and the
+        main pipe segments. If the angle deviates from 90 degrees by more than
+        the minimum bend angle (and the T-piece cannot be aligned to avoid it),
+        a bend feature is created.
+
+        Args:
+            point: The T-intersection point.
+            p_main_1: The remote endpoint of the first main pipe segment.
+            p_main_2: The remote endpoint of the second main pipe segment.
+            connecting_pipe: The connecting pipe feature.
+
+        Returns:
+            1 if a bend was created, 0 otherwise.
+        """
+        p_conn: QgsPointXY | None = self.get_other_endpoint(connecting_pipe, point)
+        if not p_conn:
+            return 0
+
+        # Calculate angles relative to both sides of the main pipe
+        angle_1: float = self.calculate_angle(p_main_1, point, p_conn)
+        angle_2: float = self.calculate_angle(p_main_2, point, p_conn)
+
+        # Calculate deviation from 90 degrees
+        dev_1: float = abs(90 - angle_1)
+        if dev_1 < cont.Numbers.min_angle_bend:
+            return 0
+
+        dev_2: float = abs(90 - angle_2)
+        if dev_2 < cont.Numbers.min_angle_bend:
+            return 0
+
+        # We assume the T-piece will be aligned causing the minimum deviation
+        min_dev: float = min(dev_1, dev_2)
+
+        if min_dev > cont.Numbers.min_angle_bend:
+            # fmt: off
+            note: str = QCoreApplication.translate("feature_note", "Bend in connecting pipe (doesn't join the T-intersection at 90° angle.)")  # noqa: E501
+            # fmt: on
+            # Create a bend regarding the connecting pipe
+            return self.create_bend(point, [connecting_pipe], min_dev, note)
+
         return 0
