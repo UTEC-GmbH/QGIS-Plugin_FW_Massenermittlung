@@ -797,7 +797,7 @@ class LayerManager:
 
         # --- 3. Export line features (routes) ---
         log_debug("Exporting line features to a separate Excel sheet.")
-        temporary_table = self._create_line_features_table()
+        temporary_table: QgsVectorLayer | None = self._create_line_features_table()
         if not temporary_table:
             return
 

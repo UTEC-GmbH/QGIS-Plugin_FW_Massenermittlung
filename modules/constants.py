@@ -21,9 +21,9 @@ class PluginPaths:
 
     main: Path = Path(__file__).parent.parent
     i18n: Path = Path(__file__).parent.parent / "i18n"
-    templates: Path = Path(__file__).parent.parent / "templates"
     resources: Path = Path(__file__).parent.parent / "resources"
     icons: Path = Path(__file__).parent.parent / "resources" / "icons"
+    templates: Path = Path(__file__).parent.parent / "resources" / "templates"
 
 
 @dataclass(frozen=True)
