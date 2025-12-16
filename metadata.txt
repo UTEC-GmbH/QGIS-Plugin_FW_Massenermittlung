@@ -4,6 +4,7 @@ name=UTEC Massenermittlung (dev)
 version=1.6
 changelog=
     Version 1.6:
+    - ✨ Neue Funktion: Excel-Zusammenfassung aktualisieren (nach manueller Änderung des Ergebnislayers)
     - Überarbeitung interner Ressourcen (icons, layer style) und release
 
     

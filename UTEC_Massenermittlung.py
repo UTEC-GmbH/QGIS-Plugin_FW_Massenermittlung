@@ -11,8 +11,8 @@ from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from qgis.core import Qgis, QgsApplication, QgsProject, QgsVectorLayer
-from qgis.gui import QgisInterface
+from qgis.core import Qgis, QgsApplication, QgsLayerTreeNode, QgsProject, QgsVectorLayer
+from qgis.gui import QgisInterface, QgsLayerTreeView
 from qgis.PyQt.QtCore import QCoreApplication, QSettings, Qt, QTranslator
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QMenu, QProgressBar, QToolButton
@@ -29,8 +29,6 @@ if TYPE_CHECKING:
 
 class Massenermittlung:
     """QGIS Plugin for renaming and moving layers to a GeoPackage."""
-
-    BUTTON_TYPE = "simple"  # "menu" or "simple"
 
     def __init__(self, iface: QgisInterface) -> None:
         """Initialize the plugin.
@@ -77,40 +75,42 @@ class Massenermittlung:
 
     def add_action(  # noqa: PLR0913 # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
-        icon_path: str,
-        text: str,
+        icon: str | QIcon,
+        button_text: str,
         callback: Callable,
         enabled_flag: bool = True,  # noqa: FBT001, FBT002
         add_to_menu: bool = True,  # noqa: FBT001, FBT002
         add_to_toolbar: bool = True,  # noqa: FBT001, FBT002
-        status_tip: str | None = None,
-        whats_this: str | None = None,
+        tool_tip: str | None = None,
         parent=None,  # noqa: ANN001
     ) -> QAction:  # type: ignore[]
-        """Add a QAction to the plugin's menu and/or toolbar.
+        """Create and configure a QAction for the plugin.
 
-        :param icon_path: Path to the icon for the action.
-        :param text: Text to display for the action.
-        :param callback: Function to call when the action is triggered.
-        :param enabled_flag: Whether the action is enabled initially.
-        :param add_to_menu: Whether to add the action to the plugin's menu.
-        :param add_to_toolbar: Whether to add the action to the QGIS toolbar.
-        :param status_tip: Status tip for the action.
-        :param whats_this: "What's This?" help text for the action.
-        :param parent: Parent widget for the action.
-        :returns: The created QAction object.
+        This helper method creates a QAction, connects it to a callback, and
+        optionally adds it to the QGIS toolbar and the plugin's menu.
+
+        Args:
+            icon: Path to the icon or QIcon object.
+            button_text: Text to be displayed for the action in menus.
+            callback: The function to execute when the action is triggered.
+            enabled_flag: Whether the action should be enabled by default.
+            add_to_menu: If True, adds the action to the plugin's menu.
+            add_to_toolbar: If True, adds the action to a QGIS toolbar.
+            tool_tip: Optional tooltip text for the action.
+            parent: The parent widget for the action, typically the QGIS main window.
+
+        Returns:
+            The configured QAction instance.
         """
-        icon = QIcon(icon_path)
-        action = QAction(icon, text, parent)
+
+        if isinstance(icon, str):
+            icon = QIcon(icon)
+        action = QAction(icon, button_text, parent)
         action.triggered.connect(callback)
         action.setEnabled(enabled_flag)
-        action.setToolTip(text)
 
-        if status_tip is not None:
-            action.setStatusTip(status_tip)
-
-        if whats_this is not None:
-            action.setWhatsThis(whats_this)
+        if tool_tip is not None:
+            action.setToolTip(tool_tip)
 
         if add_to_toolbar:
             self.iface.addToolBarIcon(action)
@@ -130,35 +130,51 @@ class Massenermittlung:
         if self.plugin_menu is None:
             lae.raise_runtime_error("Failed to create the plugin menu.")
 
+        self.plugin_menu.setToolTipsVisible(True)
         self.plugin_menu.setIcon(QIcon(self.icon_path))
         self._modify_svg_path(add=True)
 
-        # Add an action for the main functionality
-        run_action = self.add_action(
-            self.icon_path,
-            text=self.plugin_name,
+        # Add an action for running the Material Take-off
+        # fmt: off
+        # ruff: noqa: E501
+        button: str = QCoreApplication.translate("Menu_Button", "Run Material Take-off")
+        tool_tip_text: str = QCoreApplication.translate("Menu_ToolTip", "<p><b>Material Take-off for the selected layer</b></p><p><span style='font-weight:normal; font-style:normal;'>The Material Take-off will be calculated for the selected layer. The selected layer needs to be a line layer.</span></p>")
+        # fmt: on
+        mto_action = self.add_action(
+            icon=str(cont.PluginPaths.icons / "plugin_sub_start.svg"),
+            button_text=button,
             callback=self.run_massenermittlung,
             parent=self.iface.mainWindow(),
             add_to_menu=False,  # Will be added to our custom menu
             add_to_toolbar=False,  # Will be added manually based on BUTTON_TYPE
-            status_tip=self.plugin_name,
-            whats_this=f"{self.plugin_name}.",
+            tool_tip=tool_tip_text,
         )
-        self.plugin_menu.addAction(run_action)
+        self.plugin_menu.addAction(mto_action)
 
-        # Add our menu to the main "Plugins" menu
-        self.iface.pluginMenu().addMenu(self.plugin_menu)  # type: ignore[]
+        # Add an action for re-running the Excel ouput
+        # fmt: off
+        # ruff: noqa: E501
+        button: str = QCoreApplication.translate("Menu_Button", "Re-do the Excel output")
+        tool_tip_text: str = QCoreApplication.translate("Menu_ToolTip", "<p><b>Re-do the Excel output</b></p><p><span style='font-weight:normal; font-style:normal;'>After manual changes to the Material-Take-off-layer, the Excel output needs to be updated. Select the result layer and click this button. The Excel output will be updated.</span></p>")
+        # fmt: on
+        excel_action = self.add_action(
+            icon=str(cont.PluginPaths.icons / "plugin_sub_excel.svg"),
+            button_text=button,
+            callback=self.rerun_excel_output,
+            parent=self.iface.mainWindow(),
+            add_to_menu=False,  # Will be added to our custom menu
+            add_to_toolbar=False,  # Will be added manually based on BUTTON_TYPE
+            tool_tip=tool_tip_text,
+        )
+        self.plugin_menu.addAction(excel_action)
 
-        if self.BUTTON_TYPE == "menu":
-            self.create_toolbar_button(run_action)
-        elif self.BUTTON_TYPE == "simple":
-            self.iface.addToolBarIcon(run_action)
-
-    def create_toolbar_button(self, run_action: QAction) -> None:  # type: ignore[]
-        """Add a toolbutton to the toolbar to show the flyout menu"""
+        # Add the fly-out menu to the main "Plugins" menu
+        if menu := self.iface.pluginMenu():
+            menu.addMenu(self.plugin_menu)
         toolbar_button = QToolButton()
+        toolbar_button.setIcon(QIcon(self.icon_path))
+        toolbar_button.setToolTip(self.plugin_name)
         toolbar_button.setMenu(self.plugin_menu)
-        toolbar_button.setDefaultAction(run_action)
         toolbar_button.setPopupMode(QToolButton.InstantPopup)
         toolbar_action = self.iface.addToolBarWidget(toolbar_button)
         self.actions.append(toolbar_action)
@@ -244,12 +260,14 @@ class Massenermittlung:
     def run_massenermittlung(self) -> None:
         """Call the main function."""
 
-        lae.log_debug("... STARTING PLUGIN RUN ...", icon="✨✨✨")
+        lae.log_debug(
+            "... STARTING PLUGIN RUN ... (run_massenermittlung)", icon="✨✨✨"
+        )
         temp_point_layer: QgsVectorLayer | None = None
         reprojected_layer: QgsVectorLayer | None = None
         try:
             # fmt: off
-            initial_message: str = QCoreApplication.translate("progress_bar", "Performing bulk assessment...")  # noqa: E501
+            initial_message: str = QCoreApplication.translate("progress_bar", "Performing bulk assessment...")
             # fmt: on
             with self._managed_progress_bar(initial_message) as (
                 progress_bar,
@@ -343,3 +361,67 @@ class Massenermittlung:
             if reprojected_layer is not None and project is not None:
                 project.removeMapLayer(reprojected_layer.id())
                 lae.log_debug("In-memory copy of the selected layer removed.")
+
+    def rerun_excel_output(self) -> None:
+        """Rerun the Excel export for a manually edited result layer.
+
+        This function takes the currently selected result layer (which must be a
+        point layer ending with the plugin's suffix) and re-exports its data to
+        an Excel file. It also finds the original source line layer to include
+        route lengths.
+        """
+        lae.log_debug("... Rerunning Excel output ...", icon="✨✨✨")
+        reprojected_layer_excel: QgsVectorLayer | None = None
+        try:
+            layer_manager = ge.LayerManager()
+
+            # 1. Get the currently selected layer, which should be the result layer.
+            layer_tree: QgsLayerTreeView | None = self.iface.layerTreeView()
+            if not layer_tree:
+                lae.raise_runtime_error("Could not get layer tree view.")
+
+            selected_nodes: list[QgsLayerTreeNode] = layer_tree.selectedNodes()
+            if len(selected_nodes) != 1:
+                # fmt: off
+                ue_msg: str = QCoreApplication.translate("UserError", "Please select a single result layer to export.")
+                # fmt: on
+                lae.raise_user_error(ue_msg)
+
+            result_layer = selected_nodes[0].layer()
+            if not isinstance(
+                result_layer, QgsVectorLayer
+            ) or not result_layer.name().endswith(cont.Names.new_layer_suffix):
+                # fmt: off
+                ue_msg: str = QCoreApplication.translate("UserError", "The selected layer is not a valid result layer from this plugin.")
+                # fmt: on
+                lae.raise_user_error(ue_msg)
+
+            # 2. Find the original source line layer to get line lengths.
+            layer_manager.find_and_set_source_layer(result_layer)
+            reprojected_layer_excel = layer_manager.selected_layer
+
+            # 3. Export the results.
+            layer_manager.export_results(result_layer)
+
+            lae.show_message(
+                QCoreApplication.translate("summary", "Excel export has been updated."),
+                level=Qgis.Success,
+                duration=10,
+            )
+
+        except (lae.CustomUserError, lae.CustomRuntimeError):
+            # Errors are already logged and shown to the user.
+            return
+        except Exception as e:  # noqa: BLE001
+            lae.log_debug(f"An unexpected error occurred during Excel export: {e!s}")
+            lae.show_message(
+                f"An unexpected error occurred during Excel export: {e!s}",
+                level=Qgis.Critical,
+            )
+
+        finally:
+            # Clean up the temporary reprojected layer
+            project: QgsProject | None = QgsProject.instance()
+            if reprojected_layer_excel is not None and project is not None:
+                project.removeMapLayer(reprojected_layer_excel.id())
+                lae.log_debug("In-memory copy of the source layer removed (rerun).")

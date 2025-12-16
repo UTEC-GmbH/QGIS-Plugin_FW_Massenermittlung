@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from osgeo import ogr
+from qgis._core import QgsMapLayer
 from qgis.core import (
     Qgis,
     QgsCoordinateTransform,
@@ -476,6 +477,38 @@ class LayerManager:
 
         return gpkg_layer
 
+    def find_and_set_source_layer(self, result_layer: QgsVectorLayer) -> None:
+        """Find and set the original source layer based on the result layer's name.
+
+        This method is used when re-running an export. It derives the source
+        layer's name from the result layer, finds it in the project, and sets it
+        as the `selected_layer` after reprojection.
+
+        Args:
+            result_layer: The result layer (e.g., 'MyLines - Massenermittlung').
+
+        Raises:
+            CustomUserError: If the source layer cannot be found.
+        """
+        source_layer_name: str = result_layer.name().removesuffix(
+            cont.Names.new_layer_suffix
+        )
+        source_layers: list[QgsMapLayer] = self.project.mapLayersByName(
+            source_layer_name
+        )
+
+        if not source_layers:
+            # fmt: off
+            msg: str = QCoreApplication.translate("UserError", "Could not find the original source layer '{0}' for the export.").format(source_layer_name)  # noqa: E501
+            # fmt: on
+            raise_user_error(msg)
+
+        # Assume the first found layer is the correct one
+        source_layer: QgsVectorLayer = source_layers[0]
+
+        # Reproject and set it as the 'selected_layer' for the export process
+        self.selected_layer = self.reproject_layer_to_project_crs(source_layer)
+
     def copy_features_to_layer(
         self,
         source_layer: QgsVectorLayer,
@@ -710,7 +743,7 @@ class LayerManager:
         line_data_provider.addAttributes(line_fields)
         temporary_table.updateFields()
 
-        dim_field_name = next(
+        dim_field_name: str | None = next(
             (
                 name
                 for name in cont.Names.sel_layer_field_dim
