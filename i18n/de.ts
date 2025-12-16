@@ -2,57 +2,98 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="de_DE">
 <context>
+    <name>Menu_Button</name>
+    <message>
+        <location filename="../UTEC_Massenermittlung.py" line="140"/>
+        <source>Run Material Take-off</source>
+        <translation>Massenermittlung Starten</translation>
+    </message>
+    <message>
+        <location filename="../UTEC_Massenermittlung.py" line="157"/>
+        <source>Re-do the Excel output</source>
+        <translation>Excel-Zusammenfassung aktualisieren</translation>
+    </message>
+</context>
+<context>
+    <name>Menu_ToolTip</name>
+    <message>
+        <location filename="../UTEC_Massenermittlung.py" line="141"/>
+        <source>&lt;p&gt;&lt;b&gt;Material Take-off for the selected layer&lt;/b&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&apos;font-weight:normal; font-style:normal;&apos;&gt;The Material Take-off will be calculated for the selected layer. The selected layer needs to be a line layer.&lt;/span&gt;&lt;/p&gt;</source>
+        <translation>&lt;p&gt;&lt;b&gt;Massenermittlung für gewählten Layer&lt;/b&gt;&lt;/p&gt;&lt;p&gt;&lt;span style='font-weight:normal; font-style:normal;'&gt;Die Massenermittlung für den gewählten Layer wird ausgeführt. Der gewählte Layer muss ein Linienlayer sein.&lt;/span&gt;&lt;/p&gt;</translation>
+    </message>
+    <message>
+        <location filename="../UTEC_Massenermittlung.py" line="158"/>
+        <source>&lt;p&gt;&lt;b&gt;Re-do the Excel output&lt;/b&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&apos;font-weight:normal; font-style:normal;&apos;&gt;After manual changes to the Material-Take-off-layer, the Excel output needs to be updated. Select the result layer and click this button. The Excel output will be updated.&lt;/span&gt;&lt;/p&gt;</source>
+        <translation>&lt;p&gt;&lt;b&gt;Excel-Zusammenfassung aktualisieren&lt;/b&gt;&lt;/p&gt;&lt;p&gt;&lt;span style='font-weight:normal; font-style:normal;'&gt;Wenn der Massenermittlungslayer manuell geändert wurde, muss die Excel-Zusammenfassung aktualisiert werden. Dazu den Massenermittlungslayer auswählen und diesen Knopf drücken. Die Excel-Ausgabe wird aktualisiert.&lt;/span&gt;&lt;/p&gt;</translation>
+    </message>
+</context>
+<context>
     <name>UserError</name>
     <message>
-        <location filename="../modules/general.py" line="358"/>
+        <location filename="../modules/general.py" line="359"/>
         <source>Multiple layers selected.</source>
         <translation>Mehrere Layer ausgewählt. Bitte nur einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="362"/>
+        <location filename="../modules/general.py" line="363"/>
         <source>No layer selected.</source>
         <translation>Kein Layer ausgewählt. Bitte einen Layer für die Verarbeitung wählen.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="368"/>
+        <location filename="../modules/general.py" line="369"/>
         <source>Selected node is not a layer.</source>
         <translation>Das ausgewählte Objekt ist kein Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="374"/>
+        <location filename="../modules/general.py" line="375"/>
         <source>Selected layer is not a vector layer.</source>
         <translation>Der gewählte Layer ist kein Vektorlayer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="379"/>
+        <location filename="../modules/general.py" line="380"/>
         <source>The selected layer is not a line layer.</source>
         <translation>Der gewählte Layer ist kein Linien-Layer. Es können nur Vektorlayer mit Linien-Geometrie verarbeitet werden.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="57"/>
+        <location filename="../modules/general.py" line="58"/>
         <source>No QGIS project is currently open.</source>
         <translation>Kein QGSI-Projekt geöffnet.</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="105"/>
+        <location filename="../modules/general.py" line="106"/>
         <source>Project is not saved. Please save the project first.</source>
         <translation>Das Projekt ist noch nicht gespeichert. Bitte das Projekt abspeichern, damit ein Projektordner erstellt wird.</translation>
+    </message>
+    <message>
+        <location filename="../UTEC_Massenermittlung.py" line="386"/>
+        <source>Please select a single result layer to export.</source>
+        <translation>Bitte einen einzelnen Ergebnislayer auswählen.</translation>
+    </message>
+    <message>
+        <location filename="../UTEC_Massenermittlung.py" line="395"/>
+        <source>The selected layer is not a valid result layer from this plugin.</source>
+        <translation>Der gewählte Layer ist kein gültiger Ergebnislayer der Massenermittlung.</translation>
+    </message>
+    <message>
+        <location filename="../modules/general.py" line="502"/>
+        <source>Could not find the original source layer &apos;{0}&apos; for the export.</source>
+        <translation>Konnte den Ausgangslayer '{0}' nicht finden.</translation>
     </message>
 </context>
 <context>
     <name>XlsxExport</name>
     <message>
-        <location filename="../modules/general.py" line="664"/>
+        <location filename="../modules/general.py" line="697"/>
         <source>Could not create output directory or copy template: {0}</source>
         <translation>Konnte den Output-Ordner nicht erstellen, oder die Vorlage-Datei nicht kopieren: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="689"/>
+        <location filename="../modules/general.py" line="722"/>
         <source>Excel summary saved to: {0}</source>
         <translation>Excel-Zusammenfassung gespeichert in: {0}</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="773"/>
+        <location filename="../modules/general.py" line="806"/>
         <source>Line features exported to sheet &apos;Line Features&apos; in: {0}</source>
         <translation>Linien in Arbeitsblatt exportiert: {0}</translation>
     </message>
@@ -118,12 +159,12 @@
 <context>
     <name>progress_bar</name>
     <message>
-        <location filename="../UTEC_Massenermittlung.py" line="237"/>
+        <location filename="../UTEC_Massenermittlung.py" line="270"/>
         <source>Performing bulk assessment...</source>
         <translation>Verarbeite Leitungsnetz...</translation>
     </message>
     <message>
-        <location filename="../modules/general.py" line="504"/>
+        <location filename="../modules/general.py" line="537"/>
         <source>Writing results to new layer...</source>
         <translation>Schreibe Ergebnisse in neuen Layer...</translation>
     </message>
@@ -159,6 +200,11 @@
         <location filename="../modules/logs_and_errors.py" line="164"/>
         <source>(Summary saved to folder &apos;{0}&apos;)</source>
         <translation>(Zusammenfassung in Unterordner '{0}' gespeichert)</translation>
+    </message>
+    <message>
+        <location filename="../UTEC_Massenermittlung.py" line="406"/>
+        <source>Excel export has been updated.</source>
+        <translation>Die Excel-Zusammenfassung wurde aktualisiert.</translation>
     </message>
 </context>
 </TS>

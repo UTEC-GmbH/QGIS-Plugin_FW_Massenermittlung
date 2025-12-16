@@ -11,8 +11,8 @@ from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from qgis.core import Qgis, QgsApplication, QgsProject, QgsVectorLayer
-from qgis.gui import QgisInterface
+from qgis.core import Qgis, QgsApplication, QgsLayerTreeNode, QgsProject, QgsVectorLayer
+from qgis.gui import QgisInterface, QgsLayerTreeView
 from qgis.PyQt.QtCore import QCoreApplication, QSettings, Qt, QTranslator
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QMenu, QProgressBar, QToolButton
@@ -138,7 +138,7 @@ class Massenermittlung:
         # fmt: off
         # ruff: noqa: E501
         button: str = QCoreApplication.translate("Menu_Button", "Run Material Take-off")
-        tool_tip_text: str = QCoreApplication.translate("Menu_ToolTip", "<p><b>Material Take-off for the selected layer</b></p><p><span style='font-weight:normal; font-style:normal;'>Selected layers or layers in selected groups are copied to the project's GeoPackage (a GeoPackage in the project folder with the same name as the project file) and added back from the GeoPackage to the top of the layer tree of the current project.</span></p>")
+        tool_tip_text: str = QCoreApplication.translate("Menu_ToolTip", "<p><b>Material Take-off for the selected layer</b></p><p><span style='font-weight:normal; font-style:normal;'>The Material Take-off will be calculated for the selected layer. The selected layer needs to be a line layer.</span></p>")
         # fmt: on
         mto_action = self.add_action(
             icon=str(cont.PluginPaths.icons / "plugin_sub_start.svg"),
@@ -155,7 +155,7 @@ class Massenermittlung:
         # fmt: off
         # ruff: noqa: E501
         button: str = QCoreApplication.translate("Menu_Button", "Re-do the Excel output")
-        tool_tip_text: str = QCoreApplication.translate("Menu_ToolTip", "<p><b>After manual changes to the Material-Take-off-layer, the Excel output needs to be updated.</b></p><p><span style='font-weight:normal; font-style:normal;'>Selected layers or layers in selected groups are copied to the project's GeoPackage (a GeoPackage in the project folder with the same name as the project file) and added back from the GeoPackage to the top of the layer tree of the current project.</span></p>")
+        tool_tip_text: str = QCoreApplication.translate("Menu_ToolTip", "<p><b>Re-do the Excel output</b></p><p><span style='font-weight:normal; font-style:normal;'>After manual changes to the Material-Take-off-layer, the Excel output needs to be updated. Select the result layer and click this button. The Excel output will be updated.</span></p>")
         # fmt: on
         excel_action = self.add_action(
             icon=str(cont.PluginPaths.icons / "plugin_sub_excel.svg"),
@@ -260,7 +260,9 @@ class Massenermittlung:
     def run_massenermittlung(self) -> None:
         """Call the main function."""
 
-        lae.log_debug("... STARTING PLUGIN RUN ...", icon="✨✨✨")
+        lae.log_debug(
+            "... STARTING PLUGIN RUN ... (run_massenermittlung)", icon="✨✨✨"
+        )
         temp_point_layer: QgsVectorLayer | None = None
         reprojected_layer: QgsVectorLayer | None = None
         try:
@@ -361,5 +363,65 @@ class Massenermittlung:
                 lae.log_debug("In-memory copy of the selected layer removed.")
 
     def rerun_excel_output(self) -> None:
-        """Call the Excel output function."""
-        return
+        """Rerun the Excel export for a manually edited result layer.
+
+        This function takes the currently selected result layer (which must be a
+        point layer ending with the plugin's suffix) and re-exports its data to
+        an Excel file. It also finds the original source line layer to include
+        route lengths.
+        """
+        lae.log_debug("... Rerunning Excel output ...", icon="✨✨✨")
+        reprojected_layer_excel: QgsVectorLayer | None = None
+        try:
+            layer_manager = ge.LayerManager()
+
+            # 1. Get the currently selected layer, which should be the result layer.
+            layer_tree: QgsLayerTreeView | None = self.iface.layerTreeView()
+            if not layer_tree:
+                lae.raise_runtime_error("Could not get layer tree view.")
+
+            selected_nodes: list[QgsLayerTreeNode] = layer_tree.selectedNodes()
+            if len(selected_nodes) != 1:
+                # fmt: off
+                ue_msg: str = QCoreApplication.translate("UserError", "Please select a single result layer to export.")
+                # fmt: on
+                lae.raise_user_error(ue_msg)
+
+            result_layer = selected_nodes[0].layer()
+            if not isinstance(
+                result_layer, QgsVectorLayer
+            ) or not result_layer.name().endswith(cont.Names.new_layer_suffix):
+                # fmt: off
+                ue_msg: str = QCoreApplication.translate("UserError", "The selected layer is not a valid result layer from this plugin.")
+                # fmt: on
+                lae.raise_user_error(ue_msg)
+
+            # 2. Find the original source line layer to get line lengths.
+            layer_manager.find_and_set_source_layer(result_layer)
+            reprojected_layer_excel = layer_manager.selected_layer
+
+            # 3. Export the results.
+            layer_manager.export_results(result_layer)
+
+            lae.show_message(
+                QCoreApplication.translate("summary", "Excel export has been updated."),
+                level=Qgis.Success,
+                duration=10,
+            )
+
+        except (lae.CustomUserError, lae.CustomRuntimeError):
+            # Errors are already logged and shown to the user.
+            return
+        except Exception as e:  # noqa: BLE001
+            lae.log_debug(f"An unexpected error occurred during Excel export: {e!s}")
+            lae.show_message(
+                f"An unexpected error occurred during Excel export: {e!s}",
+                level=Qgis.Critical,
+            )
+
+        finally:
+            # Clean up the temporary reprojected layer
+            project: QgsProject | None = QgsProject.instance()
+            if reprojected_layer_excel is not None and project is not None:
+                project.removeMapLayer(reprojected_layer_excel.id())
+                lae.log_debug("In-memory copy of the source layer removed (rerun).")
