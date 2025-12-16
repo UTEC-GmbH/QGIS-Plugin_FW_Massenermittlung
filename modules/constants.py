@@ -6,10 +6,24 @@ This module contains constant values.
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+
 from qgis.PyQt.QtCore import QMetaType as Qmt
 
 PROBLEMATIC_FIELD_TYPES: list = [Qmt.QVariantMap, Qmt.QVariantList, Qmt.QStringList]
-PLUGIN_DIR: Path = Path(__file__).parent.parent
+
+
+@dataclass(frozen=True)
+class PluginPaths:
+    """Class: Paths
+
+    This class contains directories as path objects.
+    """
+
+    main: Path = Path(__file__).parent.parent
+    i18n: Path = Path(__file__).parent.parent / "i18n"
+    resources: Path = Path(__file__).parent.parent / "resources"
+    icons: Path = Path(__file__).parent.parent / "resources" / "icons"
+    templates: Path = Path(__file__).parent.parent / "resources" / "templates"
 
 
 @dataclass(frozen=True)

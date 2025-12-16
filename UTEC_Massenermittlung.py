@@ -11,13 +11,12 @@ from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from qgis.core import Qgis, QgsProject, QgsVectorLayer
+from qgis.core import Qgis, QgsApplication, QgsProject, QgsVectorLayer
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import QCoreApplication, QSettings, Qt, QTranslator
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QMenu, QProgressBar, QToolButton
 
-from . import resources
 from .modules import constants as cont
 from .modules import general as ge
 from .modules import logs_and_errors as lae
@@ -44,12 +43,13 @@ class Massenermittlung:
         self.actions: list = []
         self.plugin_menu: QMenu | None = None
         self.dlg = None
-        self.icon_path: str = str(cont.PLUGIN_DIR / "icon.svg")
+        self.icon_path: str = str(cont.PluginPaths.icons / "plugin_main_icon.svg")
+
         self.translator: QTranslator | None = None
 
         # Read metadata to get the plugin name for UI elements
         self.plugin_name: str = "UTEC Massenermittlung (dev)"  # Default
-        metadata_path: Path = cont.PLUGIN_DIR / "metadata.txt"
+        metadata_path: Path = cont.PluginPaths.main / "metadata.txt"
         if metadata_path.exists():
             config = configparser.ConfigParser()
             config.read(metadata_path)
@@ -62,7 +62,7 @@ class Massenermittlung:
 
         # initialize translation
         locale = QSettings().value("locale/userLocale", "en")[:2]
-        translator_path: Path = cont.PLUGIN_DIR / "i18n" / f"{locale}.qm"
+        translator_path: Path = cont.PluginPaths.i18n / f"{locale}.qm"
 
         if not translator_path.exists():
             lae.log_debug(f"Translator not found in: {translator_path}", Qgis.Warning)
@@ -125,15 +125,13 @@ class Massenermittlung:
     def initGui(self) -> None:  # noqa: N802
         """Create the menu entries and toolbar icons for the plugin."""
 
-        # Initialize the resources (icons, etc.)
-        resources.qInitResources()
-
         # Create a menu for the plugin in the "Plugins" menu
         self.plugin_menu = QMenu(self.menu, self.iface.pluginMenu())
         if self.plugin_menu is None:
             lae.raise_runtime_error("Failed to create the plugin menu.")
 
         self.plugin_menu.setIcon(QIcon(self.icon_path))
+        self._modify_svg_path(add=True)
 
         # Add an action for the main functionality
         run_action = self.add_action(
@@ -182,11 +180,28 @@ class Massenermittlung:
         if self.plugin_menu:
             self.iface.pluginMenu().removeAction(self.plugin_menu.menuAction())  # type: ignore[]
 
+        # Remove svg search path
+        self._modify_svg_path(add=False)
+
         self.actions.clear()
         self.plugin_menu = None
 
-        # Unload resources to allow for reloading them
-        resources.qCleanupResources()
+    def _modify_svg_path(self, *, add: bool) -> None:
+        """Add or remove the plugin's SVG icon path from QGIS search paths.
+
+        Args:
+            add: If True, adds the path. If False, removes the path.
+        """
+        current_svg_paths: list[str] = QgsApplication.svgPaths()
+        plugin_svg_path: str = str(cont.PluginPaths.icons)
+        path_exists: bool = plugin_svg_path in current_svg_paths
+
+        if add and not path_exists:
+            current_svg_paths.append(plugin_svg_path)
+        elif not add and path_exists:
+            current_svg_paths.remove(plugin_svg_path)
+
+        QgsApplication.setDefaultSvgPaths(current_svg_paths)
 
     @contextlib.contextmanager
     def _managed_progress_bar(

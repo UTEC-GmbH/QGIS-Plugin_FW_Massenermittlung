@@ -1,14 +1,17 @@
 [general]
 name=UTEC Massenermittlung (dev)
 
-version=1.5
+version=1.6
 changelog=
+    Version 1.6:
+    - Überarbeitung interner Ressourcen (icons, layer style) und release
+
+    
     Version 1.5:
     - Überarbeitung der Berechnung von Winkeln für Bögen
     - Bögen an T-Stücken, wenn die Anschlussleitung nicht mit 90° am T-Stück anschließt
     - bugfix bei Bezeichnung von Bögen
     - bugfix bei mehr als 2 Reduzierungen hintereinander
-
 
     Version 1.4:
     - Minimaler Knick in Leitungen für Bögen jetzt 3° (war vorher 15°)
@@ -64,3 +67,22 @@ author=Florian Ludwig
 email=devalue-scope-drum@duck.com
 icon=icon.svg
 download_url_base=file:////dc1/netz$/Software/QGIS_Plugins_UTEC
+
+
+[release]
+# The name of the root directory inside the .zip file.
+# This should match the plugin's package name.
+plugin_package_name = UTEC_Massenermittlung
+
+# Files and directories to include in the plugin package.
+files_to_package =
+    __init__.py
+    UTEC_Massenermittlung.py
+    metadata.txt
+dirs_to_package =
+    modules
+    i18n
+    resources
+translation_dir = i18n
+excluded_dirs = __pycache__
+excluded_extensions = .pyc

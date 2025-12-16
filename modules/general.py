@@ -618,7 +618,7 @@ class LayerManager:
         for name, value in variables.items():
             QgsExpressionContextUtils.setLayerVariable(layer, name, value)
 
-        qml_path: Path = cont.PLUGIN_DIR / "layer_style" / "massenermittlung_style.qml"
+        qml_path: Path = cont.PluginPaths.resources / "massenermittlung_style.qml"
 
         layer.loadNamedStyle(str(qml_path))
 
@@ -646,7 +646,7 @@ class LayerManager:
                 f"{template_path.stem} - {layer_name}{template_path.suffix}"
             )
 
-            template_src: Path = cont.PLUGIN_DIR / "templates" / template_name
+            template_src: Path = cont.PluginPaths.templates / template_name
             template_dest: Path = output_dir / dest_file_name
 
             if not template_src.exists():
@@ -797,7 +797,7 @@ class LayerManager:
 
         # --- 3. Export line features (routes) ---
         log_debug("Exporting line features to a separate Excel sheet.")
-        temporary_table = self._create_line_features_table()
+        temporary_table: QgsVectorLayer | None = self._create_line_features_table()
         if not temporary_table:
             return
 
