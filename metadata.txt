@@ -1,14 +1,17 @@
 [general]
 name=UTEC Massenermittlung (dev)
 
-version=1.5
+version=1.6
 changelog=
+    Version 1.6:
+    - Überarbeitung interner Ressourcen und release
+
+    
     Version 1.5:
     - Überarbeitung der Berechnung von Winkeln für Bögen
     - Bögen an T-Stücken, wenn die Anschlussleitung nicht mit 90° am T-Stück anschließt
     - bugfix bei Bezeichnung von Bögen
     - bugfix bei mehr als 2 Reduzierungen hintereinander
-
 
     Version 1.4:
     - Minimaler Knick in Leitungen für Bögen jetzt 3° (war vorher 15°)

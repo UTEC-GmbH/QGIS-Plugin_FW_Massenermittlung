@@ -618,7 +618,7 @@ class LayerManager:
         for name, value in variables.items():
             QgsExpressionContextUtils.setLayerVariable(layer, name, value)
 
-        qml_path: Path = cont.PLUGIN_DIR / "layer_style" / "massenermittlung_style.qml"
+        qml_path: Path = cont.PluginPaths.resources / "massenermittlung_style.qml"
 
         layer.loadNamedStyle(str(qml_path))
 
@@ -646,7 +646,7 @@ class LayerManager:
                 f"{template_path.stem} - {layer_name}{template_path.suffix}"
             )
 
-            template_src: Path = cont.PLUGIN_DIR / "templates" / template_name
+            template_src: Path = cont.PluginPaths.templates / template_name
             template_dest: Path = output_dir / dest_file_name
 
             if not template_src.exists():
