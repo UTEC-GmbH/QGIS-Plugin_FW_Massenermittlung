@@ -17,7 +17,22 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-PROBLEMATIC_FIELD_TYPES: list = [Qmt.QVariantMap, Qmt.QVariantList, Qmt.QStringList]
+if PluginContext.is_qt6():
+    QMT_Map = Qmt.Type.QVariantMap
+    QMT_List = Qmt.Type.QVariantList
+    QMT_StringList = Qmt.Type.QStringList  # Qt6 has QStringList in Type
+    QMT_String = Qmt.Type.QString
+    QMT_Int = Qmt.Type.Int
+    QMT_Double = Qmt.Type.Double
+else:
+    QMT_Map = Qmt.QVariantMap
+    QMT_List = Qmt.QVariantList
+    QMT_StringList = Qmt.QStringList
+    QMT_String = Qmt.QString
+    QMT_Int = Qmt.Int
+    QMT_Double = Qmt.Double
+
+PROBLEMATIC_FIELD_TYPES: list = [QMT_Map, QMT_List, QMT_StringList]
 
 
 # pylint: disable=too-few-public-methods
@@ -228,12 +243,12 @@ class NewLayerFields(Enum):
     """
 
     # Enum members are defined as tuples: (display_name, qgis_data_type)
-    type: tuple[str, Qmt] = ("Typ", Qmt.QString)
-    dim_1: tuple[str, Qmt] = ("Dimension 1", Qmt.Int)
-    dim_2: tuple[str, Qmt] = ("Dimension 2", Qmt.Int)
-    angle: tuple[str, Qmt] = ("Bogen-Winkel", Qmt.Int)
-    connected: tuple[str, Qmt] = ("Verbundene Leitungen", Qmt.QString)
-    notes: tuple[str, Qmt] = ("Anmerkungen", Qmt.QString)
+    type: tuple[str, Qmt] = ("Typ", QMT_String)
+    dim_1: tuple[str, Qmt] = ("Dimension 1", QMT_Int)
+    dim_2: tuple[str, Qmt] = ("Dimension 2", QMT_Int)
+    angle: tuple[str, Qmt] = ("Bogen-Winkel", QMT_Int)
+    connected: tuple[str, Qmt] = ("Verbundene Leitungen", QMT_String)
+    notes: tuple[str, Qmt] = ("Anmerkungen", QMT_String)
 
     def __init__(self, display_name: str, q_type: Qmt) -> None:
         """Initialize the enum member with its attributes."""

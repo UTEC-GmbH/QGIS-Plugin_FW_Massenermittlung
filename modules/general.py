@@ -28,10 +28,17 @@ from qgis.core import (
     QgsWkbTypes,
 )
 from qgis.gui import QgisInterface
-from qgis.PyQt.QtCore import QCoreApplication, QMetaType
+from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtWidgets import QProgressBar
 
-from .constants import PROBLEMATIC_FIELD_TYPES, Colours, Names, NewLayerFields
+from .constants import (
+    PROBLEMATIC_FIELD_TYPES,
+    Colours,
+    Names,
+    NewLayerFields,
+    QMT_Double,
+    QMT_Int,
+)
 from .context import PluginContext
 from .logs_and_errors import log_debug, raise_runtime_error, raise_user_error
 
@@ -167,7 +174,7 @@ class LayerManager:
                 )
 
         data_provider.addAttributes(filtered_fields)
-        data_provider.addAttributes([QgsField("original_fid", QMetaType.Type.Int)])
+        data_provider.addAttributes([QgsField("original_fid", QMT_Int)])
         reprojected_layer.updateFields()
         log_debug(
             f"The in-memory layer has {len(reprojected_layer.fields())} fields "
@@ -674,9 +681,9 @@ class LayerManager:
             )
 
         line_fields = [
-            QgsField("ID", QMetaType.Int),
-            QgsField(Names.excel_dim, QMetaType.Int),
-            QgsField(Names.excel_line_length, QMetaType.Double),
+            QgsField("ID", QMT_Int),
+            QgsField(Names.excel_dim, QMT_Int),
+            QgsField(Names.excel_line_length, QMT_Double),
         ]
         line_data_provider.addAttributes(line_fields)
         temporary_table.updateFields()

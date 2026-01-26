@@ -186,10 +186,13 @@ class Massenermittlung(QObject):
         if menu := self.iface.pluginMenu():
             menu.addMenu(self.plugin_menu)
         toolbar_button = QToolButton()
-        toolbar_button.setIcon(QIcon(self.plugin_icon))
+        toolbar_button.setIcon(self.plugin_icon)
         toolbar_button.setToolTip(self.plugin_name)
         toolbar_button.setMenu(self.plugin_menu)
-        toolbar_button.setPopupMode(QToolButton.InstantPopup)
+        if PluginContext.is_qt6():
+            toolbar_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        else:
+            toolbar_button.setPopupMode(QToolButton.InstantPopup)
         toolbar_action = self.iface.addToolBarWidget(toolbar_button)
         self.actions.append(toolbar_action)
 
@@ -255,7 +258,13 @@ class Massenermittlung(QObject):
         if self.msg_bar:
             progress_widget = self.msg_bar.createMessage(initial_message)
             if progress_widget:
-                progress_bar.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                if PluginContext.is_qt6():
+                    alignment = (
+                        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+                    )
+                else:
+                    alignment = Qt.AlignLeft | Qt.AlignVCenter
+                progress_bar.setAlignment(alignment)
                 progress_widget.layout().addWidget(progress_bar)
                 self.msg_bar.pushWidget(progress_widget, Qgis.Info)
 
