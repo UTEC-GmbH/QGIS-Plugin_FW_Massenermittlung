@@ -15,7 +15,7 @@ from qgis.core import (
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtWidgets import QProgressBar
 
-from . import constants as cont
+from .constants import Numbers
 from .feature_creator import FeatureCreator
 from .logs_and_errors import log_debug, raise_runtime_error
 from .point_collector import PointCollector
@@ -114,7 +114,7 @@ class PointOfInterestClassifier(FeatureCreator):
             return 0
 
         search_geom: QgsGeometry = QgsGeometry.fromPointXY(point).buffer(
-            cont.Numbers.search_radius, 5
+            Numbers.search_radius, 5
         )
         intersecting_features: list[QgsFeature] = self.get_intersecting_features(
             search_geom
@@ -131,7 +131,7 @@ class PointOfInterestClassifier(FeatureCreator):
                 else self._process_2_way_intersection(point, intersecting_features)
             )
         # Case 2: Two lines intersect.
-        if n_intersections == 2:
+        if n_intersections == 2:  # noqa: PLR2004
             feat1, feat2 = intersecting_features
             is_endpoint1: bool = self.is_endpoint(point, feat1)
             is_endpoint2: bool = self.is_endpoint(point, feat2)
@@ -154,7 +154,7 @@ class PointOfInterestClassifier(FeatureCreator):
 
         # Case 3: Three lines intersect.
         # This is always a T-piece candidate.
-        if n_intersections == cont.Numbers.intersec_t:
+        if n_intersections == Numbers.intersec_t:
             return self.t_piece_finder.process_t_intersection(
                 point, intersecting_features
             )
@@ -267,11 +267,11 @@ class PointOfInterestClassifier(FeatureCreator):
         # Check if it's a lone line segment or a true house connection
         is_other_end_connected = False
         for s_e_point in self.get_start_end_of_line(feature):
-            if s_e_point.compare(point, cont.Numbers.tiny_number):
+            if s_e_point.compare(point, Numbers.tiny_number):
                 continue  # This is the endpoint we are currently processing
             # Check if the *other* endpoint is connected to something
             other_end_search: QgsGeometry = QgsGeometry.fromPointXY(s_e_point).buffer(
-                cont.Numbers.search_radius, 5
+                Numbers.search_radius, 5
             )
             if len(self.get_intersecting_features(other_end_search)) > 1:
                 is_other_end_connected = True

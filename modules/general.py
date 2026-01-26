@@ -10,8 +10,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from osgeo import ogr
-from qgis._core import QgsMapLayer
 from qgis.core import (
     Qgis,
     QgsCoordinateTransform,
@@ -29,118 +27,33 @@ from qgis.core import (
     QgsVectorLayer,
     QgsWkbTypes,
 )
+from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.PyQt.QtWidgets import QProgressBar
-from qgis.utils import iface
 
-from modules import constants as cont
-from modules.logs_and_errors import log_debug, raise_runtime_error, raise_user_error
+from .constants import PROBLEMATIC_FIELD_TYPES, Colours, Names, NewLayerFields
+from .context import PluginContext
+from .logs_and_errors import log_debug, raise_runtime_error, raise_user_error
 
 if TYPE_CHECKING:
-    from qgis.core import QgsGeometry
-    from qgis.gui import QgisInterface, QgsLayerTreeView
-
-
-def get_current_project() -> QgsProject:
-    """Return the current QGIS project instance, or raise an exception.
-
-    If no project is open, an error message is logged.
-
-    Returns:
-        The current QGIS project instance.
-
-    Raises:
-        CustomUserError: If no QGIS project is currently open.
-    """
-    project: QgsProject | None = QgsProject.instance()
-    if project is None:
-        # fmt: off
-        raise_user_error(QCoreApplication.translate("UserError", "No QGIS project is currently open."))  # noqa: E501
-        # fmt: on
-
-    return project
-
-
-def create_temporary_point_layer(project: QgsProject) -> QgsVectorLayer:
-    """Create a temporary in-memory point layer with the standard result fields."""
-    temp_layer = QgsVectorLayer(
-        f"Point?crs={project.crs().authid()}", "temporary_point_layer", "memory"
-    )
-    data_provider: QgsVectorDataProvider | None = temp_layer.dataProvider()
-    if data_provider is None:
-        raise_runtime_error("Could not create data provider for temporary layer.")
-
-    fields_to_add: list[QgsField] = []
-    fields_to_add.extend(
-        QgsField(field_enum.name, field_enum.data_type)
-        for field_enum in cont.NewLayerFields
-    )
-    data_provider.addAttributes(fields_to_add)
-
-    temp_layer.updateFields()
-
-    log_debug(
-        f"Temporary point layer with {len(temp_layer.fields())} fields "
-        f" and {temp_layer.featureCount()} features created.",
-        Qgis.Success,
-    )
-
-    return temp_layer
-
-
-def project_gpkg() -> Path:
-    """Check if a GeoPackage with the same name as the project
-    exists in the project folder and creates it if not.
-
-    Example: for a project 'my_project.qgz',
-    it looks for 'my_project.gpkg' in the same directory.
-
-    :returns: The Path object to the GeoPackage.
-    :raises RuntimeError: If the project is not saved.
-    :raises IOError: If the GeoPackage file cannot be created.
-    """
-    project: QgsProject = get_current_project()
-    project_path_str: str = project.fileName()
-    if not project_path_str:
-        # fmt: off
-        raise_user_error(QCoreApplication.translate("UserError", "Project is not saved. Please save the project first."))  # noqa: E501
-        # fmt: on
-
-    project_path: Path = Path(project_path_str)
-    gpkg_path: Path = project_path.with_suffix(".gpkg")
-
-    if not gpkg_path.exists():
-        driver = ogr.GetDriverByName("GPKG")
-        data_source = driver.CreateDataSource(str(gpkg_path))
-        if data_source is None:
-            raise_runtime_error(f"Failed to create GeoPackage at: {gpkg_path}")
-
-        # Dereference the data source to close the file and release the lock.
-        data_source = None
-
-    return gpkg_path
+    from qgis.core import QgsGeometry, QgsMapLayer
+    from qgis.gui import QgsLayerTreeView
 
 
 class LayerManager:
     """A class to manage the layers used in the plugin."""
 
-    def __init__(self) -> None:
-        """Initialize the layer manager class."""
-        qgis_iface: QgisInterface | None = iface
-        if qgis_iface is None:
-            raise_runtime_error("QGIS interface not available.")
+    def __init__(self, project: QgsProject, iface: QgisInterface) -> None:
+        """Initialize the layer manager class.
 
-        self._qgis_iface: QgisInterface = qgis_iface
-        self._project: QgsProject | None = None
+        Args:
+            project: The current QGIS project instance.
+            iface: The QGIS interface instance.
+        """
+        self.project: QgsProject = project
+        self.iface: QgisInterface = iface
         self._selected_layer: QgsVectorLayer | None = None
         self._new_layer: QgsVectorLayer | None = None
-
-    @property
-    def project(self) -> QgsProject:
-        """The current QGIS project."""
-        if self._project is None:
-            self._project = get_current_project()
-        return self._project
 
     @property
     def selected_layer(self) -> QgsVectorLayer:
@@ -245,10 +158,7 @@ class LayerManager:
         # Define problematic field types that QGIS might struggle with
         filtered_fields: list = []
         for field in layer.fields():
-            if (
-                field.type() not in cont.PROBLEMATIC_FIELD_TYPES
-                and field.name() != "fid"
-            ):
+            if field.type() not in PROBLEMATIC_FIELD_TYPES and field.name() != "fid":
                 filtered_fields.append(field)
             else:
                 log_debug(
@@ -349,7 +259,7 @@ class LayerManager:
         :raises RuntimeError: If no layer is selected, multiple layers are selected,
                               or the selected layer is not a line vector layer.
         """
-        layer_tree: QgsLayerTreeView | None = self._qgis_iface.layerTreeView()
+        layer_tree: QgsLayerTreeView | None = self.iface.layerTreeView()
         if not layer_tree:
             raise_runtime_error("Could not get layer tree view.")
 
@@ -383,11 +293,11 @@ class LayerManager:
         # Check for one of the required 'diameter' fields
         if all(
             selected_layer.fields().lookupField(name) == -1
-            for name in cont.Names.sel_layer_field_dim
+            for name in Names.sel_layer_field_dim
         ):
             log_debug(
                 f"None of the specified dimension fields "
-                f"({', '.join(cont.Names.sel_layer_field_dim)}) "
+                f"({', '.join(Names.sel_layer_field_dim)}) "
                 f"were found in the selected layer. Dimension-related "
                 f"attributes will be skipped.",
                 Qgis.Warning,
@@ -401,10 +311,9 @@ class LayerManager:
 
         log_debug("Creating new layer in GeoPackage...")
 
-        gpkg_path: Path = project_gpkg()
+        gpkg_path: Path = PluginContext.project_gpkg()
         new_layer_name: str = (
-            f"{self.fix_layer_name(self.selected_layer.name())}"
-            f"{cont.Names.new_layer_suffix}"
+            f"{self.fix_layer_name(self.selected_layer.name())}{Names.new_layer_suffix}"
         )
 
         if existing_layers := self.project.mapLayersByName(new_layer_name):
@@ -422,7 +331,7 @@ class LayerManager:
 
         fields_to_add: list[QgsField] = [
             QgsField(field_enum.name, field_enum.data_type)
-            for field_enum in cont.NewLayerFields
+            for field_enum in NewLayerFields
         ]
         data_provider.addAttributes(fields_to_add)
         empty_layer.updateFields()
@@ -477,6 +386,34 @@ class LayerManager:
 
         return gpkg_layer
 
+    def create_temporary_point_layer(self) -> QgsVectorLayer:
+        """Create a temporary in-memory point layer with the standard result fields."""
+        temp_layer = QgsVectorLayer(
+            f"Point?crs={self.project.crs().authid()}",
+            "temporary_point_layer",
+            "memory",
+        )
+        data_provider: QgsVectorDataProvider | None = temp_layer.dataProvider()
+        if data_provider is None:
+            raise_runtime_error("Could not create data provider for temporary layer.")
+
+        fields_to_add: list[QgsField] = []
+        fields_to_add.extend(
+            QgsField(field_enum.name, field_enum.data_type)
+            for field_enum in NewLayerFields
+        )
+        data_provider.addAttributes(fields_to_add)
+
+        temp_layer.updateFields()
+
+        log_debug(
+            f"Temporary point layer with {len(temp_layer.fields())} fields "
+            f" and {temp_layer.featureCount()} features created.",
+            Qgis.Success,
+        )
+
+        return temp_layer
+
     def find_and_set_source_layer(self, result_layer: QgsVectorLayer) -> None:
         """Find and set the original source layer based on the result layer's name.
 
@@ -491,7 +428,7 @@ class LayerManager:
             CustomUserError: If the source layer cannot be found.
         """
         source_layer_name: str = result_layer.name().removesuffix(
-            cont.Names.new_layer_suffix
+            Names.new_layer_suffix
         )
         source_layers: list[QgsMapLayer] = self.project.mapLayersByName(
             source_layer_name
@@ -589,17 +526,18 @@ class LayerManager:
             key: tuple = (
                 round(feature_geometry.asPoint().x(), 4),
                 round(feature_geometry.asPoint().y(), 4),
-                feature.attribute(cont.NewLayerFields.type.name),
-                feature.attribute(cont.NewLayerFields.dim_1.name) or "",
-                feature.attribute(cont.NewLayerFields.angle.name) or None,
-                feature.attribute(cont.NewLayerFields.connected.name) or "",
+                feature.attribute(NewLayerFields.type.name),
+                feature.attribute(NewLayerFields.dim_1.name) or "",
+                feature.attribute(NewLayerFields.angle.name) or None,
+                feature.attribute(NewLayerFields.connected.name) or "",
             )
 
             if key in seen:
                 original_fid: int = seen[key]
                 log_debug(
                     f"Duplicate feature found: {key[2]} (fid {feature.id()}). "
-                    f"Keeping original feature (fid {original_fid})."
+                    f"Keeping original feature (fid {original_fid}).",
+                    icon="🐑",
                 )
                 to_delete.append(feature.id())
                 feature_type = str(key[2])
@@ -641,17 +579,17 @@ class LayerManager:
         """Set the layer style from a QML file."""
 
         variables: dict[str, str] = {
-            "colour_questionable": cont.Colours.questionable,
-            "colour_house": cont.Colours.house,
-            "colour_t_piece": cont.Colours.t_piece,
-            "colour_reducer": cont.Colours.reducer,
-            "colour_bend": cont.Colours.bend,
+            "colour_questionable": Colours.questionable,
+            "colour_house": Colours.house,
+            "colour_t_piece": Colours.t_piece,
+            "colour_reducer": Colours.reducer,
+            "colour_bend": Colours.bend,
         }
 
         for name, value in variables.items():
             QgsExpressionContextUtils.setLayerVariable(layer, name, value)
 
-        qml_path: Path = cont.PluginPaths.resources / "massenermittlung_style.qml"
+        qml_path: Path = PluginContext.resources_path() / "massenermittlung_style.qml"
 
         layer.loadNamedStyle(str(qml_path))
 
@@ -669,17 +607,17 @@ class LayerManager:
         Returns:
             The full path to the final Excel output file.
         """
-        output_dir: Path = project_gpkg().parent / cont.Names.excel_dir
+        output_dir: Path = PluginContext.project_path().parent / Names.excel_dir
         output_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            template_name: str = f"{cont.Names.excel_file_summary}.xlsx"
+            template_name: str = f"{Names.excel_file_summary}.xlsx"
             template_path = Path(template_name)
             dest_file_name: str = (
                 f"{template_path.stem} - {layer_name}{template_path.suffix}"
             )
 
-            template_src: Path = cont.PluginPaths.templates / template_name
+            template_src: Path = PluginContext.templates_path() / template_name
             template_dest: Path = output_dir / dest_file_name
 
             if not template_src.exists():
@@ -698,7 +636,7 @@ class LayerManager:
             # fmt: on
             raise_runtime_error(error_msg)
 
-        output_file_name: str = f"{cont.Names.excel_file_output} - {layer_name}.xlsx"
+        output_file_name: str = f"{Names.excel_file_output} - {layer_name}.xlsx"
         return output_dir / output_file_name
 
     def _export_point_features_to_excel(
@@ -737,8 +675,8 @@ class LayerManager:
 
         line_fields = [
             QgsField("ID", QMetaType.Int),
-            QgsField(cont.Names.excel_dim, QMetaType.Int),
-            QgsField(cont.Names.excel_line_length, QMetaType.Double),
+            QgsField(Names.excel_dim, QMetaType.Int),
+            QgsField(Names.excel_line_length, QMetaType.Double),
         ]
         line_data_provider.addAttributes(line_fields)
         temporary_table.updateFields()
@@ -746,7 +684,7 @@ class LayerManager:
         dim_field_name: str | None = next(
             (
                 name
-                for name in cont.Names.sel_layer_field_dim
+                for name in Names.sel_layer_field_dim
                 if self.selected_layer.fields().lookupField(name) != -1
             ),
             None,
@@ -760,13 +698,13 @@ class LayerManager:
             )
             geom = original_feature.geometry()
             length = geom.length() if geom and not geom.isEmpty() else 0.0
-            new_excel_feature.setAttribute(cont.Names.excel_line_length, length)
+            new_excel_feature.setAttribute(Names.excel_line_length, length)
 
             dim_value = (
                 original_feature.attribute(dim_field_name) if dim_field_name else None
             )
             new_excel_feature.setAttribute(
-                cont.Names.excel_dim, dim_value if isinstance(dim_value, int) else None
+                Names.excel_dim, dim_value if isinstance(dim_value, int) else None
             )
             features_for_excel.append(new_excel_feature)
 
@@ -822,7 +760,7 @@ class LayerManager:
         """
 
         # --- 1. Prepare paths and copy template ---
-        layer_name: str = new_layer.name().removesuffix(cont.Names.new_layer_suffix)
+        layer_name: str = new_layer.name().removesuffix(Names.new_layer_suffix)
         output_path: Path = self._prepare_excel_output_path(layer_name)
 
         # --- 2. Export point features (fittings) ---

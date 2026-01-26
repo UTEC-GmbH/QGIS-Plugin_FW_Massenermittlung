@@ -5,38 +5,105 @@ This module contains constant values.
 
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
+from typing import TYPE_CHECKING
 
+from qgis.core import QgsApplication, QgsSvgCache
 from qgis.PyQt.QtCore import QMetaType as Qmt
+from qgis.PyQt.QtGui import QColor, QIcon, QPixmap
+
+from .context import PluginContext
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 PROBLEMATIC_FIELD_TYPES: list = [Qmt.QVariantMap, Qmt.QVariantList, Qmt.QStringList]
 
 
-@dataclass(frozen=True)
-class PluginPaths:
-    """Class: Paths
-
-    This class contains directories as path objects.
-    """
-
-    main: Path = Path(__file__).parent.parent
-    i18n: Path = Path(__file__).parent.parent / "i18n"
-    resources: Path = Path(__file__).parent.parent / "resources"
-    icons: Path = Path(__file__).parent.parent / "resources" / "icons"
-    templates: Path = Path(__file__).parent.parent / "resources" / "templates"
-
-
-@dataclass(frozen=True)
+# pylint: disable=too-few-public-methods
 class Icons:
-    """Class: Icons
+    """Holds plugin icons."""
 
-    This class contains icon constants.
-    """
+    @staticmethod
+    def _qicon(
+        filename: str,
+        *,
+        dynamic: bool = False,
+        dark: str = "#1c274c",
+        light: str = "#738ad5",
+    ) -> QIcon:
+        """Load an icon from the icons directory.
 
-    Success: str = "🎉"
-    Info: str = "💡"
-    Warning: str = "💥"
-    Critical: str = "💀"
+        Args:
+            filename: The name of the icon file (including extension).
+            dynamic: Whether to load the icon dynamically (default: False).
+            dark: The color to use for the dark theme (default: "#1c274c").
+            light: The color to use for the light theme (default: "#738ad5").
+
+        Returns:
+            QIcon: The loaded QIcon object.
+        """
+        icons_path: Path = PluginContext.icons_path()
+
+        if not dynamic:
+            return QIcon(str(icons_path / filename))
+
+        is_dark: bool = PluginContext.is_dark_theme()
+
+        fill_colour: QColor = QColor(light) if is_dark else QColor(dark)
+        stroke_colour: QColor = QColor(dark) if is_dark else QColor(light)
+
+        svg_cache: QgsSvgCache | None = QgsApplication.svgCache()
+        if svg_cache is None:
+            return QIcon(str(icons_path / filename))
+        icon = svg_cache.svgAsImage(
+            str(icons_path / filename), 48, fill_colour, stroke_colour, 1, 1
+        )[0]
+
+        return QIcon(QPixmap.fromImage(icon))
+
+    @property
+    def main_icon(self) -> QIcon:
+        """Return the main plugin icon."""
+        return self._qicon("main_icon.svg")
+
+    @property
+    def main_menu_run(self) -> QIcon:
+        """Return the run icon, dynamically colored for the current theme."""
+        return self._qicon("main_menu_run.svg", dynamic=True)
+
+    @property
+    def main_menu_excel(self) -> QIcon:
+        """Return the redo-output icon, dynamically colored for the current theme."""
+        return self._qicon("main_menu_excel.svg", dynamic=True)
+
+    @property
+    def fixture_bend(self) -> QIcon:
+        """Return the bend icon."""
+        return self._qicon("fixture_bend.svg")
+
+    @property
+    def fixture_houseconn(self) -> QIcon:
+        """Return the house-connection icon."""
+        return self._qicon("fixture_houseconnection.svg")
+
+    @property
+    def fixture_questionable(self) -> QIcon:
+        """Return the questionable icon."""
+        return self._qicon("fixture_questionable.svg")
+
+    @property
+    def fixture_reducer(self) -> QIcon:
+        """Return the reducer icon."""
+        return self._qicon("fixture_reducer.svg")
+
+    @property
+    def fixture_t_piece(self) -> QIcon:
+        """Return the t-piece icon."""
+        return self._qicon("fixture_t-piece.svg")
+
+
+ICONS = Icons()
 
 
 @dataclass(frozen=True)

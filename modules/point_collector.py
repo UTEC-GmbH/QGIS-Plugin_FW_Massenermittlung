@@ -15,7 +15,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtWidgets import QProgressBar
 
-from modules.logs_and_errors import log_debug
+from .logs_and_errors import log_debug
 
 
 class PointCollector:
