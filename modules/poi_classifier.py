@@ -99,6 +99,41 @@ class PointOfInterestClassifier(FeatureCreator):
         log_debug("Feature search completed.", Qgis.Success)
         return created_count
 
+    def _handle_two_intersections(
+        self, point: QgsPointXY, intersecting_features: list[QgsFeature]
+    ) -> int:
+        """Process a point where two lines intersect.
+
+        This method determines if the intersection is a bend, a pseudo T-piece,
+        or a data error (crossing lines without a shared vertex).
+
+        Args:
+            point: The intersection point.
+            intersecting_features: The two features that intersect.
+
+        Returns:
+            The number of features created.
+        """
+        feat1, feat2 = intersecting_features
+        is_endpoint1: bool = self.is_endpoint(point, feat1)
+        is_endpoint2: bool = self.is_endpoint(point, feat2)
+
+        if is_endpoint1 and is_endpoint2:
+            # Both features end here. Treat as a 2-way intersection (bend/reducer).
+            return self._process_2_way_intersection(point, intersecting_features)
+
+        if is_endpoint1 ^ is_endpoint2:
+            # Exactly one feature ends here. This is a T-intersection.
+            return self._process_pseudo_t_intersection(point, feat1, feat2)
+
+        # Neither feature ends here; they just cross. This is a data error.
+        # fmt: off
+        note_text:str = QCoreApplication.translate("feature_note", "Intersection without endpoints - lines must be devided.")  # noqa: E501
+        # fmt: on
+        return self.create_questionable_point(
+            point, intersecting_features, note=note_text
+        )
+
     def _process_point(self, point: QgsPointXY) -> int:
         """Analyze a single point and create the appropriate feature(s).
 
@@ -132,25 +167,7 @@ class PointOfInterestClassifier(FeatureCreator):
             )
         # Case 2: Two lines intersect.
         if n_intersections == 2:  # noqa: PLR2004
-            feat1, feat2 = intersecting_features
-            is_endpoint1: bool = self.is_endpoint(point, feat1)
-            is_endpoint2: bool = self.is_endpoint(point, feat2)
-
-            if is_endpoint1 and is_endpoint2:
-                # Both features end here. Treat as a 2-way intersection (bend/reducer).
-                return self._process_2_way_intersection(point, intersecting_features)
-
-            if is_endpoint1 ^ is_endpoint2:
-                # Exactly one feature ends here. This is a T-intersection.
-                return self._process_pseudo_t_intersection(point, feat1, feat2)
-
-            # Neither feature ends here; they just cross. This is a data error.
-            # fmt: off
-            note_text:str = QCoreApplication.translate("feature_note", "Intersection without endpoints - lines must be devided.")  # noqa: E501
-            # fmt: on
-            return self.create_questionable_point(
-                point, intersecting_features, note=note_text
-            )
+            return self._handle_two_intersections(point, intersecting_features)
 
         # Case 3: Three lines intersect.
         # This is always a T-piece candidate.

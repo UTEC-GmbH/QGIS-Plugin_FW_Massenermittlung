@@ -7,11 +7,14 @@ import contextlib
 import re
 import shutil
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from qgis._core import QgsGeometry
 from qgis.core import (
     Qgis,
+    QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
     QgsCoordinateTransformContext,
     QgsExpressionContextUtils,
@@ -45,6 +48,14 @@ from .logs_and_errors import log_debug, raise_runtime_error, raise_user_error
 if TYPE_CHECKING:
     from qgis.core import QgsGeometry, QgsMapLayer
     from qgis.gui import QgsLayerTreeView
+
+
+@dataclass
+class DuplicateCheckResult:
+    """Holds the results of a duplicate feature check."""
+
+    to_delete: list[int]
+    removed_by_type: dict[str, int]
 
 
 class LayerManager:
@@ -118,23 +129,12 @@ class LayerManager:
 
         return sanitized_name
 
-    def reproject_layer_to_project_crs(self, layer: QgsVectorLayer) -> QgsVectorLayer:
-        """Reprojects a vector layer to the project's CRS.
-
-        Creates a new in-memory layer with the same fields and reprojects
-        all features from the source layer into it.
-
-        :param layer: The source QgsVectorLayer to reproject.
-        :returns: A new, reprojected in-memory QgsVectorLayer.
-        """
-
-        log_debug("Creating in-memory layer for reprojection and field filtering.")
-
-        # Clear any selection on the layer
-        layer.removeSelection()
-
-        target_crs = self.project.crs()
-        if layer.crs() == target_crs:
+    def _create_reprojected_layer_structure(
+        self, source_layer: QgsVectorLayer
+    ) -> QgsVectorLayer:
+        """Create the structure (fields, CRS) for the reprojected layer."""
+        target_crs: QgsCoordinateReferenceSystem = self.project.crs()
+        if source_layer.crs() == target_crs:
             log_debug(
                 "Layer CRS matches project CRS. "
                 "Creating new layer with filtered fields.",
@@ -142,29 +142,26 @@ class LayerManager:
             )
         else:
             log_debug(
-                f"Layer CRS ({layer.crs().authid()}) does not match project CRS "
+                f"Layer CRS ({source_layer.crs().authid()}) does not match project CRS "
                 f"({target_crs.authid()}). Reprojecting...",
-                Qgis.Warning,
+                icon="♻️",
             )
 
-        # Create a new in-memory layer with the target CRS
-        geometry_type_str: str = QgsWkbTypes.displayString(layer.wkbType())
+        geometry_type_str: str = QgsWkbTypes.displayString(source_layer.wkbType())
         reprojected_layer = QgsVectorLayer(
             f"{geometry_type_str}?crs={target_crs.authid()}",
-            layer.name(),
+            source_layer.name(),
             "memory",
         )
 
-        # Copy fields from the source layer, excluding problematic types
         data_provider: QgsVectorDataProvider | None = reprojected_layer.dataProvider()
         if data_provider is None:
             raise_runtime_error(
                 f"Could not get data provider for layer: {reprojected_layer.name()}"
             )
 
-        # Define problematic field types that QGIS might struggle with
-        filtered_fields: list = []
-        for field in layer.fields():
+        filtered_fields: list[QgsField] = []
+        for field in source_layer.fields():
             if field.type() not in PROBLEMATIC_FIELD_TYPES and field.name() != "fid":
                 filtered_fields.append(field)
             else:
@@ -178,84 +175,129 @@ class LayerManager:
         reprojected_layer.updateFields()
         log_debug(
             f"The in-memory layer has {len(reprojected_layer.fields())} fields "
-            f"(the selected layer has {len(layer.fields())} fields)."
+            f"(the selected layer has {len(source_layer.fields())} fields).",
+            icon="🐞",
         )
+        return reprojected_layer
 
-        # Prepare coordinate transformation
+    def _create_reprojected_feature(
+        self,
+        source_feature: QgsFeature,
+        target_fields: QgsFields,
+        transform: QgsCoordinateTransform,
+    ) -> QgsFeature | None:
+        """Create a single reprojected feature with mapped attributes."""
+        try:
+            new_feature = QgsFeature()
+            new_feature.setFields(target_fields, initAttributes=True)
+            new_feature.setAttribute("original_fid", source_feature.id())
+
+            for field in target_fields:
+                if source_feature.fieldNameIndex(field.name()) != -1:
+                    new_feature.setAttribute(field.name(), source_feature[field.name()])
+
+            geom: QgsGeometry = source_feature.geometry()
+            if geom.transform(transform) != 0:
+                log_debug(
+                    f"Feature {source_feature.id()} could not be reprojected.",
+                    Qgis.Warning,
+                )
+                return None
+
+            new_feature.setGeometry(geom)
+
+        except (AttributeError, TypeError, ValueError, RuntimeError) as e:
+            log_debug(
+                f"Could not process feature with ID {source_feature.id()} "
+                f"for reprojection: {e!s}",
+                Qgis.Warning,
+            )
+            return None
+
+        else:
+            return new_feature
+
+    def _populate_reprojected_layer(
+        self, source_layer: QgsVectorLayer, target_layer: QgsVectorLayer
+    ) -> None:
+        """Reproject features and add them to the target layer."""
         transform = QgsCoordinateTransform(
-            layer.crs(), self.project.crs(), self.project.transformContext()
+            source_layer.crs(), self.project.crs(), self.project.transformContext()
         )
 
-        # Copy and reproject features
-        all_ids: list = list(layer.allFeatureIds())
+        all_ids: list = list(source_layer.allFeatureIds())
         log_debug(f"Found {len(all_ids)} feature IDs in the selected layer.")
         if not all_ids:
-            return reprojected_layer
+            return
 
         new_features: list[QgsFeature] = []
         for fid in all_ids:
-            try:
-                feature: QgsFeature = layer.getFeature(fid)
-                new_feature = QgsFeature()
-                new_feature.setFields(reprojected_layer.fields(), initAttributes=True)
-
-                # Copy the original feature ID
-                new_feature.setAttribute("original_fid", fid)
-
-                # Copy only attributes that exist in the reprojected_layer's fields
-                for field in reprojected_layer.fields():
-                    if feature.fieldNameIndex(field.name()) != -1:
-                        new_feature.setAttribute(field.name(), feature[field.name()])
-
-                geom: QgsGeometry = feature.geometry()
-                if geom.transform(transform) != 0:  # 0 means success
-                    log_debug(
-                        f"Feature {feature.id()} could not be reprojected.",
-                        Qgis.Warning,
-                    )
-                    continue
-
-                new_feature.setGeometry(geom)
+            source_feature: QgsFeature = source_layer.getFeature(fid)
+            if new_feature := self._create_reprojected_feature(
+                source_feature, target_layer.fields(), transform
+            ):
                 new_features.append(new_feature)
-            except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-                log_debug(
-                    f"Could not process feature with ID {fid} for reprojection: {e!s}",
-                    Qgis.Warning,
-                )
 
         log_debug(f"Processed {len(new_features)} features for reprojection.")
 
         if new_features:
-            reprojected_layer.startEditing()
-            reprojected_layer.addFeatures(new_features)
+            self._add_features_to_layer(target_layer, new_features)
 
-            # Add the in-memory layer to the project to ensure
-            # it's not garbage collected or invalidated.
-            # We don't add it to the layer tree, so it remains invisible.
-            self.project.addMapLayer(reprojected_layer, addToLegend=False)
+    def _add_features_to_layer(
+        self, target_layer: QgsVectorLayer, new_features: list[QgsFeature]
+    ) -> None:
+        """Add features to the target layer."""
+        target_layer.startEditing()
+        target_layer.addFeatures(new_features)
+
+        # Add the in-memory layer to the project to ensure
+        # it's not garbage collected or invalidated.
+        # We don't add it to the layer tree, so it remains invisible.
+        self.project.addMapLayer(target_layer, addToLegend=False)
+        log_debug(
+            f"Added reprojected layer to map registry. "
+            f"Feature count: {target_layer.featureCount()}"
+        )
+
+        if target_layer.commitChanges():
             log_debug(
-                f"Added reprojected layer to map registry. "
-                f"Feature count: {reprojected_layer.featureCount()}"
+                f"Successfully committed {target_layer.featureCount()} "
+                "features to reprojected in-memory layer.",
+                Qgis.Success,
             )
+        else:
+            log_debug(
+                f"Failed to commit changes to reprojected in-memory layer. "
+                f"Feature count: {target_layer.featureCount()}",
+                Qgis.Critical,
+            )
+        target_layer.updateExtents()
 
-            if reprojected_layer.commitChanges():
-                log_debug(
-                    f"Successfully committed {reprojected_layer.featureCount()} "
-                    "features to reprojected in-memory layer.",
-                    Qgis.Success,
-                )
-            else:
-                log_debug(
-                    f"Failed to commit changes to reprojected in-memory layer. "
-                    f"Feature count: {reprojected_layer.featureCount()}",
-                    Qgis.Critical,
-                )
-            reprojected_layer.updateExtents()
+    def reproject_layer_to_project_crs(self, layer: QgsVectorLayer) -> QgsVectorLayer:
+        """Reprojects a vector layer to the project's CRS.
+
+        Creates a new in-memory layer with the same fields and reprojects
+        all features from the source layer into it.
+
+        :param layer: The source QgsVectorLayer to reproject.
+        :returns: A new, reprojected in-memory QgsVectorLayer.
+        """
+        log_debug("Creating in-memory layer for reprojection and field filtering.")
+
+        # Clear any selection on the layer
+        layer.removeSelection()
+
+        reprojected_layer: QgsVectorLayer = self._create_reprojected_layer_structure(
+            layer
+        )
+        self._populate_reprojected_layer(layer, reprojected_layer)
+
         log_debug(
             f"The selected layer has {layer.featureCount()} features "
             f"and {len(layer.fields())} fields."
             f"The reprojected layer has {reprojected_layer.featureCount()} features "
-            f"and {len(reprojected_layer.fields())} fields."
+            f"and {len(reprojected_layer.fields())} fields.",
+            icon="🐞",
         )
         return reprojected_layer
 
@@ -506,38 +548,48 @@ class LayerManager:
             f"{target_layer.featureCount()} features."
         )
 
-    def remove_duplicates_from_layer(self, layer: QgsVectorLayer) -> None:
-        """Detect and remove duplicate features in the given layer.
-
-        Two features are considered duplicates if they share the same location
-        (rounded to 4 decimals) and have identical classification-relevant
-        attributes (type, dimensions, angle, connected). The first occurrence is
-        kept, subsequent ones are removed.
+    def _build_feature_key(self, feature: QgsFeature) -> tuple | None:
+        """Build a unique key for a feature to detect duplicates.
 
         Args:
-            layer: The layer to process for duplicates.
+            feature: The feature to build a key for.
+
+        Returns:
+            A tuple representing the feature's key, or None if the feature
+            has no geometry.
         """
+        feature_geometry: QgsGeometry = feature.geometry()
+        if feature_geometry is None or feature_geometry.isEmpty():
+            return None
 
-        log_debug("Starting duplicate check on the final layer...")
+        return (
+            round(feature_geometry.asPoint().x(), 4),
+            round(feature_geometry.asPoint().y(), 4),
+            feature.attribute(NewLayerFields.type.name),
+            feature.attribute(NewLayerFields.dim_1.name) or "",
+            feature.attribute(NewLayerFields.angle.name) or None,
+            feature.attribute(NewLayerFields.connected.name) or "",
+        )
 
+    def _find_duplicates(self, layer: QgsVectorLayer) -> DuplicateCheckResult:
+        """Find duplicate features in a layer based on a composite key.
+
+        Args:
+            layer: The layer to scan for duplicates.
+
+        Returns:
+            A dataclass containing a list of feature IDs to delete and a
+            dictionary with counts of removed duplicates by type.
+        """
         to_delete: list[int] = []
         removed_by_type: dict[str, int] = {}
         seen: dict[tuple, int] = {}
 
         request = QgsFeatureRequest()
         for feature in layer.getFeatures(request):  # pyright: ignore[reportGeneralTypeIssues]
-            feature_geometry = feature.geometry()
-            if feature_geometry is None or feature_geometry.isEmpty():
+            key: tuple | None = self._build_feature_key(feature)
+            if key is None:
                 continue
-
-            key: tuple = (
-                round(feature_geometry.asPoint().x(), 4),
-                round(feature_geometry.asPoint().y(), 4),
-                feature.attribute(NewLayerFields.type.name),
-                feature.attribute(NewLayerFields.dim_1.name) or "",
-                feature.attribute(NewLayerFields.angle.name) or None,
-                feature.attribute(NewLayerFields.connected.name) or "",
-            )
 
             if key in seen:
                 original_fid: int = seen[key]
@@ -551,35 +603,80 @@ class LayerManager:
                 removed_by_type[feature_type] = removed_by_type.get(feature_type, 0) + 1
             else:
                 seen[key] = feature.id()
+        return DuplicateCheckResult(
+            to_delete=to_delete, removed_by_type=removed_by_type
+        )
 
-        if to_delete:
-            if not layer.isEditable() and not layer.startEditing():
-                raise_runtime_error("Failed to start editing to remove duplicates.")
+    def _delete_features_from_layer(
+        self, layer: QgsVectorLayer, fids_to_delete: list[int]
+    ) -> None:
+        """Delete features from a layer by their IDs.
 
-            # Prefer batch deletion if available
-            try:
-                if hasattr(layer, "deleteFeatures"):
-                    layer.deleteFeatures(to_delete)
-                else:
-                    for fid in to_delete:
-                        layer.deleteFeature(fid)
-            except Exception:  # noqa: BLE001
-                # Fallback to per-feature deletion
-                for fid in to_delete:
+        Args:
+            layer: The layer from which to delete features.
+            fids_to_delete: A list of feature IDs to delete.
+        """
+        if not fids_to_delete:
+            return
+
+        if not layer.isEditable() and not layer.startEditing():
+            raise_runtime_error("Failed to start editing to remove duplicates.")
+
+        try:
+            if hasattr(layer, "deleteFeatures"):
+                layer.deleteFeatures(fids_to_delete)
+            else:
+                for fid in fids_to_delete:
                     layer.deleteFeature(fid)
+        except Exception as e:  # noqa: BLE001
+            # Fallback to per-feature deletion on error
+            log_debug(
+                f"Batch deletion failed, falling back to individual deletion: {e}",
+                Qgis.Warning,
+            )
+            for fid in fids_to_delete:
+                layer.deleteFeature(fid)
 
-            if not layer.commitChanges():
-                raise_runtime_error("Failed to commit duplicate deletions.")
+        if not layer.commitChanges():
+            raise_runtime_error("Failed to commit duplicate deletions.")
 
+    def _log_duplicate_summary(
+        self, deleted_count: int, removed_by_type: dict[str, int]
+    ) -> None:
+        """Log a summary of the removed duplicate features.
+
+        Args:
+            deleted_count: The total number of deleted features.
+            removed_by_type: A dictionary with counts of removed duplicates by type.
+        """
         summary_parts: list[str] = [
             f"{type_name}: {count}" for type_name, count in removed_by_type.items()
         ]
         type_summary: str = f" ({', '.join(summary_parts)})" if summary_parts else ""
 
         log_debug(
-            f"Duplicate check finished. {len(to_delete)} duplicates removed."
+            f"Duplicate check finished. {deleted_count} duplicates removed."
             f"{type_summary}",
             Qgis.Success,
+        )
+
+    def remove_duplicates_from_layer(self, layer: QgsVectorLayer) -> None:
+        """Detect and remove duplicate features in the given layer.
+
+        Two features are considered duplicates if they share the same location
+        (rounded to 4 decimals) and have identical classification-relevant
+        attributes (type, dimensions, angle, connected). The first occurrence is
+        kept, subsequent ones are removed.
+
+        Args:
+            layer: The layer to process for duplicates.
+        """
+        log_debug("Starting duplicate check on the final layer...")
+
+        duplicates: DuplicateCheckResult = self._find_duplicates(layer)
+        self._delete_features_from_layer(layer, duplicates.to_delete)
+        self._log_duplicate_summary(
+            len(duplicates.to_delete), duplicates.removed_by_type
         )
 
     def set_layer_style(self, layer: QgsVectorLayer) -> None:
@@ -618,25 +715,7 @@ class LayerManager:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            template_name: str = f"{Names.excel_file_summary}.xlsx"
-            template_path = Path(template_name)
-            dest_file_name: str = (
-                f"{template_path.stem} - {layer_name}{template_path.suffix}"
-            )
-
-            template_src: Path = PluginContext.templates_path() / template_name
-            template_dest: Path = output_dir / dest_file_name
-
-            if not template_src.exists():
-                log_debug(f"Template file not found at: {template_src}", Qgis.Warning)
-            elif not template_dest.exists():
-                shutil.copy(template_src, template_dest)
-                log_debug(f"Copied summary template to: {template_dest}", Qgis.Info)
-            else:
-                log_debug(
-                    f"Summary template already exists at: {template_dest}", Qgis.Info
-                )
-
+            self._create_excel_output_path(layer_name, output_dir)
         except OSError as e:
             # fmt: off
             error_msg: str = QCoreApplication.translate("XlsxExport", "Could not create output directory or copy template: {0}").format(e)  # noqa: E501
@@ -646,41 +725,48 @@ class LayerManager:
         output_file_name: str = f"{Names.excel_file_output} - {layer_name}.xlsx"
         return output_dir / output_file_name
 
+    def _create_excel_output_path(self, layer_name: str, output_dir: Path) -> None:
+        """Create the output directory and copy the template file."""
+        template_name: str = f"{Names.excel_file_summary}.xlsx"
+        template_path = Path(template_name)
+        dest_file_name: str = (
+            f"{template_path.stem} - {layer_name}{template_path.suffix}"
+        )
+
+        template_src: Path = PluginContext.templates_path() / template_name
+        template_dest: Path = output_dir / dest_file_name
+
+        if not template_src.exists():
+            log_debug(f"Template file not found at: {template_src}", Qgis.Warning)
+        elif not template_dest.exists():
+            shutil.copy(template_src, template_dest)
+            log_debug(f"Copied summary template to: {template_dest}", Qgis.Info)
+        else:
+            log_debug(f"Summary template already exists at: {template_dest}", Qgis.Info)
+
     def _export_point_features_to_excel(
         self, point_layer: QgsVectorLayer, output_path: Path
     ) -> None:
         """Export point features to a sheet in the Excel file."""
-        options = QgsVectorFileWriter.SaveVectorOptions()
-        options.driverName = "XLSX"
-        options.datasourceOptions = ["GEOMETRY=NO"]
-        options.layerName = "Formteile"
-
-        write_layer: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
-            point_layer,
-            str(output_path),
-            QgsCoordinateTransformContext(),
-            options,
+        options: QgsVectorFileWriter.SaveVectorOptions = self._writer_options(
+            "Formteile"
         )
-        error_code: int = write_layer[0]
-        if error_code == QgsVectorFileWriter.WriterError.NoError:
-            # fmt: off
-            success_msg: str = QCoreApplication.translate("XlsxExport", "Excel summary saved to: {0}").format(str(output_path))  # noqa: E501
-            # fmt: on
-            log_debug(success_msg, Qgis.Success)
-        else:
-            error_message: str = write_layer[1]
-            raise_runtime_error(error_message)
+        self._write_to_excel_file(
+            point_layer, output_path, options, "Excel summary saved to: {0}"
+        )
 
     def _create_line_features_table(self) -> QgsVectorLayer | None:
         """Create and populate a temporary table with line feature data."""
         temporary_table = QgsVectorLayer("None?crs=", "line_features_data", "memory")
-        line_data_provider = temporary_table.dataProvider()
+        line_data_provider: QgsVectorDataProvider | None = (
+            temporary_table.dataProvider()
+        )
         if not line_data_provider:
             raise_runtime_error(
                 "Could not create data provider for line features layer."
             )
 
-        line_fields = [
+        line_fields: list[QgsField] = [
             QgsField("ID", QMT_Int),
             QgsField(Names.excel_dim, QMT_Int),
             QgsField(Names.excel_line_length, QMT_Double),
@@ -704,7 +790,7 @@ class LayerManager:
                 "ID", original_feature.attribute("original_fid")
             )
             geom = original_feature.geometry()
-            length = geom.length() if geom and not geom.isEmpty() else 0.0
+            length: float = geom.length() if geom and not geom.isEmpty() else 0.0
             new_excel_feature.setAttribute(Names.excel_line_length, length)
 
             dim_value = (
@@ -731,29 +817,46 @@ class LayerManager:
         self, line_table: QgsVectorLayer, output_path: Path
     ) -> None:
         """Export line feature data to a separate sheet in the Excel file."""
-        line_options = QgsVectorFileWriter.SaveVectorOptions()
-        line_options.driverName = "XLSX"
-        line_options.datasourceOptions = ["GEOMETRY=NO"]
-        line_options.layerName = "Leitungstrassen"
+        line_options: QgsVectorFileWriter.SaveVectorOptions = self._writer_options(
+            "Leitungstrassen"
+        )
         line_options.actionOnExistingFile = (
             QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteLayer
         )
 
-        write_layer: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
+        self._write_to_excel_file(
             line_table,
-            str(output_path),
-            QgsCoordinateTransformContext(),
+            output_path,
             line_options,
+            "Line features exported to sheet 'Line Features' in: {0}",
+        )
+
+    def _write_to_excel_file(
+        self,
+        layer: QgsVectorLayer,
+        output_path: Path,
+        options: QgsVectorFileWriter.SaveVectorOptions,
+        message: str,
+    ) -> None:
+        write_layer: tuple = QgsVectorFileWriter.writeAsVectorFormatV3(
+            layer, str(output_path), QgsCoordinateTransformContext(), options
         )
         error_code: int = write_layer[0]
         if error_code == QgsVectorFileWriter.WriterError.NoError:
             # fmt: off
-            success_msg: str = QCoreApplication.translate("XlsxExport", "Line features exported to sheet 'Line Features' in: {0}").format(str(output_path))  # noqa: E501
+            success_msg: str = QCoreApplication.translate("XlsxExport", message).format(str(output_path))  # noqa: E501
             # fmt: on
             log_debug(success_msg, Qgis.Success)
         else:
             error_message: str = write_layer[1]
             raise_runtime_error(error_message)
+
+    def _writer_options(self, layer_name: str) -> QgsVectorFileWriter.SaveVectorOptions:
+        result = QgsVectorFileWriter.SaveVectorOptions()
+        result.driverName = "XLSX"
+        result.datasourceOptions = ["GEOMETRY=NO"]
+        result.layerName = layer_name
+        return result
 
     def export_results(self, new_layer: QgsVectorLayer) -> None:
         """Export the analysis results to an XLSX file.

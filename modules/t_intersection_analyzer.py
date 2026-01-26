@@ -211,11 +211,7 @@ class TIntersectionAnalyzer(FeatureCreator):
         result: PipeAnalysisResult | None = self._find_pipe_by_endpoint_connectivity(
             point, features
         )
-        if result:
-            return result
-
-        # Strategy 2: Fallback to finding the most collinear pair by angle
-        return self._find_pipe_by_angle(point, features)
+        return result or self._find_pipe_by_angle(point, features)
 
     def _find_pipe_by_endpoint_connectivity(
         self, point: QgsPointXY, features: list[QgsFeature]

@@ -211,7 +211,6 @@ class Numbers:
     """Class: Numbers
 
     This class contains numeric constants used throughout the plugin.
-
     """
 
     circle_full: float = 360  # The number of degrees in a full circle.
