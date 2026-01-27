@@ -300,10 +300,9 @@ class Massenermittlung(QObject):
                 progress_bar,
                 update_text,
             ):
-                if not self.layer_manager:
-                    raise_runtime_error("Layer manager is not initialized.")
-
                 reprojected_layer = self.layer_manager.selected_layer
+                if not reprojected_layer:
+                    raise_runtime_error("Reprojected layer is not initialized.")
 
                 # Create a temporary layer for the results
                 temp_point_layer = self.layer_manager.create_temporary_point_layer()
