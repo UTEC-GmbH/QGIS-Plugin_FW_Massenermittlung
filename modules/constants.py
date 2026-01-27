@@ -5,38 +5,120 @@ This module contains constant values.
 
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
+from typing import TYPE_CHECKING
 
+from qgis.core import QgsApplication, QgsSvgCache
 from qgis.PyQt.QtCore import QMetaType as Qmt
+from qgis.PyQt.QtGui import QColor, QIcon, QPixmap
 
-PROBLEMATIC_FIELD_TYPES: list = [Qmt.QVariantMap, Qmt.QVariantList, Qmt.QStringList]
+from .context import PluginContext
 
-
-@dataclass(frozen=True)
-class PluginPaths:
-    """Class: Paths
-
-    This class contains directories as path objects.
-    """
-
-    main: Path = Path(__file__).parent.parent
-    i18n: Path = Path(__file__).parent.parent / "i18n"
-    resources: Path = Path(__file__).parent.parent / "resources"
-    icons: Path = Path(__file__).parent.parent / "resources" / "icons"
-    templates: Path = Path(__file__).parent.parent / "resources" / "templates"
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
-@dataclass(frozen=True)
+if PluginContext.is_qt6():
+    QMT_Map = Qmt.Type.QVariantMap
+    QMT_List = Qmt.Type.QVariantList
+    QMT_StringList = Qmt.Type.QStringList  # Qt6 has QStringList in Type
+    QMT_String = Qmt.Type.QString
+    QMT_Int = Qmt.Type.Int
+    QMT_Double = Qmt.Type.Double
+else:
+    QMT_Map = Qmt.QVariantMap
+    QMT_List = Qmt.QVariantList
+    QMT_StringList = Qmt.QStringList
+    QMT_String = Qmt.QString
+    QMT_Int = Qmt.Int
+    QMT_Double = Qmt.Double
+
+PROBLEMATIC_FIELD_TYPES: list = [QMT_Map, QMT_List, QMT_StringList]
+
+
+# pylint: disable=too-few-public-methods
 class Icons:
-    """Class: Icons
+    """Holds plugin icons."""
 
-    This class contains icon constants.
-    """
+    @staticmethod
+    def _qicon(
+        filename: str,
+        *,
+        dynamic: bool = False,
+        dark: str = "#1c274c",
+        light: str = "#738ad5",
+    ) -> QIcon:
+        """Load an icon from the icons directory.
 
-    Success: str = "🎉"
-    Info: str = "💡"
-    Warning: str = "💥"
-    Critical: str = "💀"
+        Args:
+            filename: The name of the icon file (including extension).
+            dynamic: Whether to load the icon dynamically (default: False).
+            dark: The color to use for the dark theme (default: "#1c274c").
+            light: The color to use for the light theme (default: "#738ad5").
+
+        Returns:
+            QIcon: The loaded QIcon object.
+        """
+        icons_path: Path = PluginContext.icons_path()
+
+        if not dynamic:
+            return QIcon(str(icons_path / filename))
+
+        is_dark: bool = PluginContext.is_dark_theme()
+
+        fill_colour: QColor = QColor(light) if is_dark else QColor(dark)
+        stroke_colour: QColor = QColor(dark) if is_dark else QColor(light)
+
+        svg_cache: QgsSvgCache | None = QgsApplication.svgCache()
+        if svg_cache is None:
+            return QIcon(str(icons_path / filename))
+        icon = svg_cache.svgAsImage(
+            str(icons_path / filename), 48, fill_colour, stroke_colour, 1, 1
+        )[0]
+
+        return QIcon(QPixmap.fromImage(icon))
+
+    @property
+    def main_icon(self) -> QIcon:
+        """Return the main plugin icon."""
+        return self._qicon("main_icon.svg")
+
+    @property
+    def main_menu_run(self) -> QIcon:
+        """Return the run icon, dynamically colored for the current theme."""
+        return self._qicon("main_menu_run.svg", dynamic=True)
+
+    @property
+    def main_menu_excel(self) -> QIcon:
+        """Return the redo-output icon, dynamically colored for the current theme."""
+        return self._qicon("main_menu_excel.svg", dynamic=True)
+
+    @property
+    def fitting_bend(self) -> QIcon:
+        """Return the bend icon."""
+        return self._qicon("fitting_bend.svg")
+
+    @property
+    def fitting_houseconn(self) -> QIcon:
+        """Return the house-connection icon."""
+        return self._qicon("fitting_houseconnection.svg")
+
+    @property
+    def fitting_questionable(self) -> QIcon:
+        """Return the questionable icon."""
+        return self._qicon("fitting_questionable.svg")
+
+    @property
+    def fitting_reducer(self) -> QIcon:
+        """Return the reducer icon."""
+        return self._qicon("fitting_reducer.svg")
+
+    @property
+    def fitting_t_piece(self) -> QIcon:
+        """Return the t-piece icon."""
+        return self._qicon("fitting_t-piece.svg")
+
+
+ICONS = Icons()
 
 
 @dataclass(frozen=True)
@@ -129,7 +211,6 @@ class Numbers:
     """Class: Numbers
 
     This class contains numeric constants used throughout the plugin.
-
     """
 
     circle_full: float = 360  # The number of degrees in a full circle.
@@ -161,12 +242,12 @@ class NewLayerFields(Enum):
     """
 
     # Enum members are defined as tuples: (display_name, qgis_data_type)
-    type: tuple[str, Qmt] = ("Typ", Qmt.QString)
-    dim_1: tuple[str, Qmt] = ("Dimension 1", Qmt.Int)
-    dim_2: tuple[str, Qmt] = ("Dimension 2", Qmt.Int)
-    angle: tuple[str, Qmt] = ("Bogen-Winkel", Qmt.Int)
-    connected: tuple[str, Qmt] = ("Verbundene Leitungen", Qmt.QString)
-    notes: tuple[str, Qmt] = ("Anmerkungen", Qmt.QString)
+    type: tuple[str, Qmt] = ("Typ", QMT_String)
+    dim_1: tuple[str, Qmt] = ("Dimension 1", QMT_Int)
+    dim_2: tuple[str, Qmt] = ("Dimension 2", QMT_Int)
+    angle: tuple[str, Qmt] = ("Bogen-Winkel", QMT_Int)
+    connected: tuple[str, Qmt] = ("Verbundene Leitungen", QMT_String)
+    notes: tuple[str, Qmt] = ("Anmerkungen", QMT_String)
 
     def __init__(self, display_name: str, q_type: Qmt) -> None:
         """Initialize the enum member with its attributes."""

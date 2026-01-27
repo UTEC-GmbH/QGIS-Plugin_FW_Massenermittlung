@@ -6,22 +6,19 @@ This module contains logging functions and custom error classes.
 import inspect
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING, NoReturn
+from typing import NoReturn
 
 from qgis.core import Qgis, QgsMessageLog, QgsVectorLayer
 from qgis.PyQt.QtCore import QCoreApplication
-from qgis.utils import iface
 
-from modules import constants as cont
+from .constants import Names, NewLayerFields
 
-if TYPE_CHECKING:
-    from qgis.gui import QgisInterface
-
+LOG_TAG: str = "Plugin: Massenermittlung"
 LEVEL_ICON: dict[Qgis.MessageLevel, str] = {
-    Qgis.Success: cont.Icons.Success,
-    Qgis.Info: cont.Icons.Info,
-    Qgis.Warning: cont.Icons.Warning,
-    Qgis.Critical: cont.Icons.Critical,
+    Qgis.Success: "🎉",
+    Qgis.Info: "💡",
+    Qgis.Warning: "💥",
+    Qgis.Critical: "💀",
 }
 
 
@@ -52,6 +49,7 @@ def log_debug(
     level: Qgis.MessageLevel = Qgis.Info,
     file_line_number: str | None = None,
     icon: str | None = None,
+    prefix: str | None = None,
 ) -> None:
     """Log a debug message.
 
@@ -60,23 +58,24 @@ def log_debug(
 
     Args:
         message: The message to log.
-        level: The QGIS message level (Success, Info, Warning, Critical).
+        level: The QGIS message level.
+            (Qgis.Success, Qgis.Info, Qgis.Warning or Qgis.Critical)
             Defaults to Qgis.Info.
         file_line_number: An optional string to append to the message.
             Defaults to the filename and line number of the caller.
         icon: An optional icon string to prepend to the message. If None,
             a default icon based on `msg_level` will be used.
+        prefix: An optional prefix string to prepend to the message.
 
     Returns:
         None
     """
-
     file_line_number = file_line_number or file_line(inspect.currentframe())
 
     icon = icon or LEVEL_ICON[level]
-    message = f"{icon} {message}{file_line_number}"
+    message = f"{icon} {prefix or ''} {message}{file_line_number}"
 
-    QgsMessageLog.logMessage(f"{message}", "Plugin: Massenermittlung", level=level)
+    QgsMessageLog.logMessage(f"{message}", LOG_TAG, level=level)
 
 
 def show_message(
@@ -87,22 +86,24 @@ def show_message(
     This helper function standardizes error handling by ensuring that a critical
     error is logged and displayed to the user.
 
-    :param error_msg: The error message to display and include in the exception.
-    :param level: The QGIS message level (Warning, Critical, etc.).
-    :param duration: The duration of the message in seconds (default: 0 = until closed)
-    :return: None
+    Args:
+        message: The error message to display and include in the exception.
+        level: The QGIS message level (Warning, Critical, etc.).
+            Defaults to Qgis.Critical.
+        duration: The duration of the message in seconds (default: 0 = until closed).
     """
+    # pylint: disable=import-outside-toplevel
+    from .context import PluginContext  # noqa: PLC0415
 
-    qgis_iface: QgisInterface | None = iface
-    if qgis_iface and (msg_bar := qgis_iface.messageBar()):
+    if msg_bar := PluginContext.message_bar():
         msg_bar.clearWidgets()
         msg_bar.pushMessage(
             f"{LEVEL_ICON[level]} {message}", level=level, duration=duration
         )
     else:
         QgsMessageLog.logMessage(
-            f"{cont.Icons.Warning} iface not set or message bar not available! "
-            f"→ Error not displayed in message bar."
+            f"{LEVEL_ICON[Qgis.Warning]} message bar not available! "
+            f"→ Message not displayed in message bar."
         )
 
 
@@ -114,31 +115,39 @@ class CustomRuntimeError(Exception):
     """Custom exception for runtime errors in the plugin."""
 
 
-def raise_user_error(error_msg: str) -> NoReturn:
-    """Log a user-facing warning, display it, and raise a CustomUserError."""
-
-    file_line_number: str = file_line(inspect.currentframe())
-    log_msg: str = f"{LEVEL_ICON[Qgis.Warning]} {error_msg}{file_line_number}"
-    QgsMessageLog.logMessage(
-        f"{log_msg}", "Plugin: Massenermittlung", level=Qgis.Warning
-    )
-
-    show_message(error_msg, level=Qgis.Warning)
-    raise CustomUserError(error_msg)
-
-
 def raise_runtime_error(error_msg: str) -> NoReturn:
-    """Log a critical error, display it, and raise a CustomRuntimeError."""
+    """Log a critical error, display it, and raise a CustomRuntimeError.
 
+    Args:
+        error_msg: The error message to be displayed and raised.
+
+    Raises:
+        CustomRuntimeError: The raised exception with the error message.
+    """
     file_line_number: str = file_line(inspect.currentframe())
     error_msg = f"{error_msg}{file_line_number}"
     log_msg: str = f"{LEVEL_ICON[Qgis.Critical]} {error_msg}"
-    QgsMessageLog.logMessage(
-        f"{log_msg}", "Plugin: Massenermittlung", level=Qgis.Critical
-    )
+    QgsMessageLog.logMessage(f"{log_msg}", LOG_TAG, level=Qgis.Critical)
 
     show_message(error_msg)
     raise CustomRuntimeError(error_msg)
+
+
+def raise_user_error(error_msg: str) -> NoReturn:
+    """Log a user-facing warning, display it, and raise a CustomUserError.
+
+    Args:
+        error_msg: The error message to be displayed and raised.
+
+    Raises:
+        CustomUserError: The raised exception with the error message.
+    """
+    file_line_number: str = file_line(inspect.currentframe())
+    log_msg: str = f"{LEVEL_ICON[Qgis.Warning]} {error_msg}{file_line_number}"
+    QgsMessageLog.logMessage(f"{log_msg}", LOG_TAG, level=Qgis.Warning)
+
+    show_message(error_msg, level=Qgis.Warning)
+    raise CustomUserError(error_msg)
 
 
 def create_summary_message(
@@ -161,19 +170,21 @@ def create_summary_message(
     # fmt: off
     # ruff: noqa: E501
     base_message: str = QCoreApplication.translate("summary", "Layer '{0}' analyzed:").format(selected_layer_name)  
-    excel_summary: str = QCoreApplication.translate("summary", "(Summary saved to folder '{0}')").format(cont.Names.excel_dir)  
+    excel_summary: str = QCoreApplication.translate("summary", "(Summary saved to folder '{0}')").format(Names.excel_dir)  
     # fmt: on
 
-    if new_layer.fields().indexFromName(cont.NewLayerFields.type.name) == -1:
+    if new_layer.fields().indexFromName(NewLayerFields.type.name) == -1:
         log_debug("Type field not found in new layer.", Qgis.Warning)
         # fmt: off
         fail_field: str = QCoreApplication.translate("summary", "Type field not found in new layer.") 
         # fmt: on
-        completed_message: str = f"{base_message} ({cont.Icons.Warning} {fail_field})"
+        completed_message: str = (
+            f"{base_message} ({LEVEL_ICON[Qgis.Warning]} {fail_field})"
+        )
     else:
         type_counts: dict[str, int] = {}
         for feature in new_layer.getFeatures():  # pyright: ignore[reportGeneralTypeIssues]
-            type_value = feature.attribute(cont.NewLayerFields.type.name)
+            type_value = feature.attribute(NewLayerFields.type.name)
             if isinstance(type_value, str) and type_value:
                 type_counts[type_value] = type_counts.get(type_value, 0) + 1
 
@@ -182,7 +193,9 @@ def create_summary_message(
             # fmt: off
             fail_counts: str = QCoreApplication.translate("summary", "Failed to get type counts from new layer.")  
             # fmt: on
-            completed_message = f"{base_message} ({cont.Icons.Warning} {fail_counts})"
+            completed_message = (
+                f"{base_message} ({LEVEL_ICON[Qgis.Warning]} {fail_counts})"
+            )
 
         else:
             found_parts: list[str] = [

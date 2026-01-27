@@ -169,7 +169,7 @@
               <Option type="QString" name="color" value="226,182,10,255,rgb:0.88627450980392153,0.71372549019607845,0.0392156862745098,1"/>
               <Option type="QString" name="fixedAspectRatio" value="0"/>
               <Option type="QString" name="horizontal_anchor_point" value="1"/>
-              <Option type="QString" name="name" value="layer_bend.svg"/>
+              <Option type="QString" name="name" value="fitting_bend.svg"/>
               <Option type="QString" name="offset" value="0,0"/>
               <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
               <Option type="QString" name="offset_unit" value="MM"/>
@@ -207,7 +207,7 @@
               <Option type="QString" name="color" value="85,221,255,255,rgb:0.33333333333333331,0.8666666666666667,1,1"/>
               <Option type="QString" name="fixedAspectRatio" value="0"/>
               <Option type="QString" name="horizontal_anchor_point" value="1"/>
-              <Option type="QString" name="name" value="layer_houseconn.svg"/>
+              <Option type="QString" name="name" value="fitting_houseconnection.svg"/>
               <Option type="QString" name="offset" value="0,0"/>
               <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
               <Option type="QString" name="offset_unit" value="MM"/>
@@ -245,7 +245,7 @@
               <Option type="QString" name="color" value="153,0,255,255,rgb:0.59999999999999998,0,1,1"/>
               <Option type="QString" name="fixedAspectRatio" value="0"/>
               <Option type="QString" name="horizontal_anchor_point" value="1"/>
-              <Option type="QString" name="name" value="layer_reducer.svg"/>
+              <Option type="QString" name="name" value="fitting_reducer.svg"/>
               <Option type="QString" name="offset" value="0,0"/>
               <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
               <Option type="QString" name="offset_unit" value="MM"/>
@@ -283,7 +283,7 @@
               <Option type="QString" name="color" value="102,128,0,255,rgb:0.40000000000000002,0.50196078431372548,0,1"/>
               <Option type="QString" name="fixedAspectRatio" value="0"/>
               <Option type="QString" name="horizontal_anchor_point" value="1"/>
-              <Option type="QString" name="name" value="layer_t-piece.svg"/>
+              <Option type="QString" name="name" value="fitting_t-piece.svg"/>
               <Option type="QString" name="offset" value="0,0"/>
               <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
               <Option type="QString" name="offset_unit" value="MM"/>
@@ -321,7 +321,7 @@
               <Option type="QString" name="color" value="255,29,29,255,rgb:1,0.11372549019607843,0.11372549019607843,1"/>
               <Option type="QString" name="fixedAspectRatio" value="0"/>
               <Option type="QString" name="horizontal_anchor_point" value="1"/>
-              <Option type="QString" name="name" value="layer_questionable.svg"/>
+              <Option type="QString" name="name" value="fitting_questionable.svg"/>
               <Option type="QString" name="offset" value="0,0"/>
               <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
               <Option type="QString" name="offset_unit" value="MM"/>
@@ -813,7 +813,7 @@
                 <Option type="QString" name="color" value="255,29,29,255,rgb:1,0.11372549019607843,0.11372549019607843,1"/>
                 <Option type="QString" name="fixedAspectRatio" value="0"/>
                 <Option type="QString" name="horizontal_anchor_point" value="1"/>
-                <Option type="QString" name="name" value="layer_questionable.svg"/>
+                <Option type="QString" name="name" value="fitting_questionable.svg"/>
                 <Option type="QString" name="offset" value="0,0"/>
                 <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
                 <Option type="QString" name="offset_unit" value="MM"/>
@@ -854,7 +854,7 @@
                 <Option type="QString" name="color" value="85,221,255,255,rgb:0.33333333333333331,0.8666666666666667,1,1"/>
                 <Option type="QString" name="fixedAspectRatio" value="0"/>
                 <Option type="QString" name="horizontal_anchor_point" value="1"/>
-                <Option type="QString" name="name" value="layer_houseconn.svg"/>
+                <Option type="QString" name="name" value="fitting_houseconnection.svg"/>
                 <Option type="QString" name="offset" value="0,0"/>
                 <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
                 <Option type="QString" name="offset_unit" value="MM"/>
@@ -895,7 +895,7 @@
                 <Option type="QString" name="color" value="102,128,0,255,rgb:0.40000000000000002,0.50196078431372548,0,1"/>
                 <Option type="QString" name="fixedAspectRatio" value="0"/>
                 <Option type="QString" name="horizontal_anchor_point" value="1"/>
-                <Option type="QString" name="name" value="layer_t-piece.svg"/>
+                <Option type="QString" name="name" value="fitting_t-piece.svg"/>
                 <Option type="QString" name="offset" value="0,0"/>
                 <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
                 <Option type="QString" name="offset_unit" value="MM"/>
@@ -936,7 +936,7 @@
                 <Option type="QString" name="color" value="226,182,10,255,rgb:0.88627450980392153,0.71372549019607845,0.0392156862745098,1"/>
                 <Option type="QString" name="fixedAspectRatio" value="0"/>
                 <Option type="QString" name="horizontal_anchor_point" value="1"/>
-                <Option type="QString" name="name" value="layer_bend.svg"/>
+                <Option type="QString" name="name" value="fitting_bend.svg"/>
                 <Option type="QString" name="offset" value="0,0"/>
                 <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
                 <Option type="QString" name="offset_unit" value="MM"/>
@@ -977,7 +977,7 @@
                 <Option type="QString" name="color" value="153,0,255,255,rgb:0.59999999999999998,0,1,1"/>
                 <Option type="QString" name="fixedAspectRatio" value="0"/>
                 <Option type="QString" name="horizontal_anchor_point" value="1"/>
-                <Option type="QString" name="name" value="layer_reducer.svg"/>
+                <Option type="QString" name="name" value="fitting_reducer.svg"/>
                 <Option type="QString" name="offset" value="0,0"/>
                 <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
                 <Option type="QString" name="offset_unit" value="MM"/>

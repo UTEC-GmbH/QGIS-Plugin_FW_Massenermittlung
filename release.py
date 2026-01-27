@@ -255,7 +255,13 @@ def _find_or_create_plugin_node(root: Element, plugin_name: str) -> Element:
 
 
 def _update_xml_tag(parent_node: Element, tag_name: str, value: str) -> None:
-    """Find a child tag and update its text, creating it if it doesn't exist."""
+    """Find a child tag and update its text, creating it if it doesn't exist.
+
+    Args:
+        parent_node: The parent XML element.
+        tag_name: The name of the tag to update or create.
+        value: The text value to set.
+    """
     tag: Element[str] | None = parent_node.find(tag_name)
     if tag is None:
         tag = SubElement(parent_node, tag_name)
@@ -524,7 +530,12 @@ RUN
 
 
 def run_command(command: list[str], *, shell: bool = False) -> None:
-    """Run a command in a subprocess and checks for errors."""
+    """Run a command in a subprocess and checks for errors.
+
+    Args:
+        command: The command to run as a list of strings.
+        shell: Whether to run the command in a shell. Defaults to False.
+    """
     logger.info("\n▶️ Running command: %s", " ".join(command))
     try:
         env: dict[str, str] = os.environ.copy()
