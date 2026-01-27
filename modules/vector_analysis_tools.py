@@ -75,7 +75,15 @@ class VectorAnalysisTools:
         return found_name
 
     def create_feature(self, geometry: QgsGeometry, attributes: dict) -> bool:
-        """Create a new feature in the new layer."""
+        """Create a new feature in the new layer.
+
+        Args:
+            geometry: The geometry for the new feature.
+            attributes: A dictionary of attribute values.
+
+        Returns:
+            True if the feature was added successfully, False otherwise.
+        """
         data_provider: QgsVectorDataProvider | None = self.new_layer.dataProvider()
         if data_provider is None:
             log_debug("Data provider is None for new_layer.", Qgis.Critical)
@@ -98,7 +106,14 @@ class VectorAnalysisTools:
         return self.new_layer.addFeature(new_feature)
 
     def get_connected_attributes(self, connected_features: list[QgsFeature]) -> dict:
-        """Get attributes from connected features."""
+        """Get attributes from connected features.
+
+        Args:
+            connected_features: A list of features connected to the point.
+
+        Returns:
+            A dictionary of attributes derived from the connected features.
+        """
         connected_ids: list[int] = sorted(
             {feature.attribute("original_fid") for feature in connected_features}
         )
@@ -124,7 +139,14 @@ class VectorAnalysisTools:
         return attributes
 
     def get_intersecting_features(self, search_geom: QgsGeometry) -> list[QgsFeature]:
-        """Get intersecting features for a given geometry."""
+        """Get intersecting features for a given geometry.
+
+        Args:
+            search_geom: The geometry to search for intersections with.
+
+        Returns:
+            A list of features that intersect with the search geometry.
+        """
         search_rect: QgsRectangle = search_geom.boundingBox()
         candidate_ids: list[int] = self.selected_layer_index.intersects(search_rect)
         return [
@@ -137,7 +159,14 @@ class VectorAnalysisTools:
 
     @staticmethod
     def get_start_end_of_line(feature: QgsFeature) -> list[QgsPointXY]:
-        """Get the start and end points of a line feature."""
+        """Get the start and end points of a line feature.
+
+        Args:
+            feature: The line feature.
+
+        Returns:
+            A list containing the start and end points (QgsPointXY).
+        """
         points: list = []
         geom: QgsGeometry = feature.geometry()
         if not geom:
@@ -331,7 +360,16 @@ class VectorAnalysisTools:
     def get_point_along_line(
         self, start_point: QgsPointXY, feature: QgsFeature, distance: float
     ) -> QgsPointXY | None:
-        """Get a point at a specific distance from the start point along a feature."""
+        """Get a point at a specific distance from the start point along a feature.
+
+        Args:
+            start_point: The starting point on the line.
+            feature: The line feature.
+            distance: The distance to move along the line.
+
+        Returns:
+            The calculated point, or None if the other endpoint cannot be found.
+        """
         other_endpoint: QgsPointXY | None = self.get_other_endpoint(
             feature, start_point
         )

@@ -20,7 +20,9 @@ except ImportError:
 
 from .modules.constants import ICONS, Names
 from .modules.context import PluginContext
-from .modules.general import LayerManager
+from .modules.duplicate_filter import DuplicateFilter
+from .modules.excel_exporter import ExcelExporter
+from .modules.layer_manager import LayerManager
 from .modules.logs_and_errors import (
     CustomRuntimeError,
     CustomUserError,
@@ -286,6 +288,10 @@ class Massenermittlung(QObject):
         log_debug("... STARTING PLUGIN RUN ... (run_massenermittlung)", icon="✨✨✨")
         temp_point_layer: QgsVectorLayer | None = None
         reprojected_layer: QgsVectorLayer | None = None
+
+        # Re-initialize LayerManager to clear cached layers from previous runs
+        self.layer_manager = LayerManager(self.project, self.iface)
+
         try:
             # fmt: off
             initial_message: str = QCoreApplication.translate("progress_bar", "Performing bulk assessment...")
@@ -320,7 +326,7 @@ class Massenermittlung(QObject):
                 )
 
                 # --- Remove duplicates from the final layer ---
-                self.layer_manager.remove_duplicates_from_layer(new_layer)
+                DuplicateFilter().remove_duplicates(new_layer)
 
                 # --- Log and display result summary ---
                 self.layer_manager.set_layer_style(new_layer)
@@ -332,7 +338,7 @@ class Massenermittlung(QObject):
                 )
 
                 # --- Export results to XLSX for Excel ---
-                self.layer_manager.export_results(new_layer)
+                ExcelExporter().export_results(new_layer, reprojected_layer)
 
                 log_debug(
                     summary_single_line,
@@ -380,8 +386,14 @@ class Massenermittlung(QObject):
                 log_debug("Temporary point layer removed.")
 
             if reprojected_layer is not None and project is not None:
-                project.removeMapLayer(reprojected_layer.id())
-                log_debug("In-memory copy of the selected layer removed.")
+                try:
+                    project.removeMapLayer(reprojected_layer.id())
+                    log_debug("In-memory copy of the selected layer removed.")
+                except RuntimeError:
+                    log_debug(
+                        "Could not remove reprojected layer (already deleted?)",
+                        Qgis.Warning,
+                    )
 
     def rerun_excel_output(self) -> None:
         """Rerun the Excel export for a manually edited result layer.
@@ -420,11 +432,10 @@ class Massenermittlung(QObject):
                 raise_user_error(ue_msg)
 
             # 2. Find the original source line layer to get line lengths.
-            self.layer_manager.find_and_set_source_layer(result_layer)
-            reprojected_layer_excel = self.layer_manager.selected_layer
+            reprojected_layer_excel = self.layer_manager.find_source_layer(result_layer)
 
             # 3. Export the results.
-            self.layer_manager.export_results(result_layer)
+            ExcelExporter().export_results(result_layer, reprojected_layer_excel)
 
             show_message(
                 QCoreApplication.translate("summary", "Excel export has been updated."),

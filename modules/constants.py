@@ -93,29 +93,29 @@ class Icons:
         return self._qicon("main_menu_excel.svg", dynamic=True)
 
     @property
-    def fixture_bend(self) -> QIcon:
+    def fitting_bend(self) -> QIcon:
         """Return the bend icon."""
-        return self._qicon("fixture_bend.svg")
+        return self._qicon("fitting_bend.svg")
 
     @property
-    def fixture_houseconn(self) -> QIcon:
+    def fitting_houseconn(self) -> QIcon:
         """Return the house-connection icon."""
-        return self._qicon("fixture_houseconnection.svg")
+        return self._qicon("fitting_houseconnection.svg")
 
     @property
-    def fixture_questionable(self) -> QIcon:
+    def fitting_questionable(self) -> QIcon:
         """Return the questionable icon."""
-        return self._qicon("fixture_questionable.svg")
+        return self._qicon("fitting_questionable.svg")
 
     @property
-    def fixture_reducer(self) -> QIcon:
+    def fitting_reducer(self) -> QIcon:
         """Return the reducer icon."""
-        return self._qicon("fixture_reducer.svg")
+        return self._qicon("fitting_reducer.svg")
 
     @property
-    def fixture_t_piece(self) -> QIcon:
+    def fitting_t_piece(self) -> QIcon:
         """Return the t-piece icon."""
-        return self._qicon("fixture_t-piece.svg")
+        return self._qicon("fitting_t-piece.svg")
 
 
 ICONS = Icons()

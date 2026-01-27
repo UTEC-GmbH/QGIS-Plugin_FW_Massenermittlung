@@ -280,7 +280,15 @@ class PointOfInterestClassifier(FeatureCreator):
         return created_count
 
     def _possible_house_connection(self, point: QgsPointXY, feature: QgsFeature) -> int:
-        """Process a point that is the endpoint of a single line."""
+        """Process a point that is the endpoint of a single line.
+
+        Args:
+            point: The endpoint coordinate.
+            feature: The feature ending at this point.
+
+        Returns:
+            The number of features created (1 if successful, 0 otherwise).
+        """
         # Check if it's a lone line segment or a true house connection
         is_other_end_connected = False
         for s_e_point in self.get_start_end_of_line(feature):
