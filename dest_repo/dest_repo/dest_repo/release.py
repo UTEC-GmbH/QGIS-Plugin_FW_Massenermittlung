@@ -28,7 +28,9 @@ from defusedxml import ElementTree as DefET
 # --- Logger ---
 def setup_logging() -> None:
     """Configure the module's logger to print to the console."""
-    handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
+    handler: logging.StreamHandler[logging.TextIO | configparser.Any] = (
+        logging.StreamHandler(sys.stdout)
+    )
     formatter = logging.Formatter("%(message)s")
     handler.setFormatter(formatter)
     logger.handlers.clear()
@@ -60,7 +62,6 @@ class PluginMetadata(TypedDict):
     author: str
     email: str
     url_base: str
-    supports_qt6: str
 
 
 class ReleaseScriptError(Exception):
@@ -102,7 +103,6 @@ def get_plugin_metadata() -> PluginMetadata:
             "author": config.get("general", "author"),
             "email": config.get("general", "email"),
             "url_base": config.get("general", "download_url_base"),
-            "supports_qt6": config.get("general", "supportsQt6"),
         }
     except configparser.NoSectionError as e:
         msg = f"Could not find required section '[{e.section}]' in {metadata_path}."
@@ -129,7 +129,7 @@ def _file_url_to_path(url: str) -> Path:
     """Convert a file URL to a local filesystem Path object.
 
     Args:
-        url: The file URL to convert (must use the 'file://' scheme).
+        url (str): The file URL to convert (must use the 'file://' scheme).
 
     Returns:
         Path: The corresponding local filesystem path.
@@ -246,7 +246,6 @@ def _find_or_create_plugin_node(root: Element, plugin_name: str) -> Element:
             "email",
             "file_name",
             "download_url",
-            "supports_qt6",
         ]:
             SubElement(plugin_node, tag)
     else:
@@ -260,10 +259,10 @@ def _update_xml_tag(parent_node: Element, tag_name: str, value: str) -> None:
 
     Args:
         parent_node: The parent XML element.
-        tag_name: The name of the child tag to find or create.
-        value: The text value to set for the tag.
+        tag_name: The name of the tag to update or create.
+        value: The text value to set.
     """
-    tag: Element | None = parent_node.find(tag_name)
+    tag: Element[str] | None = parent_node.find(tag_name)
     if tag is None:
         tag = SubElement(parent_node, tag_name)
     tag.text = value
@@ -289,7 +288,6 @@ def _update_plugin_node_details(plugin_node: Element, metadata: PluginMetadata) 
     )
     _update_xml_tag(plugin_node, "author_name", metadata["author"])
     _update_xml_tag(plugin_node, "email", metadata["email"])
-    _update_xml_tag(plugin_node, "supports_qt6", metadata["supports_qt6"])
 
     clean_plugin_name: str = plugin_name.replace(" ", "_")
     new_zip_filename: str = f"{clean_plugin_name}.zip"
@@ -355,7 +353,7 @@ def update_repository_file(metadata: PluginMetadata) -> None:
         tree, root = _load_or_create_xml_tree(master_xml_path)
 
         # 3. Find this plugin's node or create it
-        plugin_node: Element = _find_or_create_plugin_node(root, plugin_name)
+        plugin_node: Element[str] = _find_or_create_plugin_node(root, plugin_name)
 
         # 4. Populate the node with current metadata
         _update_plugin_node_details(plugin_node, metadata)
@@ -537,9 +535,6 @@ def run_command(command: list[str], *, shell: bool = False) -> None:
     Args:
         command: The command to run as a list of strings.
         shell: Whether to run the command in a shell. Defaults to False.
-
-    Raises:
-        ReleaseScriptError: If the command fails (non-zero exit code).
     """
     logger.info("\n▶️ Running command: %s", " ".join(command))
     try:
