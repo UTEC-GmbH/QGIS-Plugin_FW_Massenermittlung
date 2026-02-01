@@ -1,0 +1,93 @@
+[general]
+name=UTEC Massenermittlung (dev)
+supportsQt6=True
+
+version=1.7
+changelog=
+    Version 1.7:
+    - Kompatibilität mit QGIS 4
+
+
+    Version 1.6:
+    - ✨ Neue Funktion: Excel-Zusammenfassung aktualisieren (nach manueller Änderung des Ergebnislayers)
+    - Überarbeitung interner Ressourcen (icons, layer style) und release
+    
+    Version 1.5:
+    - Überarbeitung der Berechnung von Winkeln für Bögen
+    - Bögen an T-Stücken, wenn die Anschlussleitung nicht mit 90° am T-Stück anschließt
+    - bugfix bei Bezeichnung von Bögen
+    - bugfix bei mehr als 2 Reduzierungen hintereinander
+
+    Version 1.4:
+    - Minimaler Knick in Leitungen für Bögen jetzt 3° (war vorher 15°)
+
+    Version 1.3:
+    - bugfix Zusammenfassung in Layer Metadaten
+
+    Version 1.2:
+    - bugfix eingestellte Funktionen: 
+        .setAbstract → .metadata().setAbstract() 
+        QVariant → QMetaType
+    
+    Version 1.1:
+    - Excel-Auswertung enthält nun auch Trassenlängen
+    
+    Version 1.0:
+    - Excel-Auswertungsdateien enthalten jetzt den Layer im Dateinamen → so können mehrere Layer ausgewertet werden
+
+    Version 0.9:
+    - bugfix NewLayerFields
+    - Aufteilung der Dimensionen in Hauptleitung / Anschlussleitung (Dimension 1 / Dimension 2) für einfacheres Sortieren
+    - Bogenwinkel gerundet
+
+    Version 0.8:
+    - T-Stücke wenn die Hauptleitung am Anschlusspunkt nicht unterbrochen ist
+    - Knopf jetzt "ME" (für "Massenermittlung") statt "FW"
+
+    Version 0.7:
+    - Reduzierung bei Dimensionssprung ohne T-Stück
+
+    Version 0.6:
+    - Überarbeitung der Punktsuche und Darstellung
+    - Neue Spalte für Anmerkungen in Attributtabelle und Kartenhinweisen
+    - Sortierung der Attributtabelle verbessert (fragwürdige Punkte als erstes)
+    - Zusammenfassung der Ergebnisse bei hover-over Ergebnislayer
+
+    Version 0.5:
+    - Entfernung von Duplikaten nach der Suche nach Formstücken
+    - Überarbeitung der Suche nach fragwürdigen Punkten
+    - Verbundene Leitungen IDs korrigiert
+    - Verbesserte Zusammenfassung nach Durchlauf
+    - Verbesserte Fehlermeldungen
+
+    Version 0.4:
+    - Verlaufsbalken hinzugefügt, damit erkannt werden kann, ob das Tool arbeitet.
+    - Bei Hausanschlüssen und T-Stücken wird jetzt überprüft, ob eine Leitung in der Nähe liegt, um zu vermeiden, dass schlampige Zeichnungen zu falsch erkannten Hausanschlüssen führen. An solchen stellen werden "Fragwürdige Puntke" angezeigt.
+    - T-Stücke werden jetzt mit höchstens 2 Dimensionen (Hauptleitung / Anschlussleitung) beschriftet.
+    - Reduzierungen können höchstens 2 Dimensionsstufen überwinden, so dass u.U. mehrere Reduzierungen hintereinander eingefügt werden
+
+description=Massenermittlung für Ferwärmenetze. Es werden Hausanschlüsse, Bögen, T-Stücke, Reduzierungen und Trassenlängen des Netzes ausgegeben.
+qgisMinimumVersion=3.40
+author=Florian Ludwig
+email=devalue-scope-drum@duck.com
+icon=resources/icons/main_icon.svg
+download_url_base=file:////dc1/netz$/Software/QGIS_Plugins_UTEC
+
+
+[release]
+# The name of the root directory inside the .zip file.
+# This should match the plugin's package name.
+plugin_package_name = UTEC_Massenermittlung
+
+# Files and directories to include in the plugin package.
+files_to_package =
+    __init__.py
+    UTEC_Massenermittlung.py
+    metadata.txt
+dirs_to_package =
+    modules
+    i18n
+    resources
+translation_dir = i18n
+excluded_dirs = __pycache__
+excluded_extensions = .pyc
