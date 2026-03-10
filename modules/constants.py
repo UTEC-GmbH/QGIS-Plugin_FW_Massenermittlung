@@ -195,6 +195,8 @@ class Names:
         "DN",
         "Dimension",
         "Durchmesser",
+        "p_diameter",
+        "p_diameter_DN",
     )
 
     # Werte der Spalte 'Typ' in der Attributtabelle (Kategorien der Massenermittlung)
