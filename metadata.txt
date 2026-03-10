@@ -2,7 +2,7 @@
 name=UTEC Massenermittlung (dev)
 supportsQt6=True
 
-version=1.7
+version=1.8
 changelog=
     Version 1.8:
     - 🐞bugfix: neue Spaltenbezeichnung für Dimension aus nPro
