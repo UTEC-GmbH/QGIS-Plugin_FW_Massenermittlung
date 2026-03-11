@@ -1,6 +1,5 @@
 [general]
 name=UTEC Massenermittlung (dev)
-supportsQt6=True
 
 version=1.8
 changelog=
@@ -9,7 +8,6 @@ changelog=
     
     Version 1.7:
     - Kompatibilität mit QGIS 4
-
 
     Version 1.6:
     - ✨ Neue Funktion: Excel-Zusammenfassung aktualisieren (nach manueller Änderung des Ergebnislayers)
@@ -71,6 +69,7 @@ changelog=
 
 description=Massenermittlung für Ferwärmenetze. Es werden Hausanschlüsse, Bögen, T-Stücke, Reduzierungen und Trassenlängen des Netzes ausgegeben.
 qgisMinimumVersion=3.40
+qgisMaximumVersion=4.99
 author=Florian Ludwig
 email=devalue-scope-drum@duck.com
 icon=resources/icons/main_icon.svg
@@ -93,4 +92,5 @@ dirs_to_package =
     resources
 translation_dir = i18n
 excluded_dirs = __pycache__
+
 excluded_extensions = .pyc
